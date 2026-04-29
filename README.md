@@ -22,10 +22,15 @@ structure.
 Add your real screenshots to the `screenshots/` directory before publishing the
 GitHub repository page.
 
-![Liquid Tab Bar](screenshots/liquid_tabbar.png)
-![Liquid Switch](screenshots/liquid_switch.png)
-![Liquid Slider](screenshots/liquid_slider.png)
-![Liquid Surface](screenshots/liquid_surface.png)
+<p align="center">
+  <img src="screenshots/liquid_tabbar.png" alt="Liquid Tab Bar" width="260" />
+  <img src="screenshots/liquid_switch.png" alt="Liquid Switch" width="260" />
+</p>
+
+<p align="center">
+  <img src="screenshots/liquid_slider.png" alt="Liquid Slider" width="260" />
+  <img src="screenshots/liquid_surface.png" alt="Liquid Surface" width="260" />
+</p>
 
 ## Platform support
 
