@@ -19,18 +19,13 @@ structure.
 
 ## Screenshots
 
-Add your real screenshots to the `screenshots/` directory before publishing the
-GitHub repository page.
+| Liquid Tab Bar | Liquid Switch |
+| --- | --- |
+| ![Liquid Tab Bar](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_tabbar.png) | ![Liquid Switch](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_switch.png) |
 
-<p align="center">
-  <img src="screenshots/liquid_tabbar.png" alt="Liquid Tab Bar" width="260" />
-  <img src="screenshots/liquid_switch.png" alt="Liquid Switch" width="260" />
-</p>
-
-<p align="center">
-  <img src="screenshots/liquid_slider.png" alt="Liquid Slider" width="260" />
-  <img src="screenshots/liquid_surface.png" alt="Liquid Surface" width="260" />
-</p>
+| Liquid Slider | Liquid Surface |
+| --- | --- |
+| ![Liquid Slider](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png) | ![Liquid Surface](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png) |
 
 ## Platform support
 
@@ -51,7 +46,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.1.0
+  mjn_liquid_ui: ^0.1.1
 ```
 
 Then import the package:
