@@ -1,0 +1,44 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+.vscode/
+
+# Flutter/Dart/Pub related
+# Libraries should not include pubspec.lock, per https://dart.dev/guides/libraries/private-files#pubspeclock.
+/pubspec.lock
+**/doc/api/
+.dart_tool/
+.flutter-plugins-dependencies
+/build/
+/coverage/
+example/build/
+example/.dart_tool/
+example/.flutter-plugins-dependencies
+example/ios/Pods/
+example/ios/.symlinks/
+ios/Pods/
+ios/.symlinks/
+*.pem
+*.key
+*.p12
+*.cer
+*.mobileprovision
+.env
+*.env
