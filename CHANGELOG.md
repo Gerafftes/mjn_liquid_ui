@@ -1,3 +1,8 @@
+## 0.1.1
+
+- Fixed pub.dev screenshot rendering in the README.
+- Removed pre-publish screenshot placeholder text.
+
 ## 0.1.0
 
 - Initial public release.
