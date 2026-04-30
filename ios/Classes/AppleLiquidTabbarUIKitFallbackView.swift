@@ -49,7 +49,11 @@ final class AppleLiquidTabbarUIKitFallbackView: UIView {
       )
       button.setTitle(item.title, for: .normal)
       button.titleLabel?.font = .preferredFont(forTextStyle: .caption2)
-      button.tintColor = index == model.selectedIndex ? .systemBlue : .secondaryLabel
+      if index == model.selectedIndex {
+        button.tintColor = model.selectedTintUIColor ?? .systemBlue
+      } else {
+        button.tintColor = .secondaryLabel
+      }
       button.tag = index
       button.addTarget(self, action: #selector(selectTab(_:)), for: .touchUpInside)
       stackView.addArrangedSubview(button)

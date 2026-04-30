@@ -33,6 +33,7 @@ void main() {
           home: Scaffold(
             bottomNavigationBar: AppleLiquidTabBar(
               currentIndex: selectedIndex,
+              selectedTintColor: const Color(0xFF0EA5E9),
               onChanged: (int index) {
                 selectedIndex = index;
               },
@@ -58,6 +59,12 @@ void main() {
       expect(find.text('Jobs'), findsOneWidget);
       expect(find.text('Chat'), findsOneWidget);
       expect(find.text('Search'), findsOneWidget);
+      expect(
+        tester
+            .widget<BottomNavigationBar>(find.byType(BottomNavigationBar))
+            .selectedItemColor,
+        const Color(0xFF0EA5E9),
+      );
 
       await tester.tap(find.text('Jobs'));
 

@@ -1,9 +1,12 @@
 import Combine
 import Foundation
+import SwiftUI
+import UIKit
 
 final class AppleLiquidTabbarModel: ObservableObject {
   @Published private(set) var items: [AppleLiquidTabbarItem]
   @Published private(set) var searchItem: AppleLiquidTabbarItem
+  @Published private(set) var selectedTintColor: Color?
   @Published var searchText = ""
   @Published var selectedIndex: Int {
     didSet {
@@ -15,12 +18,17 @@ final class AppleLiquidTabbarModel: ObservableObject {
   }
 
   var onSelectionChanged: ((Int) -> Void)?
+  private(set) var selectedTintUIColor: UIColor?
 
   private var isApplyingFlutterUpdate = false
 
   init(configuration: AppleLiquidTabbarConfiguration) {
     items = configuration.items
     searchItem = configuration.searchItem
+    selectedTintColor = Color(appleLiquidARGB: configuration.selectedTintColor)
+    selectedTintUIColor = UIColor(
+      appleLiquidARGB: configuration.selectedTintColor
+    )
     selectedIndex = 0
     setSelectedIndex(configuration.currentIndex, notifyFlutter: false)
   }
@@ -57,6 +65,10 @@ final class AppleLiquidTabbarModel: ObservableObject {
     isApplyingFlutterUpdate = true
     items = configuration.items
     searchItem = configuration.searchItem
+    selectedTintColor = Color(appleLiquidARGB: configuration.selectedTintColor)
+    selectedTintUIColor = UIColor(
+      appleLiquidARGB: configuration.selectedTintColor
+    )
     selectedIndex = clampedIndex(configuration.currentIndex)
     isApplyingFlutterUpdate = false
   }

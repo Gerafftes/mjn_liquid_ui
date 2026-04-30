@@ -1,3 +1,7 @@
+## 0.1.2
+
+- Added `selectedTintColor` support for `AppleLiquidTabBar`.
+
 ## 0.1.1
 
 - Fixed pub.dev screenshot rendering in the README.

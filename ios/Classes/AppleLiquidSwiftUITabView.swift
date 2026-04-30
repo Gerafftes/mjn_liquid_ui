@@ -33,5 +33,6 @@ struct AppleLiquidSwiftUITabView: View {
       }
     }
     .background(Color.clear)
+    .appleLiquidControlTint(model.selectedTintColor)
   }
 }

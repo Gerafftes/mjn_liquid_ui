@@ -14,6 +14,7 @@ class AppleLiquidTabBar extends StatefulWidget {
     required this.items,
     required this.searchItem,
     this.height,
+    this.selectedTintColor,
   }) : assert(items.length > 0);
 
   final int currentIndex;
@@ -21,6 +22,7 @@ class AppleLiquidTabBar extends StatefulWidget {
   final List<AppleLiquidTabItem> items;
   final AppleLiquidTabItem searchItem;
   final double? height;
+  final Color? selectedTintColor;
 
   @override
   State<AppleLiquidTabBar> createState() => _AppleLiquidTabBarState();
@@ -45,11 +47,13 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
     }
 
     if (!listEquals(oldWidget.items, widget.items) ||
-        oldWidget.searchItem != widget.searchItem) {
+        oldWidget.searchItem != widget.searchItem ||
+        oldWidget.selectedTintColor != widget.selectedTintColor) {
       channel.updateConfiguration(
         currentIndex: widget.currentIndex,
         items: widget.items,
         searchItem: widget.searchItem,
+        selectedTintColor: widget.selectedTintColor,
       );
     }
   }
@@ -75,6 +79,7 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
             currentIndex: widget.currentIndex,
             items: widget.items,
             searchItem: widget.searchItem,
+            selectedTintColor: widget.selectedTintColor,
           ),
           hitTestBehavior: PlatformViewHitTestBehavior.opaque,
           onPlatformViewCreated: _onPlatformViewCreated,
@@ -87,6 +92,7 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
       onChanged: widget.onChanged,
       items: _allItems,
       height: height,
+      selectedTintColor: widget.selectedTintColor,
     );
   }
 
@@ -108,12 +114,14 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
     required this.onChanged,
     required this.items,
     required this.height,
+    required this.selectedTintColor,
   });
 
   final int currentIndex;
   final ValueChanged<int> onChanged;
   final List<AppleLiquidTabItem> items;
   final double height;
+  final Color? selectedTintColor;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +133,7 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
         type: BottomNavigationBarType.fixed,
         currentIndex: selectedIndex,
         onTap: onChanged,
+        selectedItemColor: selectedTintColor,
         items: <BottomNavigationBarItem>[
           for (int index = 0; index < items.length; index += 1)
             BottomNavigationBarItem(

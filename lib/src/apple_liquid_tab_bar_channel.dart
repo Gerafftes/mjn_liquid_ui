@@ -34,6 +34,7 @@ class AppleLiquidTabBarChannel {
     required int currentIndex,
     required List<AppleLiquidTabItem> items,
     required AppleLiquidTabItem searchItem,
+    required Color? selectedTintColor,
   }) {
     return _channel.invokeMethod<void>(
       'updateConfiguration',
@@ -41,6 +42,7 @@ class AppleLiquidTabBarChannel {
         currentIndex: currentIndex,
         items: items,
         searchItem: searchItem,
+        selectedTintColor: selectedTintColor,
       ),
     );
   }
@@ -74,11 +76,13 @@ class AppleLiquidTabBarChannel {
     required int currentIndex,
     required List<AppleLiquidTabItem> items,
     required AppleLiquidTabItem searchItem,
+    required Color? selectedTintColor,
   }) {
     return <String, Object?>{
       'currentIndex': currentIndex,
       'items': items.map((AppleLiquidTabItem item) => item.toMap()).toList(),
       'searchItem': searchItem.toMap(),
+      'selectedTintColor': selectedTintColor?.toARGB32(),
     };
   }
 }
