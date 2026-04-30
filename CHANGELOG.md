@@ -1,3 +1,7 @@
+## 0.1.3
+
+- Fixed the installation snippet for the latest published package version.
+
 ## 0.1.2
 
 - Added `selectedTintColor` support for `AppleLiquidTabBar`.
