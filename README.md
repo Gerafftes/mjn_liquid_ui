@@ -205,21 +205,6 @@ flutter run -d <ios-simulator-id>
 The example demonstrates the liquid tab bar, search segment, switch, slider,
 and liquid glass surface.
 
-## GitHub topics
-
-Suggested GitHub repository topics:
-
-- `flutter`
-- `dart`
-- `ios`
-- `swift`
-- `swiftui`
-- `cupertino`
-- `liquid-glass`
-- `liquid-glass-renderer`
-- `ui-components`
-- `flutter-plugin`
-
 ## License
 
 This package is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
