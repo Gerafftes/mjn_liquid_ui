@@ -60,6 +60,7 @@ import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 ```dart
 AppleLiquidTabBar(
   currentIndex: currentIndex,
+  selectedTintColor: const Color(0xFF0EA5E9),
   onChanged: (int index) {
     setState(() => currentIndex = index);
   },
@@ -126,6 +127,8 @@ Scaffold(
 
 `AppleLiquidTabBar` renders a native iOS SwiftUI `TabView` on iOS. The trailing
 `searchItem` is created as a separate native search-role tab.
+Use `selectedTintColor` to customize the selected icon and label tint while
+keeping the native Liquid Glass tab bar rendering intact.
 
 ### Liquid switch
 

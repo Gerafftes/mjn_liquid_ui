@@ -59,6 +59,7 @@ class _DemoShellState extends State<DemoShell> {
             bottom: 0,
             child: AppleLiquidTabBar(
               currentIndex: currentIndex,
+              selectedTintColor: const Color(0xFF0EA5E9),
               onChanged: (int index) {
                 setState(() => currentIndex = index);
               },

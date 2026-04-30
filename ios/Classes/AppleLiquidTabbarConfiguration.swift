@@ -32,6 +32,7 @@ struct AppleLiquidTabbarConfiguration {
   let currentIndex: Int
   let items: [AppleLiquidTabbarItem]
   let searchItem: AppleLiquidTabbarItem
+  let selectedTintColor: Int?
 
   init(arguments: Any?) {
     let dictionary = arguments as? [String: Any] ?? [:]
@@ -39,6 +40,7 @@ struct AppleLiquidTabbarConfiguration {
     currentIndex = Self.intValue(dictionary["currentIndex"]) ?? 0
     items = Self.itemArray(dictionary["items"])
     searchItem = Self.searchItem(dictionary["searchItem"])
+    selectedTintColor = Self.intValue(dictionary["selectedTintColor"])
   }
 
   static func intValue(_ value: Any?) -> Int? {
