@@ -32,7 +32,7 @@ private extension UIView {
 }
 
 final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
-  private let containerView: UIView
+  private let containerView: AppleLiquidPlatformViewContainer
   private let channel: FlutterMethodChannel
   private let model: AppleLiquidTabbarModel
   private var fallbackView: AppleLiquidTabbarUIKitFallbackView?
@@ -44,7 +44,7 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
     arguments args: Any?,
     messenger: FlutterBinaryMessenger
   ) {
-    containerView = UIView(frame: frame)
+    containerView = AppleLiquidPlatformViewContainer(frame: frame)
     channel = FlutterMethodChannel(
       name: "\(AppleLiquidTabbarConstants.viewType)/\(viewId)",
       binaryMessenger: messenger
@@ -55,8 +55,6 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
 
     super.init()
 
-    containerView.backgroundColor = .clear
-    containerView.isOpaque = false
     model.onSelectionChanged = { [weak self] index in
       self?.sendSelectionChanged(index)
     }
@@ -67,6 +65,9 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
 
   deinit {
     channel.setMethodCallHandler(nil)
+    model.onSelectionChanged = nil
+    fallbackView?.removeFromSuperview()
+    containerView.disposeHostedViewController()
   }
 
   func view() -> UIView {
@@ -80,7 +81,7 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
       )
       hostingController.view.backgroundColor = .clear
       hostingController.view.isOpaque = false
-      addPinnedSubview(hostingController.view)
+      containerView.host(hostingController)
       self.hostingController = hostingController
     } else {
       let fallbackView = AppleLiquidTabbarUIKitFallbackView(model: model)

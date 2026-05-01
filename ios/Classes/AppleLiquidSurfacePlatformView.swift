@@ -71,15 +71,13 @@ final class AppleLiquidSurfacePlatformViewFactory: NSObject, FlutterPlatformView
 }
 
 final class AppleLiquidSurfacePlatformView: NSObject, FlutterPlatformView {
-  private let containerView: UIView
+  private let containerView: AppleLiquidPlatformViewContainer
   private var hostingController: UIViewController?
 
   init(frame: CGRect, arguments args: Any?) {
-    containerView = UIView(frame: frame)
+    containerView = AppleLiquidPlatformViewContainer(frame: frame)
 
     super.init()
-
-    containerView.backgroundColor = .clear
 
     let hostingController = UIHostingController(
       rootView: AppleLiquidSurfaceView(
@@ -87,23 +85,16 @@ final class AppleLiquidSurfacePlatformView: NSObject, FlutterPlatformView {
       )
     )
     hostingController.view.backgroundColor = .clear
-    addPinnedSubview(hostingController.view)
+    hostingController.view.isOpaque = false
+    containerView.host(hostingController)
     self.hostingController = hostingController
+  }
+
+  deinit {
+    containerView.disposeHostedViewController()
   }
 
   func view() -> UIView {
     containerView
-  }
-
-  private func addPinnedSubview(_ subview: UIView) {
-    subview.translatesAutoresizingMaskIntoConstraints = false
-    containerView.addSubview(subview)
-
-    NSLayoutConstraint.activate([
-      subview.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-      subview.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-      subview.topAnchor.constraint(equalTo: containerView.topAnchor),
-      subview.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-    ])
   }
 }

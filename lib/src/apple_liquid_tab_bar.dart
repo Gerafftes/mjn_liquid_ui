@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_tab_bar_channel.dart';
 import 'apple_liquid_tab_item.dart';
 
@@ -71,7 +72,7 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         height: height,
-        child: UiKitView(
+        child: AppleLiquidUiKitView(
           viewType: AppleLiquidTabBarChannel.viewType,
           layoutDirection: Directionality.of(context),
           creationParamsCodec: const StandardMessageCodec(),
@@ -101,9 +102,14 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
   }
 
   void _onPlatformViewCreated(int viewId) {
+    _channel?.dispose();
     _channel = AppleLiquidTabBarChannel.attach(
       viewId: viewId,
-      onChanged: widget.onChanged,
+      onChanged: (int index) {
+        if (mounted) {
+          widget.onChanged(index);
+        }
+      },
     );
   }
 }

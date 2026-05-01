@@ -1,3 +1,8 @@
+## 0.1.4
+
+- Fixed iOS hot restart handling for native liquid UI platform views.
+- Added stable native SwiftUI hosting cleanup for embedded controls.
+
 ## 0.1.3
 
 - Fixed the installation snippet for the latest published package version.
