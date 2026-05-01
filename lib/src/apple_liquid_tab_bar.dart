@@ -7,7 +7,9 @@ import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_tab_bar_channel.dart';
 import 'apple_liquid_tab_item.dart';
 
+/// A bottom tab bar that uses Apple's Liquid Glass tab styling on iOS.
 class AppleLiquidTabBar extends StatefulWidget {
+  /// Creates a Liquid Glass tab bar with regular tabs and a search item.
   const AppleLiquidTabBar({
     super.key,
     required this.currentIndex,
@@ -18,11 +20,22 @@ class AppleLiquidTabBar extends StatefulWidget {
     this.selectedTintColor,
   }) : assert(items.length > 0);
 
+  /// Index of the currently selected item.
   final int currentIndex;
+
+  /// Called when the selected tab changes.
   final ValueChanged<int> onChanged;
+
+  /// Regular tab items shown before [searchItem].
   final List<AppleLiquidTabItem> items;
+
+  /// Search tab item shown with the native iOS search role when available.
   final AppleLiquidTabItem searchItem;
+
+  /// Optional fixed height for the tab bar.
   final double? height;
+
+  /// Optional tint color for the selected item.
   final Color? selectedTintColor;
 
   @override

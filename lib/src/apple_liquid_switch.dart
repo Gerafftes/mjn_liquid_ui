@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 
 import 'apple_liquid_platform_view.dart';
 
+/// A Liquid Glass styled switch that uses a native iOS control when available.
 class AppleLiquidSwitch extends StatefulWidget {
+  /// Creates a switch for toggling a boolean value.
   const AppleLiquidSwitch({
     super.key,
     required this.value,
@@ -16,10 +18,19 @@ class AppleLiquidSwitch extends StatefulWidget {
     this.tintColor,
   });
 
+  /// Whether the switch is currently on.
   final bool value;
+
+  /// Called whenever the user toggles the switch.
   final ValueChanged<bool> onChanged;
+
+  /// The width reserved for the native iOS control.
   final double width;
+
+  /// The height reserved for the control.
   final double height;
+
+  /// Optional accent color for the active switch state.
   final Color? tintColor;
 
   @override

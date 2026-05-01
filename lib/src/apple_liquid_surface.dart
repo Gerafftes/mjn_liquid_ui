@@ -10,7 +10,9 @@ import 'apple_liquid_stretch.dart';
 
 const double _defaultSurfaceStretch = 0.22;
 
+/// A Liquid Glass surface for grouping content.
 class AppleLiquidSurface extends StatelessWidget {
+  /// Creates a glass surface with optional content and interactive deformation.
   const AppleLiquidSurface({
     super.key,
     this.child,
@@ -32,22 +34,53 @@ class AppleLiquidSurface extends StatelessWidget {
     @Deprecated('Use stretch/resistance instead.') this.dragLimit = 36,
   });
 
+  /// Optional content painted above the glass surface.
   final Widget? child;
+
+  /// The height reserved for the surface.
   final double height;
+
+  /// Corner radius applied to the glass shape.
   final double borderRadius;
+
+  /// Padding applied around [child].
   final EdgeInsetsGeometry padding;
+
+  /// Optional color used to tint the glass material.
   final Color? tintColor;
+
+  /// Whether the surface should use a clearer, less filled appearance.
   final bool clear;
+
+  /// Whether the native iOS surface should react to touch interaction.
   final bool interactive;
+
+  /// Whether the surface should deform while pressed or dragged.
   final bool deformable;
+
+  /// Multiplier for drag-driven stretch when [deformable] is enabled.
   final double stretch;
+
+  /// Stretch multiplier used while the surface is pressed.
   final double pressedStretch;
+
+  /// Scale applied while pointer interaction is active.
   final double interactionScale;
+
+  /// Additional compression applied during press interaction.
   final double pressedScale;
+
+  /// Resistance applied to drag movement before stretching.
   final double resistance;
+
+  /// Gesture strategy used by the deformation wrapper.
   final AppleLiquidStretchGestureMode stretchGestureMode;
+
+  /// Deprecated compatibility flag for enabling deformation.
   @Deprecated('Use deformable instead. This no longer moves the surface.')
   final bool draggable;
+
+  /// Deprecated compatibility value retained for older callers.
   @Deprecated('Use stretch/resistance instead.')
   final double dragLimit;
 

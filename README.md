@@ -46,7 +46,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.1.4
+  mjn_liquid_ui: ^0.1.5
 ```
 
 Then import the package:
