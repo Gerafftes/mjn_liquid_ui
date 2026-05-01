@@ -14,6 +14,7 @@ structure.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
+- SF Symbols outside the tab bar through native `UIImage(systemName:)`.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
 
@@ -46,7 +47,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.1.5
+  mjn_liquid_ui: ^0.1.6
 ```
 
 Then import the package:
@@ -159,6 +160,21 @@ AppleLiquidSlider(
 
 Omit `step` for a continuous slider.
 
+### SF Symbols
+
+```dart
+const AppleLiquidSymbol(
+  'sparkles',
+  size: 32,
+  color: Color(0xFF0EA5E9),
+  fallbackIcon: Icons.auto_awesome_rounded,
+  semanticLabel: 'Highlights',
+)
+```
+
+`AppleLiquidSymbol` renders the provided SF Symbol name natively on iOS. On
+unsupported platforms it uses `fallbackIcon` when provided.
+
 ### Liquid glass surface
 
 ```dart
@@ -182,7 +198,8 @@ buttons or other tappable Flutter children.
 - The iOS implementation uses Swift, SwiftUI, UIKit, and Flutter platform views.
 - The tab bar's search segment is implemented with native SwiftUI
   `Tab(..., role: .search)`.
-- SF Symbols names are passed through `systemImage`.
+- SF Symbols names are passed through `systemImage` for tab items and through
+  `AppleLiquidSymbol.name` for standalone symbols.
 - Liquid Glass appearance depends on the iOS and Xcode versions used to build
   and run the app. Unsupported iOS versions may display a simpler fallback
   surface.
@@ -205,8 +222,8 @@ cd example
 flutter run -d <ios-simulator-id>
 ```
 
-The example demonstrates the liquid tab bar, search segment, switch, slider,
-and liquid glass surface.
+The example demonstrates the liquid tab bar, standalone SF Symbols, search
+segment, switch, slider, and liquid glass surface.
 
 ## License
 

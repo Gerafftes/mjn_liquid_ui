@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 struct AppleLiquidSwitchConfiguration {
@@ -62,5 +63,20 @@ struct AppleLiquidSurfaceConfiguration {
     interactive = AppleLiquidTabbarConfiguration.boolValue(
       dictionary["interactive"]
     ) ?? false
+  }
+}
+
+struct AppleLiquidSymbolConfiguration {
+  let name: String
+  let pointSize: CGFloat
+  let tintColor: Int?
+
+  init(arguments: Any?) {
+    let dictionary = arguments as? [String: Any] ?? [:]
+    name = dictionary["name"] as? String ?? "circle"
+    pointSize = CGFloat(
+      AppleLiquidSliderConfiguration.doubleValue(dictionary["size"]) ?? 24
+    )
+    tintColor = AppleLiquidTabbarConfiguration.intValue(dictionary["color"])
   }
 }
