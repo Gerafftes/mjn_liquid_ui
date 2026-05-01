@@ -154,27 +154,150 @@ class _TabbarDemoPage extends StatelessWidget {
       title: 'Tabbar',
       subtitle:
           'The bottom navigation uses native SwiftUI tabs. SF Symbols can also be placed anywhere in Flutter content.',
-      child: AppleLiquidSurface(
-        height: 152,
-        child: Row(
-          children: <Widget>[
-            AppleLiquidSymbol(
-              'sparkles',
-              size: 36,
-              color: Color(0xFF0EA5E9),
-              fallbackIcon: Icons.auto_awesome_rounded,
-              semanticLabel: 'Sparkles',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AppleLiquidSurface(
+            height: 152,
+            child: Row(
+              children: <Widget>[
+                AppleLiquidSymbol(
+                  'sparkles',
+                  size: 36,
+                  color: Color(0xFF0EA5E9),
+                  fallbackIcon: Icons.auto_awesome_rounded,
+                  semanticLabel: 'Sparkles',
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: _SurfaceText(
+                    title: 'Native tabs and symbols',
+                    body:
+                        'Use SF Symbol names in the tab bar or as standalone content.',
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: 16),
-            Expanded(
-              child: _SurfaceText(
-                title: 'Native tabs and symbols',
-                body:
-                    'Use SF Symbol names in the tab bar or as standalone content.',
+          ),
+          SizedBox(height: 16),
+          AppleLiquidSurface(height: 500, child: _SymbolGrid()),
+        ],
+      ),
+    );
+  }
+}
+
+class _SymbolGrid extends StatelessWidget {
+  const _SymbolGrid();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Wrap(
+      spacing: 12,
+      runSpacing: 18,
+      children: <Widget>[
+        _SymbolSample(
+          name: 'sparkles',
+          size: 18,
+          color: Color(0xFF0EA5E9),
+          fallbackIcon: Icons.auto_awesome_rounded,
+        ),
+        _SymbolSample(
+          name: 'bell.fill',
+          size: 24,
+          color: Color(0xFFF59E0B),
+          fallbackIcon: Icons.notifications_rounded,
+        ),
+        _SymbolSample(
+          name: 'creditcard.fill',
+          size: 28,
+          color: Color(0xFF8B5CF6),
+          fallbackIcon: Icons.credit_card_rounded,
+        ),
+        _SymbolSample(
+          name: 'checkmark.seal.fill',
+          size: 32,
+          color: Color(0xFF22C55E),
+          fallbackIcon: Icons.verified_rounded,
+        ),
+        _SymbolSample(
+          name: 'storefront.fill',
+          size: 40,
+          color: Color(0xFFF97316),
+          fallbackIcon: Icons.storefront_rounded,
+        ),
+        _SymbolSample(
+          name: 'person.crop.circle.fill',
+          size: 48,
+          color: Color(0xFFEC4899),
+          fallbackIcon: Icons.account_circle_rounded,
+        ),
+        _SymbolSample(
+          name: 'headphones',
+          size: 56,
+          color: Color(0xFF14B8A6),
+          fallbackIcon: Icons.headphones_rounded,
+        ),
+        _SymbolSample(
+          name: 'circle.grid.3x3.fill',
+          size: 64,
+          color: Color(0xFF6366F1),
+          fallbackIcon: Icons.apps_rounded,
+        ),
+      ],
+    );
+  }
+}
+
+class _SymbolSample extends StatelessWidget {
+  const _SymbolSample({
+    required this.name,
+    required this.size,
+    required this.color,
+    required this.fallbackIcon,
+  });
+
+  final String name;
+  final double size;
+  final Color color;
+  final IconData fallbackIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 88,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          SizedBox(
+            height: 68,
+            child: Align(
+              alignment: Alignment.bottomLeft,
+              child: AppleLiquidSymbol(
+                name,
+                size: size,
+                color: color,
+                fallbackIcon: fallbackIcon,
+                semanticLabel: name,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '${size.round()} px',
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: color),
+          ),
+        ],
       ),
     );
   }

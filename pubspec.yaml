@@ -1,6 +1,6 @@
 name: mjn_liquid_ui
 description: Native-inspired Liquid Glass UI components for Flutter, focused on iOS SwiftUI and UIKit.
-version: 0.1.6
+version: 0.1.7
 repository: https://github.com/Gerafftes/mjn_liquid_ui
 issue_tracker: https://github.com/Gerafftes/mjn_liquid_ui/issues
 
