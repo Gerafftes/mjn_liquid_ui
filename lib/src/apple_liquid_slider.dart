@@ -6,7 +6,9 @@ import 'package:flutter/services.dart';
 
 import 'apple_liquid_platform_view.dart';
 
+/// A Liquid Glass styled slider that uses a native iOS control when available.
 class AppleLiquidSlider extends StatefulWidget {
+  /// Creates a slider for selecting a numeric value between [min] and [max].
   const AppleLiquidSlider({
     super.key,
     required this.value,
@@ -20,12 +22,25 @@ class AppleLiquidSlider extends StatefulWidget {
        assert(step == null || step > 0),
        assert(step == null || step <= max - min);
 
+  /// The current slider value.
   final double value;
+
+  /// Called whenever the user selects a new value.
   final ValueChanged<double> onChanged;
+
+  /// The smallest selectable value.
   final double min;
+
+  /// The largest selectable value.
   final double max;
+
+  /// Optional fixed increment between selectable values.
   final double? step;
+
+  /// The height reserved for the control.
   final double height;
+
+  /// Optional accent color for the selected track and thumb.
   final Color? tintColor;
 
   @override

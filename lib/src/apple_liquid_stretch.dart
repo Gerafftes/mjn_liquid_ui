@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+/// Controls how [AppleLiquidStretch] listens for pointer movement.
 enum AppleLiquidStretchGestureMode {
   /// Reacts to raw pointer events before child gestures are resolved.
   listener,
@@ -18,6 +19,7 @@ enum AppleLiquidStretchGestureMode {
 /// Flutter so it can deform native platform-view glass and Flutter content
 /// together.
 class AppleLiquidStretch extends StatefulWidget {
+  /// Creates an elastic transform wrapper for a child widget.
   const AppleLiquidStretch({
     super.key,
     required this.child,
@@ -33,7 +35,10 @@ class AppleLiquidStretch extends StatefulWidget {
     this.releaseCurve = Curves.easeOutBack,
   });
 
+  /// Widget painted with the stretch transform.
   final Widget child;
+
+  /// Whether the stretch effect is active.
   final bool enabled;
 
   /// Multiplies the resisted drag offset to produce stretch in pixels.
@@ -48,10 +53,19 @@ class AppleLiquidStretch extends StatefulWidget {
   /// Higher values make drag movement feel stickier.
   final double resistance;
 
+  /// Hit-test behavior used by the pointer listener or gesture detector.
   final HitTestBehavior hitTestBehavior;
+
+  /// Gesture strategy used to drive the stretch effect.
   final AppleLiquidStretchGestureMode gestureMode;
+
+  /// Duration of the release animation back to the resting shape.
   final Duration releaseDuration;
+
+  /// Duration of the press scale animation.
   final Duration scaleDuration;
+
+  /// Curve used by the release animation.
   final Curve releaseCurve;
 
   @override

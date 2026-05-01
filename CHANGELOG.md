@@ -1,3 +1,7 @@
+## 0.1.5
+
+- Added Dart API documentation for exported widgets and configuration objects.
+
 ## 0.1.4
 
 - Fixed iOS hot restart handling for native liquid UI platform views.
