@@ -13,6 +13,7 @@ class AppleLiquidTabBarChannel {
 
   final MethodChannel _channel;
   final AppleLiquidNativeTabChanged _onChanged;
+  bool _disposed = false;
 
   static AppleLiquidTabBarChannel attach({
     required int viewId,
@@ -25,7 +26,7 @@ class AppleLiquidTabBarChannel {
   }
 
   Future<void> setCurrentIndex(int index) {
-    return _channel.invokeMethod<void>('setCurrentIndex', <String, Object?>{
+    return _invokeMethod('setCurrentIndex', <String, Object?>{
       'currentIndex': index,
     });
   }
@@ -36,7 +37,7 @@ class AppleLiquidTabBarChannel {
     required AppleLiquidTabItem searchItem,
     required Color? selectedTintColor,
   }) {
-    return _channel.invokeMethod<void>(
+    return _invokeMethod(
       'updateConfiguration',
       configurationMap(
         currentIndex: currentIndex,
@@ -48,7 +49,24 @@ class AppleLiquidTabBarChannel {
   }
 
   void dispose() {
+    _disposed = true;
     _channel.setMethodCallHandler(null);
+  }
+
+  Future<void> _invokeMethod(String method, Object? arguments) async {
+    if (_disposed) {
+      return;
+    }
+
+    try {
+      await _channel.invokeMethod<void>(method, arguments);
+    } on MissingPluginException {
+      // Platform views can be torn down while a debug hot restart is rebuilding
+      // Dart state. Treat that as a lifecycle race, not an app-level failure.
+    } on PlatformException {
+      // The native side only exposes private control-update methods. During
+      // engine/view teardown these can fail before Dart observes disposal.
+    }
   }
 
   Future<void> _handleMethodCall(MethodCall call) async {

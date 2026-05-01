@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_stretch.dart';
 
 const double _defaultSurfaceStretch = 0.22;
@@ -106,7 +107,7 @@ class _AppleLiquidSurfaceContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final Widget surface =
         !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
-        ? UiKitView(
+        ? AppleLiquidUiKitView(
             viewType: 'mjn_liquid_ui_surface',
             layoutDirection: Directionality.of(context),
             creationParamsCodec: const StandardMessageCodec(),

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform_view.dart';
+
 class AppleLiquidSlider extends StatefulWidget {
   const AppleLiquidSlider({
     super.key,
@@ -68,7 +70,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         height: widget.height,
-        child: UiKitView(
+        child: AppleLiquidUiKitView(
           viewType: _viewType,
           layoutDirection: Directionality.of(context),
           creationParamsCodec: const StandardMessageCodec(),
@@ -119,6 +121,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
   }
 
   void _onPlatformViewCreated(int viewId) {
+    _channel?.setMethodCallHandler(null);
     _channel = MethodChannel('$_viewType/$viewId')
       ..setMethodCallHandler(_handleMethodCall);
   }
@@ -128,14 +131,18 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
       case 'valueChanged':
         final Object? arguments = call.arguments;
         if (arguments is Map && arguments['value'] is num) {
-          widget.onChanged((arguments['value'] as num).toDouble());
+          if (mounted) {
+            widget.onChanged((arguments['value'] as num).toDouble());
+          }
           return;
         }
         throw MissingPluginException('Invalid slider valueChanged payload.');
       case 'interactionChanged':
         final Object? arguments = call.arguments;
         if (arguments is Map && arguments['isInteracting'] is bool) {
-          _setNativeInteraction(arguments['isInteracting'] as bool);
+          if (mounted) {
+            _setNativeInteraction(arguments['isInteracting'] as bool);
+          }
           return;
         }
         throw MissingPluginException('Invalid slider interaction payload.');
@@ -145,7 +152,23 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
   }
 
   void _updateNativeConfiguration() {
-    _channel?.invokeMethod<void>('updateConfiguration', _configuration);
+    _invokeNative('updateConfiguration', _configuration);
+  }
+
+  Future<void> _invokeNative(String method, Object? arguments) async {
+    final MethodChannel? channel = _channel;
+    if (channel == null) {
+      return;
+    }
+
+    try {
+      await channel.invokeMethod<void>(method, arguments);
+    } on MissingPluginException {
+      // Ignore platform-view teardown races during debug hot restart.
+    } on PlatformException {
+      // The native side exposes only internal sync methods. During teardown
+      // the channel can disappear before this state object is disposed.
+    }
   }
 
   void _setNativeInteraction(bool isInteracting) {

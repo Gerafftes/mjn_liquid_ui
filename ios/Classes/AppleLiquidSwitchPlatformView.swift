@@ -101,7 +101,7 @@ final class AppleLiquidSwitchPlatformViewFactory: NSObject, FlutterPlatformViewF
 }
 
 final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
-  private let containerView: UIView
+  private let containerView: AppleLiquidPlatformViewContainer
   private let channel: FlutterMethodChannel
   private let model: AppleLiquidSwitchModel
   private var hostingController: UIViewController?
@@ -112,7 +112,7 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
     arguments args: Any?,
     messenger: FlutterBinaryMessenger
   ) {
-    containerView = UIView(frame: frame)
+    containerView = AppleLiquidPlatformViewContainer(frame: frame)
     channel = FlutterMethodChannel(
       name: "\(AppleLiquidTabbarConstants.switchViewType)/\(viewId)",
       binaryMessenger: messenger
@@ -123,7 +123,6 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
 
     super.init()
 
-    containerView.backgroundColor = .clear
     model.onValueChanged = { [weak self] value in
       self?.channel.invokeMethod("valueChanged", arguments: ["value": value])
     }
@@ -138,7 +137,8 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
       rootView: AppleLiquidSwitchView(model: model)
     )
     hostingController.view.backgroundColor = .clear
-    addPinnedSubview(hostingController.view)
+    hostingController.view.isOpaque = false
+    containerView.host(hostingController)
     self.hostingController = hostingController
 
     channel.setMethodCallHandler(handle)
@@ -146,22 +146,13 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
 
   deinit {
     channel.setMethodCallHandler(nil)
+    model.onValueChanged = nil
+    model.onInteractionChanged = nil
+    containerView.disposeHostedViewController()
   }
 
   func view() -> UIView {
     containerView
-  }
-
-  private func addPinnedSubview(_ subview: UIView) {
-    subview.translatesAutoresizingMaskIntoConstraints = false
-    containerView.addSubview(subview)
-
-    NSLayoutConstraint.activate([
-      subview.leadingAnchor.constraint(equalTo: containerView.leadingAnchor),
-      subview.trailingAnchor.constraint(equalTo: containerView.trailingAnchor),
-      subview.topAnchor.constraint(equalTo: containerView.topAnchor),
-      subview.bottomAnchor.constraint(equalTo: containerView.bottomAnchor),
-    ])
   }
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
