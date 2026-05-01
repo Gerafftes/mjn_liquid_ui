@@ -153,12 +153,27 @@ class _TabbarDemoPage extends StatelessWidget {
     return const _DemoPageScaffold(
       title: 'Tabbar',
       subtitle:
-          'The bottom navigation is the native SwiftUI TabView. The trailing plus tab keeps role: .search without .searchable.',
+          'The bottom navigation uses native SwiftUI tabs. SF Symbols can also be placed anywhere in Flutter content.',
       child: AppleLiquidSurface(
-        height: 132,
-        child: _SurfaceText(
-          title: 'Native tabs',
-          body: 'Use the bottom bar to switch between the demo pages.',
+        height: 152,
+        child: Row(
+          children: <Widget>[
+            AppleLiquidSymbol(
+              'sparkles',
+              size: 36,
+              color: Color(0xFF0EA5E9),
+              fallbackIcon: Icons.auto_awesome_rounded,
+              semanticLabel: 'Sparkles',
+            ),
+            SizedBox(width: 16),
+            Expanded(
+              child: _SurfaceText(
+                title: 'Native tabs and symbols',
+                body:
+                    'Use SF Symbol names in the tab bar or as standalone content.',
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -20,5 +20,9 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
       AppleLiquidSurfacePlatformViewFactory(),
       withId: AppleLiquidTabbarConstants.surfaceViewType
     )
+    registrar.register(
+      AppleLiquidSymbolPlatformViewFactory(messenger: registrar.messenger()),
+      withId: AppleLiquidTabbarConstants.symbolViewType
+    )
   }
 }

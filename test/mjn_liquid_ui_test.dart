@@ -20,6 +20,38 @@ void main() {
     });
   });
 
+  testWidgets('AppleLiquidSymbol uses an Icon fallback outside iOS', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    try {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Center(
+            child: AppleLiquidSymbol(
+              'sparkles',
+              size: 32,
+              color: Color(0xFF0EA5E9),
+              fallbackIcon: Icons.auto_awesome_rounded,
+              semanticLabel: 'Highlights',
+            ),
+          ),
+        ),
+      );
+
+      final Icon icon = tester.widget<Icon>(
+        find.byIcon(Icons.auto_awesome_rounded),
+      );
+
+      expect(icon.size, 32);
+      expect(icon.color, const Color(0xFF0EA5E9));
+      expect(icon.semanticLabel, 'Highlights');
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('uses a tappable Flutter fallback outside iOS', (
     WidgetTester tester,
   ) async {
