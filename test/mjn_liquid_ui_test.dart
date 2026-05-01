@@ -1,9 +1,17 @@
+import 'dart:convert';
+
 import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  const MethodChannel symbolChannel = MethodChannel('mjn_liquid_ui/symbols');
+  final Uint8List transparentPng = base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
+  );
+
   test('AppleLiquidTabItem serializes to platform arguments', () {
     const AppleLiquidTabItem item = AppleLiquidTabItem(
       title: 'Search',
@@ -51,6 +59,48 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     }
   });
+
+  testWidgets(
+    'AppleLiquidSymbol paints native bytes as a Flutter image on iOS',
+    (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      final List<MethodCall> calls = <MethodCall>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(symbolChannel, (MethodCall call) async {
+            calls.add(call);
+            return transparentPng;
+          });
+
+      try {
+        await tester.pumpWidget(
+          const MaterialApp(
+            home: Center(
+              child: AppleLiquidSymbol(
+                'sparkles',
+                size: 32,
+                color: Color(0xFF0EA5E9),
+                fallbackIcon: Icons.auto_awesome_rounded,
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.byType(Image), findsOneWidget);
+        expect(find.byIcon(Icons.auto_awesome_rounded), findsNothing);
+        expect(calls, hasLength(1));
+        expect(calls.single.method, 'render');
+        expect(calls.single.arguments, containsPair('name', 'sparkles'));
+        expect(calls.single.arguments, containsPair('size', 32.0));
+        expect(calls.single.arguments, containsPair('color', 0xFF0EA5E9));
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(symbolChannel, null);
+      }
+    },
+  );
 
   testWidgets('uses a tappable Flutter fallback outside iOS', (
     WidgetTester tester,

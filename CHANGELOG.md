@@ -1,3 +1,8 @@
+## 0.1.7
+
+- Changed `AppleLiquidSymbol` to render native SF Symbols as Flutter images instead of platform views.
+- Fixed small-symbol compositing artifacts in lists, cards, and page transitions.
+
 ## 0.1.6
 
 - Added `AppleLiquidSymbol` for rendering SF Symbols outside the tab bar on iOS.

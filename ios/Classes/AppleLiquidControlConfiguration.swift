@@ -69,13 +69,19 @@ struct AppleLiquidSurfaceConfiguration {
 struct AppleLiquidSymbolConfiguration {
   let name: String
   let pointSize: CGFloat
+  let scale: CGFloat
   let tintColor: Int?
 
   init(arguments: Any?) {
     let dictionary = arguments as? [String: Any] ?? [:]
     name = dictionary["name"] as? String ?? "circle"
-    pointSize = CGFloat(
-      AppleLiquidSliderConfiguration.doubleValue(dictionary["size"]) ?? 24
+    pointSize = max(
+      1,
+      CGFloat(AppleLiquidSliderConfiguration.doubleValue(dictionary["size"]) ?? 24)
+    )
+    scale = max(
+      1,
+      CGFloat(AppleLiquidSliderConfiguration.doubleValue(dictionary["scale"]) ?? 1)
     )
     tintColor = AppleLiquidTabbarConfiguration.intValue(dictionary["color"])
   }

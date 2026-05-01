@@ -14,7 +14,7 @@ structure.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
-- SF Symbols outside the tab bar through native `UIImage(systemName:)`.
+- SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
 
@@ -47,7 +47,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.1.6
+  mjn_liquid_ui: ^0.1.7
 ```
 
 Then import the package:
@@ -172,8 +172,9 @@ const AppleLiquidSymbol(
 )
 ```
 
-`AppleLiquidSymbol` renders the provided SF Symbol name natively on iOS. On
-unsupported platforms it uses `fallbackIcon` when provided.
+`AppleLiquidSymbol` renders the provided SF Symbol name natively on iOS and
+paints the result as a normal Flutter image. On unsupported platforms it uses
+`fallbackIcon` when provided.
 
 ### Liquid glass surface
 
