@@ -1,3 +1,7 @@
+## 0.1.9
+
+- Fixed an iOS search-tab navigation container that could trigger native tab bar layout constraint warnings.
+
 ## 0.1.8
 
 - Reworked the native iOS switch to use `UISwitch` directly instead of a SwiftUI hosting controller.

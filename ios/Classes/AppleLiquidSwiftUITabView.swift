@@ -19,9 +19,7 @@ struct AppleLiquidSwiftUITabView: View {
       }
 
       Tab(value: model.searchIndex, role: .search) {
-        NavigationStack {
-          Color.clear
-        }
+        Color.clear
       } label: {
         Image(
           systemName: model.systemImage(
