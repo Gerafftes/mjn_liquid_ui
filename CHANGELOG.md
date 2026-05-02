@@ -1,3 +1,7 @@
+## 0.1.8
+
+- Reworked the native iOS switch to use `UISwitch` directly instead of a SwiftUI hosting controller.
+
 ## 0.1.7
 
 - Changed `AppleLiquidSymbol` to render native SF Symbols as Flutter images instead of platform views.

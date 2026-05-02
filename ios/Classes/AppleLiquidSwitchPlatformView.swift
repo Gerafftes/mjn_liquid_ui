@@ -1,78 +1,5 @@
-import Combine
 import Flutter
-import SwiftUI
 import UIKit
-
-final class AppleLiquidSwitchModel: ObservableObject {
-  @Published private(set) var value: Bool
-  @Published private(set) var tintColor: Color?
-
-  var onValueChanged: ((Bool) -> Void)?
-  var onInteractionChanged: ((Bool) -> Void)?
-
-  private var isInteracting = false
-
-  init(configuration: AppleLiquidSwitchConfiguration) {
-    value = configuration.value
-    tintColor = Color(appleLiquidARGB: configuration.tintColor)
-  }
-
-  func update(configuration: AppleLiquidSwitchConfiguration) {
-    value = configuration.value
-    tintColor = Color(appleLiquidARGB: configuration.tintColor)
-  }
-
-  func setValue(_ value: Bool, notifyFlutter: Bool) {
-    guard self.value != value else {
-      return
-    }
-
-    self.value = value
-
-    if notifyFlutter {
-      onValueChanged?(value)
-    }
-  }
-
-  func setInteracting(_ isInteracting: Bool) {
-    guard self.isInteracting != isInteracting else {
-      return
-    }
-
-    self.isInteracting = isInteracting
-    onInteractionChanged?(isInteracting)
-  }
-}
-
-struct AppleLiquidSwitchView: View {
-  @ObservedObject var model: AppleLiquidSwitchModel
-
-  var body: some View {
-    HStack {
-      Spacer(minLength: 0)
-      Toggle(
-        "",
-        isOn: Binding(
-          get: { model.value },
-          set: { model.setValue($0, notifyFlutter: true) }
-        )
-      )
-      .labelsHidden()
-      .appleLiquidControlTint(model.tintColor)
-      .simultaneousGesture(
-        DragGesture(minimumDistance: 0)
-          .onChanged { _ in
-            model.setInteracting(true)
-          }
-          .onEnded { _ in
-            model.setInteracting(false)
-          }
-      )
-      Spacer(minLength: 0)
-    }
-    .frame(maxWidth: .infinity, maxHeight: .infinity)
-  }
-}
 
 final class AppleLiquidSwitchPlatformViewFactory: NSObject, FlutterPlatformViewFactory {
   private let messenger: FlutterBinaryMessenger
@@ -101,10 +28,10 @@ final class AppleLiquidSwitchPlatformViewFactory: NSObject, FlutterPlatformViewF
 }
 
 final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
-  private let containerView: AppleLiquidPlatformViewContainer
+  private let containerView: UIView
+  private let switchControl: UISwitch
   private let channel: FlutterMethodChannel
-  private let model: AppleLiquidSwitchModel
-  private var hostingController: UIViewController?
+  private var isInteracting = false
 
   init(
     frame: CGRect,
@@ -112,43 +39,60 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
     arguments args: Any?,
     messenger: FlutterBinaryMessenger
   ) {
-    containerView = AppleLiquidPlatformViewContainer(frame: frame)
+    let creationStart = Date()
+    containerView = UIView(frame: frame)
+    switchControl = UISwitch(frame: .zero)
     channel = FlutterMethodChannel(
       name: "\(AppleLiquidTabbarConstants.switchViewType)/\(viewId)",
       binaryMessenger: messenger
     )
-    model = AppleLiquidSwitchModel(
-      configuration: AppleLiquidSwitchConfiguration(arguments: args)
-    )
 
     super.init()
 
-    model.onValueChanged = { [weak self] value in
-      self?.channel.invokeMethod("valueChanged", arguments: ["value": value])
-    }
-    model.onInteractionChanged = { [weak self] isInteracting in
-      self?.channel.invokeMethod(
-        "interactionChanged",
-        arguments: ["isInteracting": isInteracting]
-      )
-    }
+    containerView.backgroundColor = .clear
+    containerView.isOpaque = false
+    containerView.isUserInteractionEnabled = true
 
-    let hostingController = UIHostingController(
-      rootView: AppleLiquidSwitchView(model: model)
+    switchControl.translatesAutoresizingMaskIntoConstraints = false
+    switchControl.backgroundColor = .clear
+    switchControl.isOpaque = false
+    switchControl.addTarget(
+      self,
+      action: #selector(handleValueChanged),
+      for: .valueChanged
     )
-    hostingController.view.backgroundColor = .clear
-    hostingController.view.isOpaque = false
-    containerView.host(hostingController)
-    self.hostingController = hostingController
+    switchControl.addTarget(
+      self,
+      action: #selector(handleInteractionStarted),
+      for: [.touchDown, .touchDragEnter]
+    )
+    switchControl.addTarget(
+      self,
+      action: #selector(handleInteractionEnded),
+      for: [.touchUpInside, .touchUpOutside, .touchCancel, .touchDragExit]
+    )
 
+    containerView.addSubview(switchControl)
+    NSLayoutConstraint.activate([
+      switchControl.centerXAnchor.constraint(equalTo: containerView.centerXAnchor),
+      switchControl.centerYAnchor.constraint(equalTo: containerView.centerYAnchor),
+    ])
+
+    apply(configuration: AppleLiquidSwitchConfiguration(arguments: args))
     channel.setMethodCallHandler(handle)
+
+    #if DEBUG
+      let elapsedMilliseconds = Date().timeIntervalSince(creationStart) * 1000
+      print(
+        "[mjn_liquid_ui] UISwitch platform view \(viewId) created in "
+          + "\(String(format: "%.2f", elapsedMilliseconds))ms"
+      )
+    #endif
   }
 
   deinit {
     channel.setMethodCallHandler(nil)
-    model.onValueChanged = nil
-    model.onInteractionChanged = nil
-    containerView.disposeHostedViewController()
+    switchControl.removeTarget(nil, action: nil, for: .allEvents)
   }
 
   func view() -> UIView {
@@ -159,14 +103,54 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
     switch call.method {
     case "setValue":
       let configuration = AppleLiquidSwitchConfiguration(arguments: call.arguments)
-      model.setValue(configuration.value, notifyFlutter: false)
+      setValue(configuration.value, animated: false)
       result(nil)
     case "updateConfiguration":
       let configuration = AppleLiquidSwitchConfiguration(arguments: call.arguments)
-      model.update(configuration: configuration)
+      apply(configuration: configuration)
       result(nil)
     default:
       result(FlutterMethodNotImplemented)
     }
+  }
+
+  private func apply(configuration: AppleLiquidSwitchConfiguration) {
+    setValue(configuration.value, animated: false)
+    switchControl.onTintColor = UIColor(appleLiquidARGB: configuration.tintColor)
+  }
+
+  private func setValue(_ value: Bool, animated: Bool) {
+    guard switchControl.isOn != value else {
+      return
+    }
+
+    switchControl.setOn(value, animated: animated)
+  }
+
+  @objc private func handleValueChanged() {
+    channel.invokeMethod(
+      "valueChanged",
+      arguments: ["value": switchControl.isOn]
+    )
+  }
+
+  @objc private func handleInteractionStarted() {
+    setInteracting(true)
+  }
+
+  @objc private func handleInteractionEnded() {
+    setInteracting(false)
+  }
+
+  private func setInteracting(_ isInteracting: Bool) {
+    guard self.isInteracting != isInteracting else {
+      return
+    }
+
+    self.isInteracting = isInteracting
+    channel.invokeMethod(
+      "interactionChanged",
+      arguments: ["isInteracting": isInteracting]
+    )
   }
 }
