@@ -4,7 +4,7 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'mjn_liquid_ui'
-  s.version          = '0.1.7'
+  s.version          = '0.1.8'
   s.summary          = 'Native-inspired Liquid Glass UI widgets for Flutter.'
   s.description      = <<-DESC
 Embeds native iOS SwiftUI Liquid Glass controls in Flutter, including a dedicated TabRole.search tab.

@@ -32,7 +32,7 @@ class DemoShell extends StatefulWidget {
 
 class _DemoShellState extends State<DemoShell> {
   int currentIndex = 0;
-  bool switchValue = true;
+  final List<bool> switchValues = <bool>[true, false, true, false, true];
   double normalSliderValue = 0.45;
   double steppedSliderValue = 0.6;
   double coarseSliderValue = 0.5;
@@ -90,9 +90,9 @@ class _DemoShellState extends State<DemoShell> {
     switch (index) {
       case 1:
         return _SwitchDemoPage(
-          value: switchValue,
-          onChanged: (bool value) {
-            setState(() => switchValue = value);
+          values: switchValues,
+          onChanged: (int index, bool value) {
+            setState(() => switchValues[index] = value);
           },
         );
       case 2:
@@ -303,34 +303,102 @@ class _SymbolSample extends StatelessWidget {
   }
 }
 
-class _SwitchDemoPage extends StatelessWidget {
-  const _SwitchDemoPage({required this.value, required this.onChanged});
+class _SwitchDemoPage extends StatefulWidget {
+  const _SwitchDemoPage({required this.values, required this.onChanged});
 
-  final bool value;
-  final ValueChanged<bool> onChanged;
+  final List<bool> values;
+  final void Function(int index, bool value) onChanged;
+
+  @override
+  State<_SwitchDemoPage> createState() => _SwitchDemoPageState();
+}
+
+class _SwitchDemoPageState extends State<_SwitchDemoPage> {
+  late final Stopwatch _loadStopwatch;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadStopwatch = Stopwatch()..start();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      _loadStopwatch.stop();
+      debugPrint(
+        '[mjn_liquid_ui_example] Switch page first frame with '
+        '${widget.values.length} switches in '
+        '${_loadStopwatch.elapsedMicroseconds / 1000}ms',
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return _DemoPageScaffold(
       title: 'Switch',
-      subtitle: 'A native SwiftUI Toggle embedded through UiKitView.',
+      subtitle:
+          'Five native UIKit UISwitch controls embedded through UiKitView. Open the debug console to compare load logs.',
       child: AppleLiquidSurface(
-        height: 112,
-        child: Row(
+        height: 360,
+        child: Column(
           children: <Widget>[
-            Expanded(
-              child: Text(
-                value ? 'Enabled' : 'Disabled',
-                style: Theme.of(context).textTheme.titleLarge,
+            for (int index = 0; index < widget.values.length; index += 1)
+              _SwitchSampleRow(
+                label: 'Native switch ${index + 1}',
+                value: widget.values[index],
+                tintColor: _switchTintColors[index],
+                onChanged: (bool value) {
+                  widget.onChanged(index, value);
+                },
               ),
-            ),
-            AppleLiquidSwitch(
-              value: value,
-              tintColor: const Color(0xFF14B8A6),
-              onChanged: onChanged,
-            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+const List<Color> _switchTintColors = <Color>[
+  Color(0xFF14B8A6),
+  Color(0xFF0EA5E9),
+  Color(0xFF8B5CF6),
+  Color(0xFFF97316),
+  Color(0xFF22C55E),
+];
+
+class _SwitchSampleRow extends StatelessWidget {
+  const _SwitchSampleRow({
+    required this.label,
+    required this.value,
+    required this.tintColor,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final Color tintColor;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(
+              '$label: ${value ? 'On' : 'Off'}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
+          AppleLiquidSwitch(
+            value: value,
+            tintColor: tintColor,
+            onChanged: onChanged,
+          ),
+        ],
       ),
     );
   }
