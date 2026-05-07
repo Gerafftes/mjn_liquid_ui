@@ -5,6 +5,8 @@ final class AppleLiquidTabbarUIKitFallbackView: UIView {
   private let model: AppleLiquidTabbarModel
   private let stackView = UIStackView()
   private var cancellables = Set<AnyCancellable>()
+  private let notificationDotSize: CGFloat = 5.5
+  private let notificationBadgeSize: CGFloat = 18
 
   init(model: AppleLiquidTabbarModel) {
     self.model = model
@@ -56,8 +58,56 @@ final class AppleLiquidTabbarUIKitFallbackView: UIView {
       }
       button.tag = index
       button.addTarget(self, action: #selector(selectTab(_:)), for: .touchUpInside)
+      addNotificationDotIfNeeded(to: button, item: item)
       stackView.addArrangedSubview(button)
     }
+  }
+
+  private func addNotificationDotIfNeeded(
+    to button: UIButton,
+    item: AppleLiquidTabbarItem
+  ) {
+    guard let color = UIColor(appleLiquidARGB: item.notificationDotColor) else {
+      return
+    }
+
+    let badgeSize: CGFloat
+    if item.notificationBadgeValue == nil {
+      badgeSize = notificationDotSize
+    } else {
+      badgeSize = notificationBadgeSize
+    }
+    let dotView = UIView()
+    dotView.backgroundColor = color
+    dotView.isUserInteractionEnabled = false
+    dotView.layer.cornerRadius = badgeSize / 2
+    dotView.translatesAutoresizingMaskIntoConstraints = false
+
+    button.addSubview(dotView)
+
+    if let badgeValue = item.notificationBadgeValue {
+      let label = UILabel()
+      label.text = badgeValue
+      label.textAlignment = .center
+      label.textColor = .white
+      label.font = .systemFont(ofSize: 11, weight: .semibold)
+      label.translatesAutoresizingMaskIntoConstraints = false
+      dotView.addSubview(label)
+
+      NSLayoutConstraint.activate([
+        label.leadingAnchor.constraint(equalTo: dotView.leadingAnchor),
+        label.trailingAnchor.constraint(equalTo: dotView.trailingAnchor),
+        label.topAnchor.constraint(equalTo: dotView.topAnchor),
+        label.bottomAnchor.constraint(equalTo: dotView.bottomAnchor),
+      ])
+    }
+
+    NSLayoutConstraint.activate([
+      dotView.widthAnchor.constraint(equalToConstant: badgeSize),
+      dotView.heightAnchor.constraint(equalToConstant: badgeSize),
+      dotView.centerXAnchor.constraint(equalTo: button.centerXAnchor, constant: 10),
+      dotView.topAnchor.constraint(equalTo: button.topAnchor, constant: 12),
+    ])
   }
 
   private func bindModel() {

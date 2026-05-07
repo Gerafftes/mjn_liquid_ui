@@ -1,3 +1,10 @@
+## 0.2.0
+
+- Added optional notification badges for `AppleLiquidTabItem`, including
+  numberless dots and text values.
+- Added configurable notification badge colors to the native iOS tab bar.
+- Updated the example iOS project so simulator builds target iOS simulators.
+
 ## 0.1.9
 
 - Fixed an iOS search-tab navigation container that could trigger native tab bar layout constraint warnings.

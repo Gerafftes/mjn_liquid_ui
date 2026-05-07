@@ -142,6 +142,11 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
   final double height;
   final Color? selectedTintColor;
 
+  static const double _iconSlotSize = 28;
+  static const double _notificationDotSize = 5.5;
+  static const double _notificationBadgeSize = 18;
+  static const double _notificationDotInset = 4;
+
   @override
   Widget build(BuildContext context) {
     final int selectedIndex = currentIndex.clamp(0, items.length - 1);
@@ -156,10 +161,8 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
         items: <BottomNavigationBarItem>[
           for (int index = 0; index < items.length; index += 1)
             BottomNavigationBarItem(
-              icon: Icon(_fallbackIconFor(items[index], isSelected: false)),
-              activeIcon: Icon(
-                _fallbackIconFor(items[index], isSelected: true),
-              ),
+              icon: _fallbackIconFor(items[index], isSelected: false),
+              activeIcon: _fallbackIconFor(items[index], isSelected: true),
               label: items[index].title,
             ),
         ],
@@ -167,7 +170,53 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
     );
   }
 
-  IconData _fallbackIconFor(
+  Widget _fallbackIconFor(AppleLiquidTabItem item, {required bool isSelected}) {
+    final Icon icon = Icon(_fallbackIconDataFor(item, isSelected: isSelected));
+    final Color? dotColor = item.notificationDotColor;
+
+    if (dotColor == null) {
+      return icon;
+    }
+
+    return SizedBox.square(
+      dimension: _iconSlotSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: <Widget>[
+          icon,
+          Positioned(
+            top: _notificationDotInset,
+            right: _notificationDotInset,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
+              ),
+              child: item.notificationBadgeValue == null
+                  ? const SizedBox.square(dimension: _notificationDotSize)
+                  : SizedBox.square(
+                      dimension: _notificationBadgeSize,
+                      child: Center(
+                        child: Text(
+                          item.notificationBadgeValue!,
+                          style: const TextStyle(
+                            color: Color(0xFFFFFFFF),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                          ),
+                        ),
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _fallbackIconDataFor(
     AppleLiquidTabItem item, {
     required bool isSelected,
   }) {
