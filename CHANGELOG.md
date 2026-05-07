@@ -1,3 +1,8 @@
+## 0.2.1
+
+- Fixed the iOS podspec version so CocoaPods reports the published package
+  version during `pod install`.
+
 ## 0.2.0
 
 - Added optional notification badges for `AppleLiquidTabItem`, including
