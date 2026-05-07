@@ -59,7 +59,7 @@ class _DemoShellState extends State<DemoShell> {
             bottom: 0,
             child: AppleLiquidTabBar(
               currentIndex: currentIndex,
-              selectedTintColor: const Color(0xFF0EA5E9),
+              selectedTintColor: const Color(0xFF007AFF),
               onChanged: (int index) {
                 setState(() => currentIndex = index);
               },
@@ -72,6 +72,8 @@ class _DemoShellState extends State<DemoShell> {
                 AppleLiquidTabItem(
                   title: 'Slider',
                   systemImage: 'slider.horizontal.3',
+                  notificationDotColor: Color(0xFF007AFF),
+                  notificationBadgeValue: '3',
                 ),
               ],
               searchItem: const AppleLiquidTabItem(

@@ -18,6 +18,8 @@ void main() {
       systemImage: 'plus',
       activeSystemImage: 'plus.circle.fill',
       isSearch: true,
+      notificationDotColor: Color(0xFFEF4444),
+      notificationBadgeValue: '3',
     );
 
     expect(item.toMap(), <String, Object?>{
@@ -25,6 +27,8 @@ void main() {
       'systemImage': 'plus',
       'activeSystemImage': 'plus.circle.fill',
       'isSearch': true,
+      'notificationDotColor': 0xFFEF4444,
+      'notificationBadgeValue': '3',
     });
   });
 
@@ -125,7 +129,12 @@ void main() {
                   title: 'Jobs',
                   systemImage: 'briefcase.fill',
                 ),
-                AppleLiquidTabItem(title: 'Chat', systemImage: 'message.fill'),
+                AppleLiquidTabItem(
+                  title: 'Chat',
+                  systemImage: 'message.fill',
+                  notificationDotColor: Color(0xFFEF4444),
+                  notificationBadgeValue: '3',
+                ),
               ],
               searchItem: const AppleLiquidTabItem(
                 title: 'Search',
@@ -147,6 +156,19 @@ void main() {
             .selectedItemColor,
         const Color(0xFF0EA5E9),
       );
+      expect(
+        find.byWidgetPredicate((Widget widget) {
+          final Decoration? decoration = widget is DecoratedBox
+              ? widget.decoration
+              : null;
+
+          return decoration is BoxDecoration &&
+              decoration.shape == BoxShape.circle &&
+              decoration.color == const Color(0xFFEF4444);
+        }),
+        findsAtLeastNWidgets(1),
+      );
+      expect(find.text('3'), findsOneWidget);
 
       await tester.tap(find.text('Jobs'));
 

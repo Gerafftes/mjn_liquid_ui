@@ -3,6 +3,17 @@ import SwiftUI
 import UIKit
 
 final class AppleLiquidTabbarHostingController<Content: View>: UIHostingController<Content> {
+  private let model: AppleLiquidTabbarModel
+
+  init(rootView: Content, model: AppleLiquidTabbarModel) {
+    self.model = model
+    super.init(rootView: rootView)
+  }
+
+  @MainActor dynamic required init?(coder aDecoder: NSCoder) {
+    nil
+  }
+
   override func viewDidLoad() {
     super.viewDidLoad()
     view.backgroundColor = .clear
@@ -12,6 +23,7 @@ final class AppleLiquidTabbarHostingController<Content: View>: UIHostingControll
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     view.appleLiquidClearWrapperBackgrounds()
+    view.appleLiquidApplyTabNotificationDots(from: model.allItems)
   }
 }
 
@@ -27,6 +39,61 @@ private extension UIView {
 
     subviews.forEach { subview in
       subview.appleLiquidClearWrapperBackgrounds()
+    }
+  }
+
+  func appleLiquidApplyTabNotificationDots(from items: [AppleLiquidTabbarItem]) {
+    if let tabBar = self as? UITabBar {
+      tabBar.appleLiquidApplyNotificationDots(from: items)
+      return
+    }
+
+    subviews.forEach { subview in
+      subview.appleLiquidApplyTabNotificationDots(from: items)
+    }
+  }
+
+}
+
+private extension UITabBar {
+  func appleLiquidApplyNotificationDots(from items: [AppleLiquidTabbarItem]) {
+    let badgeColors = items.compactMap(\.notificationDotColor)
+    if badgeColors.count == 1,
+      let badgeColor = UIColor(appleLiquidARGB: badgeColors[0])
+    {
+      appleLiquidApplyBadgeAppearance(color: badgeColor)
+    }
+
+    for (index, tabBarItem) in (self.items ?? []).enumerated() {
+      let item = items.indices.contains(index) ? items[index] : nil
+      let color = UIColor(appleLiquidARGB: item?.notificationDotColor)
+      let badgeValue = item?.notificationBadgeValue
+      let badgeTextColor: UIColor = badgeValue == nil ? .clear : .white
+
+      tabBarItem.badgeValue = color == nil ? nil : badgeValue ?? ""
+      tabBarItem.badgeColor = color
+      tabBarItem.setBadgeTextAttributes(
+        [.foregroundColor: badgeTextColor],
+        for: .normal
+      )
+    }
+  }
+
+  func appleLiquidApplyBadgeAppearance(color: UIColor) {
+    let appearance = standardAppearance.copy()
+
+    [
+      appearance.stackedLayoutAppearance,
+      appearance.inlineLayoutAppearance,
+      appearance.compactInlineLayoutAppearance,
+    ].forEach { itemAppearance in
+      itemAppearance.normal.badgeBackgroundColor = color
+      itemAppearance.selected.badgeBackgroundColor = color
+    }
+
+    standardAppearance = appearance
+    if #available(iOS 15.0, *) {
+      scrollEdgeAppearance = appearance
     }
   }
 }
@@ -77,7 +144,8 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
   private func installNativeView() {
     if #available(iOS 18.0, *) {
       let hostingController = AppleLiquidTabbarHostingController(
-        rootView: AppleLiquidSwiftUITabView(model: model)
+        rootView: AppleLiquidSwiftUITabView(model: model),
+        model: model
       )
       hostingController.view.backgroundColor = .clear
       hostingController.view.isOpaque = false
@@ -116,6 +184,7 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
     case "updateConfiguration":
       let configuration = AppleLiquidTabbarConfiguration(arguments: call.arguments)
       model.update(configuration: configuration)
+      containerView.appleLiquidApplyTabNotificationDots(from: model.allItems)
       fallbackView?.refresh()
       result(nil)
 

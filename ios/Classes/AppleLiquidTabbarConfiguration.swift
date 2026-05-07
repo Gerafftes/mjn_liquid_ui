@@ -5,23 +5,33 @@ struct AppleLiquidTabbarItem: Equatable {
   let systemImage: String
   let activeSystemImage: String?
   let isSearch: Bool
+  let notificationDotColor: Int?
+  let notificationBadgeValue: String?
 
   init(
     title: String,
     systemImage: String,
     activeSystemImage: String? = nil,
-    isSearch: Bool = false
+    isSearch: Bool = false,
+    notificationDotColor: Int? = nil,
+    notificationBadgeValue: String? = nil
   ) {
     self.title = title
     self.systemImage = systemImage
     self.activeSystemImage = activeSystemImage
     self.isSearch = isSearch
+    self.notificationDotColor = notificationDotColor
+    self.notificationBadgeValue = notificationBadgeValue
   }
 
   init(dictionary: [String: Any]) {
     title = dictionary["title"] as? String ?? ""
     systemImage = dictionary["systemImage"] as? String ?? "circle"
     activeSystemImage = dictionary["activeSystemImage"] as? String
+    notificationDotColor = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["notificationDotColor"]
+    )
+    notificationBadgeValue = dictionary["notificationBadgeValue"] as? String
     isSearch = AppleLiquidTabbarConfiguration.boolValue(
       dictionary["isSearch"]
     ) ?? false
@@ -85,7 +95,9 @@ struct AppleLiquidTabbarConfiguration {
       title: item.title.isEmpty ? "Search" : item.title,
       systemImage: item.systemImage,
       activeSystemImage: item.activeSystemImage,
-      isSearch: true
+      isSearch: true,
+      notificationDotColor: item.notificationDotColor,
+      notificationBadgeValue: item.notificationBadgeValue
     )
   }
 }
