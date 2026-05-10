@@ -32,6 +32,22 @@ void main() {
     });
   });
 
+  test('AppleLiquidSheet returns false outside iOS', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    try {
+      expect(
+        await AppleLiquidSheet.showTemplateSheet(
+          heightFraction: 0.72,
+          backgroundZoomScale: 0.94,
+        ),
+        isFalse,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('AppleLiquidSymbol uses an Icon fallback outside iOS', (
     WidgetTester tester,
   ) async {

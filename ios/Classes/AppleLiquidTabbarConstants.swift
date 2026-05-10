@@ -4,6 +4,7 @@ enum AppleLiquidTabbarConstants {
   static let sliderViewType = "mjn_liquid_ui_slider"
   static let surfaceViewType = "mjn_liquid_ui_surface"
   static let symbolChannelName = "mjn_liquid_ui/symbols"
+  static let sheetChannelName = "mjn_liquid_ui/sheets"
 
   static let viewType = tabBarViewType
 }

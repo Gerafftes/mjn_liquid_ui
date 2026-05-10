@@ -26,5 +26,8 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
     ).setMethodCallHandler(
       AppleLiquidSymbolRenderer.handle
     )
+    AppleLiquidSheetPresenter.register(
+      messenger: registrar.messenger()
+    )
   }
 }
