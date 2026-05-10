@@ -14,6 +14,8 @@ structure.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
+- Native iOS sheet presentation with configurable detent height, toolbar
+  controls, search, and background zoom.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
@@ -27,6 +29,10 @@ structure.
 | Liquid Slider | Liquid Surface |
 | --- | --- |
 | ![Liquid Slider](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png) | ![Liquid Surface](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png) |
+
+| Liquid Sheet | Liquid Search |
+| --- | --- |
+| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Liquid Search](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
 
 ## Platform support
 
@@ -47,7 +53,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.1.9
+  mjn_liquid_ui: ^0.2.2
 ```
 
 Then import the package:
@@ -197,6 +203,30 @@ AppleLiquidSurface(
 Use `deformable: true` for interactive squash and stretch feedback. Use
 `AppleLiquidStretchGestureMode.gestureDetector` when the surface contains
 buttons or other tappable Flutter children.
+
+### Native sheet
+
+`AppleLiquidSheet` presents a native iOS sheet from Flutter. The current
+template sheet uses SwiftUI navigation, native toolbar controls, a bottom search
+field, configurable detent height, and optional background zoom on the
+presenting page.
+
+```dart
+final bool didShow = await AppleLiquidSheet.showTemplateSheet(
+  heightFraction: 0.72,
+  backgroundZoomScale: 0.94,
+);
+```
+
+`heightFraction` controls the presented detent height and `backgroundZoomScale`
+controls how far the presenting view scales back while the sheet is open.
+The method returns `true` after a native iOS sheet was shown and dismissed. It
+returns `false` on unsupported platforms so apps can present their own Flutter
+fallback.
+
+Use `heightFraction` values between `0.25` and `1.0`. Custom heights are backed
+by UIKit sheet detents and the implementation keeps keyboard transitions
+separate from detent restoration to avoid search-bar overshoot while typing.
 
 ## iOS notes
 

@@ -36,54 +36,22 @@ class _DemoShellState extends State<DemoShell> {
   double normalSliderValue = 0.45;
   double steppedSliderValue = 0.6;
   double coarseSliderValue = 0.5;
+  double templateSheetHeightFraction = 0.72;
+  bool templateSheetBackgroundZoom = true;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      appBar: AppBar(title: const Text('MJN Liquid UI')),
-      body: Stack(
-        children: <Widget>[
-          Positioned.fill(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 180),
-              child: KeyedSubtree(
-                key: ValueKey<int>(currentIndex),
-                child: _pageFor(currentIndex),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AppleLiquidTabBar(
-              currentIndex: currentIndex,
-              selectedTintColor: const Color(0xFF007AFF),
-              onChanged: (int index) {
-                setState(() => currentIndex = index);
-              },
-              items: const <AppleLiquidTabItem>[
-                AppleLiquidTabItem(
-                  title: 'Tabs',
-                  systemImage: 'square.grid.2x2.fill',
-                ),
-                AppleLiquidTabItem(title: 'Switch', systemImage: 'switch.2'),
-                AppleLiquidTabItem(
-                  title: 'Slider',
-                  systemImage: 'slider.horizontal.3',
-                  notificationDotColor: Color(0xFF007AFF),
-                  notificationBadgeValue: '3',
-                ),
-              ],
-              searchItem: const AppleLiquidTabItem(
-                title: 'Surface',
-                systemImage: 'plus',
-                isSearch: true,
-              ),
-            ),
-          ),
-        ],
+    return _DemoScaffold(
+      currentIndex: currentIndex,
+      onChanged: (int index) {
+        setState(() => currentIndex = index);
+      },
+      page: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        child: KeyedSubtree(
+          key: ValueKey<int>(currentIndex),
+          child: _pageFor(currentIndex),
+        ),
       ),
     );
   }
@@ -116,8 +84,93 @@ class _DemoShellState extends State<DemoShell> {
         return const _SurfaceDemoPage();
       case 0:
       default:
-        return const _TabbarDemoPage();
+        return _TabbarDemoPage(
+          sheetHeightFraction: templateSheetHeightFraction,
+          sheetBackgroundZoom: templateSheetBackgroundZoom,
+          onSheetHeightChanged: (double value) {
+            setState(() => templateSheetHeightFraction = value);
+          },
+          onSheetBackgroundZoomChanged: (bool value) {
+            setState(() => templateSheetBackgroundZoom = value);
+          },
+          onShowTemplateSheet: _showTemplateSheet,
+        );
     }
+  }
+
+  Future<void> _showTemplateSheet() async {
+    final bool didShowNativeSheet = await AppleLiquidSheet.showTemplateSheet(
+      heightFraction: templateSheetHeightFraction,
+      backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
+    );
+    if (didShowNativeSheet || !mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      constraints: BoxConstraints(
+        maxHeight:
+            MediaQuery.sizeOf(context).height * templateSheetHeightFraction,
+      ),
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (BuildContext context) => const _TemplateSheetFallback(),
+    );
+  }
+}
+
+class _DemoScaffold extends StatelessWidget {
+  const _DemoScaffold({
+    required this.currentIndex,
+    required this.onChanged,
+    required this.page,
+  });
+
+  final int currentIndex;
+  final ValueChanged<int> onChanged;
+  final Widget page;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBody: true,
+      appBar: AppBar(title: const Text('MJN Liquid UI')),
+      body: Stack(
+        children: <Widget>[
+          Positioned.fill(child: page),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: AppleLiquidTabBar(
+              currentIndex: currentIndex,
+              selectedTintColor: const Color(0xFF007AFF),
+              onChanged: onChanged,
+              items: const <AppleLiquidTabItem>[
+                AppleLiquidTabItem(
+                  title: 'Tabs',
+                  systemImage: 'square.grid.2x2.fill',
+                ),
+                AppleLiquidTabItem(title: 'Switch', systemImage: 'switch.2'),
+                AppleLiquidTabItem(
+                  title: 'Slider',
+                  systemImage: 'slider.horizontal.3',
+                  notificationDotColor: Color(0xFF007AFF),
+                  notificationBadgeValue: '3',
+                ),
+              ],
+              searchItem: const AppleLiquidTabItem(
+                title: 'Surface',
+                systemImage: 'plus',
+                isSearch: true,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -148,18 +201,30 @@ class _DemoPageScaffold extends StatelessWidget {
 }
 
 class _TabbarDemoPage extends StatelessWidget {
-  const _TabbarDemoPage();
+  const _TabbarDemoPage({
+    required this.sheetHeightFraction,
+    required this.sheetBackgroundZoom,
+    required this.onSheetHeightChanged,
+    required this.onSheetBackgroundZoomChanged,
+    required this.onShowTemplateSheet,
+  });
+
+  final double sheetHeightFraction;
+  final bool sheetBackgroundZoom;
+  final ValueChanged<double> onSheetHeightChanged;
+  final ValueChanged<bool> onSheetBackgroundZoomChanged;
+  final VoidCallback onShowTemplateSheet;
 
   @override
   Widget build(BuildContext context) {
-    return const _DemoPageScaffold(
+    return _DemoPageScaffold(
       title: 'Tabbar',
       subtitle:
           'The bottom navigation uses native SwiftUI tabs. SF Symbols can also be placed anywhere in Flutter content.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          AppleLiquidSurface(
+          const AppleLiquidSurface(
             height: 152,
             child: Row(
               children: <Widget>[
@@ -181,8 +246,125 @@ class _TabbarDemoPage extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 16),
-          AppleLiquidSurface(height: 500, child: _SymbolGrid()),
+          const SizedBox(height: 16),
+          AppleLiquidSurface(
+            height: 308,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    const AppleLiquidSymbol(
+                      'rectangle.bottomthird.inset.filled',
+                      size: 34,
+                      color: Color(0xFF007AFF),
+                      fallbackIcon: Icons.keyboard_arrow_up_rounded,
+                      semanticLabel: 'Sheet',
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(child: _SheetControlHeaderText()),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: onShowTemplateSheet,
+                      child: const Text('Open'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        'Height ${(sheetHeightFraction * 100).round()}%',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                    ),
+                    SizedBox(
+                      width: 190,
+                      child: AppleLiquidSlider(
+                        value: sheetHeightFraction,
+                        min: 0.45,
+                        max: 1,
+                        step: 0.05,
+                        height: 48,
+                        tintColor: const Color(0xFF007AFF),
+                        onChanged: onSheetHeightChanged,
+                      ),
+                    ),
+                  ],
+                ),
+                _SheetToggleRow(
+                  label: 'Background zoom',
+                  value: sheetBackgroundZoom,
+                  onChanged: onSheetBackgroundZoomChanged,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const AppleLiquidSurface(height: 500, child: _SymbolGrid()),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetControlHeaderText extends StatelessWidget {
+  const _SheetControlHeaderText();
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        Text(
+          'Sheet controls',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Open a native sheet with configurable height.',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+class _SheetToggleRow extends StatelessWidget {
+  const _SheetToggleRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: Row(
+        children: <Widget>[
+          Expanded(
+            child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+          ),
+          AppleLiquidSwitch(
+            value: value,
+            width: 74,
+            height: 52,
+            tintColor: const Color(0xFF007AFF),
+            onChanged: onChanged,
+          ),
         ],
       ),
     );
@@ -300,6 +482,130 @@ class _SymbolSample extends StatelessWidget {
             ).textTheme.labelSmall?.copyWith(color: color),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _TemplateSheetFallback extends StatelessWidget {
+  const _TemplateSheetFallback();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                IconButton(
+                  tooltip: 'Cancel',
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                const Spacer(),
+                Text(
+                  'Templates',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const Spacer(),
+                IconButton.filled(
+                  tooltip: 'Confirm',
+                  icon: const Icon(Icons.check_rounded),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const SearchBar(
+              leading: Icon(Icons.search_rounded),
+              hintText: 'Search templates',
+            ),
+            const SizedBox(height: 20),
+            const Row(
+              children: <Widget>[
+                Expanded(child: _TemplateFallbackCard(title: 'Meeting notes')),
+                SizedBox(width: 16),
+                Expanded(child: _TemplateFallbackCard(title: 'Class notes')),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TemplateFallbackCard extends StatelessWidget {
+  const _TemplateFallbackCard({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return AspectRatio(
+      aspectRatio: 0.82,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFF181818),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    _TemplateFallbackLine(widthFactor: 0.62, height: 10),
+                    SizedBox(height: 14),
+                    _TemplateFallbackLine(widthFactor: 0.82),
+                    SizedBox(height: 8),
+                    _TemplateFallbackLine(widthFactor: 0.54),
+                    SizedBox(height: 8),
+                    _TemplateFallbackLine(widthFactor: 0.72),
+                    Spacer(),
+                    _TemplateFallbackLine(widthFactor: 0.44, height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TemplateFallbackLine extends StatelessWidget {
+  const _TemplateFallbackLine({required this.widthFactor, this.height = 7});
+
+  final double widthFactor;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return FractionallySizedBox(
+      widthFactor: widthFactor,
+      child: SizedBox(
+        height: height,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.18),
+            borderRadius: BorderRadius.circular(height / 2),
+          ),
+        ),
       ),
     );
   }
@@ -776,13 +1082,26 @@ class _SurfaceText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
       children: <Widget>[
-        Text(title, style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Text(body, style: Theme.of(context).textTheme.bodyMedium),
+        Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          body,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+          style: textTheme.bodySmall,
+        ),
       ],
     );
   }

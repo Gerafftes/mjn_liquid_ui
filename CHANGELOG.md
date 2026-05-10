@@ -1,3 +1,11 @@
+## 0.2.2
+
+- Added the native iOS sheet demo with configurable height and background
+  zoom.
+- Updated the sheet demo controls to use `AppleLiquidSlider` and
+  `AppleLiquidSwitch`.
+- Fixed custom sheet detent handling while the keyboard opens and closes.
+
 ## 0.2.1
 
 - Fixed the iOS podspec version so CocoaPods reports the published package
