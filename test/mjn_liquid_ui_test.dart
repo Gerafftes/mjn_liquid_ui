@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const MethodChannel symbolChannel = MethodChannel('mjn_liquid_ui/symbols');
+  const MethodChannel sheetChannel = MethodChannel('mjn_liquid_ui/sheets');
   final Uint8List transparentPng = base64Decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
   );
@@ -43,8 +45,82 @@ void main() {
         ),
         isFalse,
       );
+      expect(await AppleLiquidSheet.dismissTemplateSheet(), isFalse);
     } finally {
       debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('AppleLiquidSheetController returns false outside iOS', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    final AppleLiquidSheetController controller = AppleLiquidSheetController(
+      heightFraction: 0.72,
+      backgroundZoomScale: 0.94,
+    );
+
+    try {
+      expect(await controller.showTemplateSheet(), isFalse);
+      expect(await controller.dismiss(), isFalse);
+      expect(controller.isShowing, isFalse);
+      expect(controller.isShown, isFalse);
+    } finally {
+      controller.dispose();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('AppleLiquidSheetController tracks native presentation state', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final Completer<bool> showCompleter = Completer<bool>();
+    final List<MethodCall> calls = <MethodCall>[];
+    final AppleLiquidSheetController controller = AppleLiquidSheetController(
+      heightFraction: 0.72,
+      backgroundZoomScale: 0.94,
+    );
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+          calls.add(call);
+
+          switch (call.method) {
+            case 'showTemplateSheet':
+              return showCompleter.future;
+            case 'dismissTemplateSheet':
+              if (!showCompleter.isCompleted) {
+                showCompleter.complete(true);
+              }
+              return true;
+            default:
+              return null;
+          }
+        });
+
+    try {
+      final Future<bool> showFuture = controller.showTemplateSheet();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.isShowing, isTrue);
+      expect(controller.isShown, isTrue);
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'showTemplateSheet');
+      expect(calls.single.arguments, containsPair('heightFraction', 0.72));
+      expect(calls.single.arguments, containsPair('backgroundZoomScale', 0.94));
+
+      expect(await controller.dismiss(), isTrue);
+      expect(await showFuture, isTrue);
+      expect(controller.isShowing, isFalse);
+      expect(controller.isShown, isFalse);
+      expect(calls.map((MethodCall call) => call.method), <String>[
+        'showTemplateSheet',
+        'dismissTemplateSheet',
+      ]);
+    } finally {
+      controller.dispose();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, null);
     }
   });
 
