@@ -20,6 +20,31 @@ structure.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
 
+## Widgets
+
+| Widget | Description | Controller |
+| --- | --- | --- |
+| `AppleLiquidTabBar` | Native iOS Liquid Glass tab bar with a dedicated search-role item, tint support, and badges | - |
+| `AppleLiquidSwitch` | Native Liquid Glass toggle switch with animated state changes | - |
+| `AppleLiquidSlider` | Native Liquid Glass slider with min/max range and optional step support | - |
+| `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
+| `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
+| `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
+| `AppleLiquidSheet` | Static API for presenting native iOS Liquid Glass sheets | - |
+
+## Icon support
+
+`AppleLiquidSymbol` renders standalone SF Symbols by name. For tab icons, pass
+SF Symbol names through `AppleLiquidTabItem.systemImage` and optionally
+`AppleLiquidTabItem.activeSystemImage`.
+
+| API | Source |
+| --- | --- |
+| `AppleLiquidSymbol('name')` | Standalone SF Symbol rendered by native iOS |
+| `AppleLiquidTabItem(systemImage: 'name')` | SF Symbol for tab bar items |
+| `AppleLiquidTabItem(activeSystemImage: 'name')` | Optional selected-state SF Symbol for tab bar items |
+| `fallbackIcon: Icons.example` | Flutter `IconData` fallback for unsupported platforms |
+
 ## Screenshots
 
 | Liquid Tab Bar | Liquid Switch |
