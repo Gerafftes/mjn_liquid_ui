@@ -1,5 +1,9 @@
 # mjn_liquid_ui
 
+[![Platform](https://img.shields.io/badge/platform-iOS-lightgrey)](https://flutter.dev)
+[![Pub Version](https://img.shields.io/pub/v/mjn_liquid_ui)](https://pub.dev/packages/mjn_liquid_ui)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+
 A Flutter plugin for native-inspired liquid glass UI components, focused on iOS.
 
 `mjn_liquid_ui` embeds iOS SwiftUI/UIKit controls in Flutter through platform
@@ -30,7 +34,7 @@ structure.
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
 | `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
-| `AppleLiquidSheet` | Static API for presenting native iOS Liquid Glass sheets | - |
+| `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
 
 ## Icon support
 
@@ -243,11 +247,27 @@ final bool didShow = await AppleLiquidSheet.showTemplateSheet(
 );
 ```
 
+Use `AppleLiquidSheetController` when the calling code needs imperative control
+or presentation state:
+
+```dart
+final AppleLiquidSheetController sheetController =
+    AppleLiquidSheetController(
+  heightFraction: 0.72,
+  backgroundZoomScale: 0.94,
+);
+
+final bool didShow = await sheetController.showTemplateSheet();
+await sheetController.dismiss();
+```
+
 `heightFraction` controls the presented detent height and `backgroundZoomScale`
 controls how far the presenting view scales back while the sheet is open.
 The method returns `true` after a native iOS sheet was shown and dismissed. It
 returns `false` on unsupported platforms so apps can present their own Flutter
 fallback.
+The controller exposes `isShowing` and `isShown` for UI state while its
+presentation is active.
 
 Use `heightFraction` values between `0.25` and `1.0`. Custom heights are backed
 by UIKit sheet detents and the implementation keeps keyboard transitions

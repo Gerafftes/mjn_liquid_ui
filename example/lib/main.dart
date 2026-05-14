@@ -38,6 +38,14 @@ class _DemoShellState extends State<DemoShell> {
   double coarseSliderValue = 0.5;
   double templateSheetHeightFraction = 0.72;
   bool templateSheetBackgroundZoom = true;
+  final AppleLiquidSheetController templateSheetController =
+      AppleLiquidSheetController();
+
+  @override
+  void dispose() {
+    templateSheetController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,10 +107,11 @@ class _DemoShellState extends State<DemoShell> {
   }
 
   Future<void> _showTemplateSheet() async {
-    final bool didShowNativeSheet = await AppleLiquidSheet.showTemplateSheet(
-      heightFraction: templateSheetHeightFraction,
-      backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
-    );
+    final bool didShowNativeSheet = await templateSheetController
+        .showTemplateSheet(
+          heightFraction: templateSheetHeightFraction,
+          backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
+        );
     if (didShowNativeSheet || !mounted) {
       return;
     }

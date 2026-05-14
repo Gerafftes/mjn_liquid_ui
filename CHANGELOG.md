@@ -1,3 +1,10 @@
+## Unreleased
+
+- Added `AppleLiquidSheetController` for showing, dismissing, and tracking the
+  native template sheet.
+- Added `AppleLiquidSheet.dismissTemplateSheet()` for dismissing the active
+  native template sheet from Dart.
+
 ## 0.2.2
 
 - Added the native iOS sheet demo with configurable height and background

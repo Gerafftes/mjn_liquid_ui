@@ -22,6 +22,9 @@ enum AppleLiquidSheetPresenter {
       case "showTemplateSheet":
         showTemplateSheet(arguments: call.arguments, result: result)
 
+      case "dismissTemplateSheet":
+        dismissTemplateSheet(result: result)
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -100,6 +103,17 @@ enum AppleLiquidSheetPresenter {
       }
 
       session.attachPresentationController()
+    }
+  }
+
+  private static func dismissTemplateSheet(result: @escaping FlutterResult) {
+    guard let activeSession else {
+      result(false)
+      return
+    }
+
+    activeSession.dismissFromControl {
+      result(true)
     }
   }
 
@@ -236,6 +250,8 @@ private final class AppleLiquidSheetSession: NSObject {
   private var isKeyboardTransitioning = false
   private var keyboardTransitionWorkItem: DispatchWorkItem?
   private var keyboardDetentRestoreWorkItem: DispatchWorkItem?
+  private var dismissalCallbacks: [() -> Void] = []
+  private var isDismissing = false
 
   init(
     hostingController: UIViewController,
@@ -338,9 +354,28 @@ private final class AppleLiquidSheetSession: NSObject {
     }
   }
 
-  func dismissFromControl() {
+  func dismissFromControl(onDismissed: (() -> Void)? = nil) {
+    guard !didFinish else {
+      onDismissed?()
+      return
+    }
+
+    if let onDismissed {
+      dismissalCallbacks.append(onDismissed)
+    }
+
+    guard !isDismissing else {
+      return
+    }
+
+    guard let hostingController else {
+      completeDismissal()
+      return
+    }
+
+    isDismissing = true
     beginStationaryDismissAnimation(isGestureDriven: false)
-    hostingController?.dismiss(animated: true) { [weak self] in
+    hostingController.dismiss(animated: true) { [weak self] in
       self?.completeDismissal()
     }
   }
@@ -537,11 +572,14 @@ private final class AppleLiquidSheetSession: NSObject {
     }
 
     didFinish = true
+    let callbacks = dismissalCallbacks
+    dismissalCallbacks.removeAll()
     keyboardDetentRestoreWorkItem?.cancel()
     keyboardDetentRestoreWorkItem = nil
     restoreBackgroundZoom()
     result(true)
     onFinish()
+    callbacks.forEach { $0() }
   }
 
   #if DEBUG
