@@ -1,8 +1,8 @@
 # mjn_liquid_ui
 
 [![Platform](https://img.shields.io/badge/platform-iOS-lightgrey)](https://flutter.dev)
-[![Pub Version](https://img.shields.io/pub/v/mjn_liquid_ui)](https://pub.dev/packages/mjn_liquid_ui)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+[![Pub Version](https://img.shields.io/pub/v/mjn_liquid_ui)](https://pub.dev/packages/mjn_liquid_ui)
 
 A Flutter plugin for native-inspired liquid glass UI components, focused on iOS.
 
