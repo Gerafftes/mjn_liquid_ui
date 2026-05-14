@@ -1,9 +1,10 @@
-## Unreleased
+## 0.2.3
 
 - Added `AppleLiquidSheetController` for showing, dismissing, and tracking the
   native template sheet.
 - Added `AppleLiquidSheet.dismissTemplateSheet()` for dismissing the active
   native template sheet from Dart.
+- Added README badges and the widget/controller overview.
 
 ## 0.2.2
 

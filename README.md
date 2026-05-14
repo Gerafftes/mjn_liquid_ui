@@ -82,7 +82,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.2
+  mjn_liquid_ui: ^0.2.3
 ```
 
 Then import the package:
