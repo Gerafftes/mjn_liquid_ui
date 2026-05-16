@@ -38,15 +38,21 @@ structure.
 
 ## Icon support
 
-`AppleLiquidSymbol` renders standalone SF Symbols by name. For tab icons, pass
-SF Symbol names through `AppleLiquidTabItem.systemImage` and optionally
-`AppleLiquidTabItem.activeSystemImage`.
+`AppleLiquidSymbol` renders standalone SF Symbols by name. Use
+`AppleLiquidSymbolWeight` to select SF Symbol stroke weights such as
+`regular`, `semibold`, or `bold`. For tab icons, pass SF Symbol names through
+`AppleLiquidTabItem.systemImage` and optionally
+`AppleLiquidTabItem.activeSystemImage`; use `symbolWeight` and
+`activeSymbolWeight` when individual tab icons need different weights.
 
 | API | Source |
 | --- | --- |
 | `AppleLiquidSymbol('name')` | Standalone SF Symbol rendered by native iOS |
+| `AppleLiquidSymbol(weight: AppleLiquidSymbolWeight.bold)` | Optional SF Symbol stroke weight |
 | `AppleLiquidTabItem(systemImage: 'name')` | SF Symbol for tab bar items |
 | `AppleLiquidTabItem(activeSystemImage: 'name')` | Optional selected-state SF Symbol for tab bar items |
+| `AppleLiquidTabItem(symbolWeight: AppleLiquidSymbolWeight.regular)` | Optional inactive tab icon weight |
+| `AppleLiquidTabItem(activeSymbolWeight: AppleLiquidSymbolWeight.bold)` | Optional selected tab icon weight |
 | `fallbackIcon: Icons.example` | Flutter `IconData` fallback for unsupported platforms |
 
 ## Screenshots
@@ -82,7 +88,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.3
+  mjn_liquid_ui: ^0.2.4
 ```
 
 Then import the package:
@@ -104,6 +110,8 @@ AppleLiquidTabBar(
     AppleLiquidTabItem(
       title: 'Home',
       systemImage: 'house.fill',
+      symbolWeight: AppleLiquidSymbolWeight.regular,
+      activeSymbolWeight: AppleLiquidSymbolWeight.bold,
     ),
     AppleLiquidTabItem(
       title: 'Jobs',
@@ -167,6 +175,8 @@ Scaffold(
 `searchItem` is created as a separate native search-role tab.
 Use `selectedTintColor` to customize the selected icon and label tint while
 keeping the native Liquid Glass tab bar rendering intact.
+Use `symbolWeight` and `activeSymbolWeight` on `AppleLiquidTabItem` to tune the
+normal and selected SF Symbol stroke weights for individual icons.
 Set `notificationDotColor` on any `AppleLiquidTabItem` to show a notification
 dot on the icon. Add `notificationBadgeValue` to show text inside the badge.
 
@@ -206,6 +216,7 @@ const AppleLiquidSymbol(
   'sparkles',
   size: 32,
   color: Color(0xFF0EA5E9),
+  weight: AppleLiquidSymbolWeight.semibold,
   fallbackIcon: Icons.auto_awesome_rounded,
   semanticLabel: 'Highlights',
 )
@@ -213,7 +224,9 @@ const AppleLiquidSymbol(
 
 `AppleLiquidSymbol` renders the provided SF Symbol name natively on iOS and
 paints the result as a normal Flutter image. On unsupported platforms it uses
-`fallbackIcon` when provided.
+`fallbackIcon` when provided. The optional `weight` parameter supports
+`ultraLight`, `thin`, `light`, `regular`, `medium`, `semibold`, `bold`,
+`heavy`, and `black`.
 
 ### Liquid glass surface
 
@@ -280,6 +293,9 @@ separate from detent restoration to avoid search-bar overshoot while typing.
   `Tab(..., role: .search)`.
 - SF Symbols names are passed through `systemImage` for tab items and through
   `AppleLiquidSymbol.name` for standalone symbols.
+- SF Symbol weights are optional and use native `UIImage.SymbolConfiguration`
+  for standalone symbols. Tabbar weights are passed to native tab labels and
+  may still be influenced by iOS tab bar styling.
 - Liquid Glass appearance depends on the iOS and Xcode versions used to build
   and run the app. Unsupported iOS versions may display a simpler fallback
   surface.

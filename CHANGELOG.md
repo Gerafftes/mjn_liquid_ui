@@ -1,3 +1,7 @@
+## 0.2.4
+
+- Added configurable SF Symbol weights for standalone symbols and tab icons.
+
 ## 0.2.3
 
 - Added `AppleLiquidSheetController` for showing, dismissing, and tracking the

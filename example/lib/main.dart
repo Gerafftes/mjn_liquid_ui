@@ -161,11 +161,20 @@ class _DemoScaffold extends StatelessWidget {
                 AppleLiquidTabItem(
                   title: 'Tabs',
                   systemImage: 'square.grid.2x2.fill',
+                  symbolWeight: AppleLiquidSymbolWeight.regular,
+                  activeSymbolWeight: AppleLiquidSymbolWeight.bold,
                 ),
-                AppleLiquidTabItem(title: 'Switch', systemImage: 'switch.2'),
+                AppleLiquidTabItem(
+                  title: 'Switch',
+                  systemImage: 'switch.2',
+                  symbolWeight: AppleLiquidSymbolWeight.medium,
+                  activeSymbolWeight: AppleLiquidSymbolWeight.bold,
+                ),
                 AppleLiquidTabItem(
                   title: 'Slider',
                   systemImage: 'slider.horizontal.3',
+                  symbolWeight: AppleLiquidSymbolWeight.regular,
+                  activeSymbolWeight: AppleLiquidSymbolWeight.semibold,
                   notificationDotColor: Color(0xFF007AFF),
                   notificationBadgeValue: '3',
                 ),
@@ -173,6 +182,8 @@ class _DemoScaffold extends StatelessWidget {
               searchItem: const AppleLiquidTabItem(
                 title: 'Surface',
                 systemImage: 'plus',
+                symbolWeight: AppleLiquidSymbolWeight.regular,
+                activeSymbolWeight: AppleLiquidSymbolWeight.bold,
                 isSearch: true,
               ),
             ),
@@ -241,6 +252,7 @@ class _TabbarDemoPage extends StatelessWidget {
                   'sparkles',
                   size: 36,
                   color: Color(0xFF0EA5E9),
+                  weight: AppleLiquidSymbolWeight.semibold,
                   fallbackIcon: Icons.auto_awesome_rounded,
                   semanticLabel: 'Sparkles',
                 ),
@@ -392,48 +404,56 @@ class _SymbolGrid extends StatelessWidget {
         _SymbolSample(
           name: 'sparkles',
           size: 18,
+          weight: AppleLiquidSymbolWeight.ultraLight,
           color: Color(0xFF0EA5E9),
           fallbackIcon: Icons.auto_awesome_rounded,
         ),
         _SymbolSample(
           name: 'bell.fill',
           size: 24,
+          weight: AppleLiquidSymbolWeight.light,
           color: Color(0xFFF59E0B),
           fallbackIcon: Icons.notifications_rounded,
         ),
         _SymbolSample(
           name: 'creditcard.fill',
           size: 28,
+          weight: AppleLiquidSymbolWeight.regular,
           color: Color(0xFF8B5CF6),
           fallbackIcon: Icons.credit_card_rounded,
         ),
         _SymbolSample(
           name: 'checkmark.seal.fill',
           size: 32,
+          weight: AppleLiquidSymbolWeight.medium,
           color: Color(0xFF22C55E),
           fallbackIcon: Icons.verified_rounded,
         ),
         _SymbolSample(
           name: 'storefront.fill',
           size: 40,
+          weight: AppleLiquidSymbolWeight.semibold,
           color: Color(0xFFF97316),
           fallbackIcon: Icons.storefront_rounded,
         ),
         _SymbolSample(
           name: 'person.crop.circle.fill',
           size: 48,
+          weight: AppleLiquidSymbolWeight.bold,
           color: Color(0xFFEC4899),
           fallbackIcon: Icons.account_circle_rounded,
         ),
         _SymbolSample(
           name: 'headphones',
           size: 56,
+          weight: AppleLiquidSymbolWeight.heavy,
           color: Color(0xFF14B8A6),
           fallbackIcon: Icons.headphones_rounded,
         ),
         _SymbolSample(
           name: 'circle.grid.3x3.fill',
           size: 64,
+          weight: AppleLiquidSymbolWeight.black,
           color: Color(0xFF6366F1),
           fallbackIcon: Icons.apps_rounded,
         ),
@@ -446,12 +466,14 @@ class _SymbolSample extends StatelessWidget {
   const _SymbolSample({
     required this.name,
     required this.size,
+    required this.weight,
     required this.color,
     required this.fallbackIcon,
   });
 
   final String name;
   final double size;
+  final AppleLiquidSymbolWeight weight;
   final Color color;
   final IconData fallbackIcon;
 
@@ -471,6 +493,7 @@ class _SymbolSample extends StatelessWidget {
                 name,
                 size: size,
                 color: color,
+                weight: weight,
                 fallbackIcon: fallbackIcon,
                 semanticLabel: name,
               ),
@@ -485,7 +508,9 @@ class _SymbolSample extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            '${size.round()} px',
+            '${size.round()} px / ${weight.platformValue}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: Theme.of(
               context,
             ).textTheme.labelSmall?.copyWith(color: color),

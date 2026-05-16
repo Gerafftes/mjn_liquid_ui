@@ -19,6 +19,8 @@ void main() {
       title: 'Search',
       systemImage: 'plus',
       activeSystemImage: 'plus.circle.fill',
+      symbolWeight: AppleLiquidSymbolWeight.regular,
+      activeSymbolWeight: AppleLiquidSymbolWeight.bold,
       isSearch: true,
       notificationDotColor: Color(0xFFEF4444),
       notificationBadgeValue: '3',
@@ -28,6 +30,8 @@ void main() {
       'title': 'Search',
       'systemImage': 'plus',
       'activeSystemImage': 'plus.circle.fill',
+      'symbolWeight': 'regular',
+      'activeSymbolWeight': 'bold',
       'isSearch': true,
       'notificationDotColor': 0xFFEF4444,
       'notificationBadgeValue': '3',
@@ -137,6 +141,7 @@ void main() {
               'sparkles',
               size: 32,
               color: Color(0xFF0EA5E9),
+              weight: AppleLiquidSymbolWeight.semibold,
               fallbackIcon: Icons.auto_awesome_rounded,
               semanticLabel: 'Highlights',
             ),
@@ -150,6 +155,7 @@ void main() {
 
       expect(icon.size, 32);
       expect(icon.color, const Color(0xFF0EA5E9));
+      expect(icon.weight, AppleLiquidSymbolWeight.semibold.fallbackIconWeight);
       expect(icon.semanticLabel, 'Highlights');
     } finally {
       debugDefaultTargetPlatformOverride = null;
@@ -176,6 +182,7 @@ void main() {
                 'sparkles',
                 size: 32,
                 color: Color(0xFF0EA5E9),
+                weight: AppleLiquidSymbolWeight.heavy,
                 fallbackIcon: Icons.auto_awesome_rounded,
               ),
             ),
@@ -190,6 +197,7 @@ void main() {
         expect(calls.single.arguments, containsPair('name', 'sparkles'));
         expect(calls.single.arguments, containsPair('size', 32.0));
         expect(calls.single.arguments, containsPair('color', 0xFF0EA5E9));
+        expect(calls.single.arguments, containsPair('weight', 'heavy'));
       } finally {
         debugDefaultTargetPlatformOverride = null;
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

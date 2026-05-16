@@ -46,7 +46,7 @@ final class AppleLiquidTabbarUIKitFallbackView: UIView {
     for (index, item) in model.allItems.enumerated() {
       let button = UIButton(type: .system)
       button.setImage(
-        UIImage(systemName: model.systemImage(for: item, index: index)),
+        image(for: item, index: index),
         for: .normal
       )
       button.setTitle(item.title, for: .normal)
@@ -61,6 +61,18 @@ final class AppleLiquidTabbarUIKitFallbackView: UIView {
       addNotificationDotIfNeeded(to: button, item: item)
       stackView.addArrangedSubview(button)
     }
+  }
+
+  private func image(for item: AppleLiquidTabbarItem, index: Int) -> UIImage? {
+    let systemImage = model.systemImage(for: item, index: index)
+    guard let weight = AppleLiquidSymbolWeight.imageWeight(
+      model.symbolWeight(for: item, index: index)
+    ) else {
+      return UIImage(systemName: systemImage)
+    }
+
+    let configuration = UIImage.SymbolConfiguration(pointSize: 24, weight: weight)
+    return UIImage(systemName: systemImage, withConfiguration: configuration)
   }
 
   private func addNotificationDotIfNeeded(
