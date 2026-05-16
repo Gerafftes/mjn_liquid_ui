@@ -171,7 +171,10 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
   }
 
   Widget _fallbackIconFor(AppleLiquidTabItem item, {required bool isSelected}) {
-    final Icon icon = Icon(_fallbackIconDataFor(item, isSelected: isSelected));
+    final Icon icon = Icon(
+      _fallbackIconDataFor(item, isSelected: isSelected),
+      weight: _fallbackIconWeightFor(item, isSelected: isSelected),
+    );
     final Color? dotColor = item.notificationDotColor;
 
     if (dotColor == null) {
@@ -248,5 +251,16 @@ class _AppleLiquidTabBarFallback extends StatelessWidget {
       return Icons.settings_rounded;
     }
     return Icons.circle_outlined;
+  }
+
+  double? _fallbackIconWeightFor(
+    AppleLiquidTabItem item, {
+    required bool isSelected,
+  }) {
+    if (isSelected) {
+      return (item.activeSymbolWeight ?? item.symbolWeight)?.fallbackIconWeight;
+    }
+
+    return item.symbolWeight?.fallbackIconWeight;
   }
 }

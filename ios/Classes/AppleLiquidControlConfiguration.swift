@@ -71,6 +71,7 @@ struct AppleLiquidSymbolConfiguration {
   let pointSize: CGFloat
   let scale: CGFloat
   let tintColor: Int?
+  let weight: String?
 
   init(arguments: Any?) {
     let dictionary = arguments as? [String: Any] ?? [:]
@@ -84,5 +85,6 @@ struct AppleLiquidSymbolConfiguration {
       CGFloat(AppleLiquidSliderConfiguration.doubleValue(dictionary["scale"]) ?? 1)
     )
     tintColor = AppleLiquidTabbarConfiguration.intValue(dictionary["color"])
+    weight = dictionary["weight"] as? String
   }
 }

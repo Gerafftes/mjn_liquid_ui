@@ -48,6 +48,14 @@ final class AppleLiquidTabbarModel: ObservableObject {
     return item.systemImage
   }
 
+  func symbolWeight(for item: AppleLiquidTabbarItem, index: Int) -> String? {
+    if selectedIndex == index {
+      return item.activeSymbolWeight ?? item.symbolWeight
+    }
+
+    return item.symbolWeight
+  }
+
   func setSelectedIndex(_ index: Int, notifyFlutter: Bool) {
     let nextIndex = clampedIndex(index)
 

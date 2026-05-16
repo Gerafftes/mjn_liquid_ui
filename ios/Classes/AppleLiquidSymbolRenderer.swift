@@ -15,9 +15,17 @@ enum AppleLiquidSymbolRenderer {
   private static func render(
     configuration: AppleLiquidSymbolConfiguration
   ) -> FlutterStandardTypedData? {
-    let symbolConfiguration = UIImage.SymbolConfiguration(
-      pointSize: configuration.pointSize
-    )
+    let symbolConfiguration: UIImage.SymbolConfiguration
+    if let weight = AppleLiquidSymbolWeight.imageWeight(configuration.weight) {
+      symbolConfiguration = UIImage.SymbolConfiguration(
+        pointSize: configuration.pointSize,
+        weight: weight
+      )
+    } else {
+      symbolConfiguration = UIImage.SymbolConfiguration(
+        pointSize: configuration.pointSize
+      )
+    }
     guard let symbol = UIImage(
       systemName: configuration.name,
       withConfiguration: symbolConfiguration

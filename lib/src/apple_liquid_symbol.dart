@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_symbol_weight.dart';
+
 /// Renders an SF Symbol by name on iOS.
 ///
 /// The symbol shape is still produced by native `UIImage(systemName:)`, but the
@@ -15,6 +17,7 @@ class AppleLiquidSymbol extends StatelessWidget {
     super.key,
     this.size = 24,
     this.color,
+    this.weight,
     this.fallbackIcon,
     this.semanticLabel,
   }) : assert(name.length > 0),
@@ -36,6 +39,13 @@ class AppleLiquidSymbol extends StatelessWidget {
 
   /// Optional tint color for the rendered symbol.
   final Color? color;
+
+  /// Optional SF Symbol stroke weight used by native iOS rendering.
+  ///
+  /// When null, iOS uses the symbol's default weight for the requested point
+  /// size. Unsupported-platform icon fallbacks map this to Flutter's variable
+  /// icon weight when the fallback icon font supports it.
+  final AppleLiquidSymbolWeight? weight;
 
   /// Optional Flutter icon used when the platform cannot render SF Symbols.
   final IconData? fallbackIcon;
@@ -67,6 +77,7 @@ class AppleLiquidSymbol extends StatelessWidget {
       name: name,
       size: size,
       color: effectiveColor?.toARGB32(),
+      weight: weight?.platformValue,
       devicePixelRatio: devicePixelRatio,
     );
 
@@ -117,6 +128,7 @@ class AppleLiquidSymbol extends StatelessWidget {
       fallbackIcon,
       size: size,
       color: effectiveColor,
+      weight: weight?.fallbackIconWeight,
       semanticLabel: semanticLabel,
     );
   }
@@ -141,6 +153,7 @@ class AppleLiquidSymbol extends StatelessWidget {
               'size': cacheKey.size,
               'scale': cacheKey.devicePixelRatio,
               'color': cacheKey.color,
+              'weight': cacheKey.weight,
             });
 
         if (bytes == null || bytes.isEmpty) {
@@ -167,12 +180,14 @@ class _AppleLiquidSymbolCacheKey {
     required this.name,
     required this.size,
     required this.color,
+    required this.weight,
     required this.devicePixelRatio,
   });
 
   final String name;
   final double size;
   final int? color;
+  final String? weight;
   final double devicePixelRatio;
 
   @override
@@ -181,9 +196,10 @@ class _AppleLiquidSymbolCacheKey {
         other.name == name &&
         other.size == size &&
         other.color == color &&
+        other.weight == weight &&
         other.devicePixelRatio == devicePixelRatio;
   }
 
   @override
-  int get hashCode => Object.hash(name, size, color, devicePixelRatio);
+  int get hashCode => Object.hash(name, size, color, weight, devicePixelRatio);
 }
