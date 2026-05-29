@@ -2,7 +2,7 @@ PODS:
   - Flutter (1.0.0)
   - integration_test (0.0.1):
     - Flutter
-  - mjn_liquid_ui (0.2.4):
+  - mjn_liquid_ui (0.2.5):
     - Flutter
 
 DEPENDENCIES:
@@ -21,7 +21,7 @@ EXTERNAL SOURCES:
 SPEC CHECKSUMS:
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   integration_test: 4a889634ef21a45d28d50d622cf412dc6d9f586e
-  mjn_liquid_ui: 60174c10d8ee10442f808cf4f6916aa83114aaa8
+  mjn_liquid_ui: 6062ea53c23ad1093a2cbc2d98eb367cd6799800
 
 PODFILE CHECKSUM: 1857a7cdb7dfafe45f2b0e9a9af44644190f7506
 

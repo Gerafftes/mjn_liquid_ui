@@ -28,7 +28,7 @@ void main() {
     expect(find.text('Surface'), findsOneWidget);
   });
 
-  testWidgets('opens and closes the template sheet demo', (
+  testWidgets('opens and closes the settings sheet demo', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -37,8 +37,8 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Templates'), findsOneWidget);
-    expect(find.text('Search templates'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('Component'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
 
@@ -46,6 +46,6 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Templates'), findsNothing);
+    expect(find.text('Settings'), findsNothing);
   });
 }
