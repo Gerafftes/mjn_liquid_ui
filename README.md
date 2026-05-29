@@ -19,8 +19,8 @@ structure.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
 - Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
-  settings sheet, preview/settings content, medium and large detents, optional
-  background color, and background zoom.
+  sheet, customizable Dart-provided form content, content-sized detents,
+  optional background color, and background zoom.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
@@ -89,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.5
+  mjn_liquid_ui: ^0.2.6
 ```
 
 Then import the package:
@@ -249,16 +249,63 @@ buttons or other tappable Flutter children.
 
 ### Native sheet
 
-`AppleLiquidSheet` presents a native iOS sheet from Flutter. The current
-reference sheet mirrors a Liquid Glass SwiftUI `NavigationStack` with `Form`
-content, preview/settings rows, medium and large detents, and optional
-background zoom on the presenting page. The sheet uses native form navigation
-for detail rows and a checkmark toolbar action to dismiss.
+`AppleLiquidSheet` presents a native iOS sheet from Flutter. The sheet renders a
+Liquid Glass SwiftUI `NavigationStack` with `Form` content, a content-sized
+detent, optional background zoom on the presenting page, and a checkmark toolbar
+action to dismiss.
+
+Pass `AppleLiquidSheetContent` to customize the native form. The content model
+supports sections plus text, value, toggle, picker, text-field, and nested
+navigation rows. Toggle, picker, and text-field state stays local to the native
+sheet while it is presented.
 
 ```dart
-final bool didShow = await AppleLiquidSheet.showTemplateSheet(
+final AppleLiquidSheetContent content = AppleLiquidSheetContent(
+  title: 'Project',
+  doneSemanticLabel: 'Close sheet',
+  sections: <AppleLiquidSheetSection>[
+    AppleLiquidSheetSection(
+      title: 'Overview',
+      rows: <AppleLiquidSheetRow>[
+        AppleLiquidSheetRow.value(
+          title: 'Package',
+          value: 'mjn_liquid_ui',
+          systemImage: 'shippingbox.fill',
+        ),
+        AppleLiquidSheetRow.toggle(
+          title: 'Background zoom',
+          value: true,
+        ),
+        AppleLiquidSheetRow.picker(
+          title: 'Theme',
+          options: <String>['Auto', 'Light', 'Dark'],
+          selectedOption: 'Auto',
+        ),
+        AppleLiquidSheetRow.navigation(
+          title: 'Details',
+          content: AppleLiquidSheetContent(
+            title: 'Details',
+            sections: <AppleLiquidSheetSection>[
+              AppleLiquidSheetSection(
+                rows: <AppleLiquidSheetRow>[
+                  AppleLiquidSheetRow.text(
+                    title: 'Rendered natively',
+                    subtitle: 'This page is a SwiftUI Form pushed from Dart.',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ],
+);
+
+final bool didShow = await AppleLiquidSheet.showSheet(
   backgroundZoomScale: 0.94,
   sheetColor: const Color(0xFFEAF3FF),
+  content: content,
 );
 ```
 
@@ -270,9 +317,10 @@ final AppleLiquidSheetController sheetController =
     AppleLiquidSheetController(
   backgroundZoomScale: 0.94,
   sheetColor: null,
+  content: content,
 );
 
-final bool didShow = await sheetController.showTemplateSheet();
+final bool didShow = await sheetController.showSheet();
 await sheetController.dismiss();
 ```
 
@@ -285,9 +333,13 @@ fallback.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 
-The iOS implementation uses SwiftUI system sheet detents and hides the form
-scroll background in the partial detent so the Liquid Glass sheet remains
-visible behind the form content.
+The iOS implementation uses a single SwiftUI content-sized sheet detent instead
+of a `.large` expansion target. The estimated height is derived from the active
+form content and updates for nested navigation screens. The form scroll
+background stays hidden so the Liquid Glass sheet remains visible behind the
+form content.
+`showTemplateSheet()` and `AppleLiquidSheetController.showTemplateSheet()` are
+kept as compatibility aliases for older code.
 The earlier bottom search bar option has been removed from the sheet API.
 
 ## iOS notes

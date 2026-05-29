@@ -38,6 +38,95 @@ void main() {
     });
   });
 
+  test('AppleLiquidSheetContent serializes to platform arguments', () {
+    const AppleLiquidSheetContent content = AppleLiquidSheetContent(
+      title: 'Project',
+      doneSemanticLabel: 'Close sheet',
+      sections: <AppleLiquidSheetSection>[
+        AppleLiquidSheetSection(
+          title: 'Overview',
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.value(
+              title: 'Name',
+              value: 'mjn_liquid_ui',
+              systemImage: 'shippingbox.fill',
+            ),
+            AppleLiquidSheetRow.toggle(title: 'Enabled', value: true),
+            AppleLiquidSheetRow.picker(
+              title: 'Theme',
+              options: <String>['Auto', 'Light', 'Dark'],
+              selectedOption: 'Auto',
+            ),
+            AppleLiquidSheetRow.navigation(
+              title: 'Details',
+              content: AppleLiquidSheetContent(
+                title: 'Details',
+                sections: <AppleLiquidSheetSection>[
+                  AppleLiquidSheetSection(
+                    rows: <AppleLiquidSheetRow>[
+                      AppleLiquidSheetRow.textField(
+                        title: 'Label',
+                        value: 'Liquid',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(content.toMap(), <String, Object?>{
+      'title': 'Project',
+      'doneSemanticLabel': 'Close sheet',
+      'sections': <Object?>[
+        <String, Object?>{
+          'title': 'Overview',
+          'rows': <Object?>[
+            <String, Object?>{
+              'type': 'value',
+              'title': 'Name',
+              'value': 'mjn_liquid_ui',
+              'systemImage': 'shippingbox.fill',
+            },
+            <String, Object?>{
+              'type': 'toggle',
+              'title': 'Enabled',
+              'boolValue': true,
+            },
+            <String, Object?>{
+              'type': 'picker',
+              'title': 'Theme',
+              'options': <String>['Auto', 'Light', 'Dark'],
+              'selectedOption': 'Auto',
+            },
+            <String, Object?>{
+              'type': 'navigation',
+              'title': 'Details',
+              'content': <String, Object?>{
+                'title': 'Details',
+                'doneSemanticLabel': 'Done',
+                'sections': <Object?>[
+                  <String, Object?>{
+                    'rows': <Object?>[
+                      <String, Object?>{
+                        'type': 'textField',
+                        'title': 'Label',
+                        'value': 'Liquid',
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    });
+  });
+
   test('AppleLiquidSheet returns false outside iOS', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
 
@@ -80,10 +169,21 @@ void main() {
 
     final Completer<bool> showCompleter = Completer<bool>();
     final List<MethodCall> calls = <MethodCall>[];
+    const AppleLiquidSheetContent content = AppleLiquidSheetContent(
+      title: 'Project',
+      sections: <AppleLiquidSheetSection>[
+        AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.value(title: 'Name', value: 'mjn_liquid_ui'),
+          ],
+        ),
+      ],
+    );
     final AppleLiquidSheetController controller = AppleLiquidSheetController(
       heightFraction: 0.72,
       backgroundZoomScale: 0.94,
       sheetColor: const Color(0xFFEAF3FF),
+      content: content,
     );
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -104,7 +204,7 @@ void main() {
         });
 
     try {
-      final Future<bool> showFuture = controller.showTemplateSheet();
+      final Future<bool> showFuture = controller.showSheet();
       await Future<void>.delayed(Duration.zero);
 
       expect(controller.isShowing, isTrue);
@@ -114,6 +214,7 @@ void main() {
       expect(calls.single.arguments, containsPair('heightFraction', 0.72));
       expect(calls.single.arguments, containsPair('backgroundZoomScale', 0.94));
       expect(calls.single.arguments, containsPair('sheetColor', 0xFFEAF3FF));
+      expect(calls.single.arguments, containsPair('content', content.toMap()));
 
       expect(await controller.dismiss(), isTrue);
       expect(await showFuture, isTrue);

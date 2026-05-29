@@ -130,6 +130,7 @@ enum AppleLiquidSheetPresenter {
 private struct AppleLiquidSheetConfiguration {
   let backgroundZoomScale: CGFloat
   let sheetColor: Int?
+  let content: AppleLiquidSheetContentConfiguration
 
   init(arguments: Any?) {
     let arguments = arguments as? [String: Any]
@@ -141,6 +142,9 @@ private struct AppleLiquidSheetConfiguration {
     )
     self.sheetColor = AppleLiquidTabbarConfiguration.intValue(
       arguments?["sheetColor"]
+    )
+    self.content = AppleLiquidSheetContentConfiguration(
+      value: arguments?["content"]
     )
   }
 
@@ -188,6 +192,563 @@ private struct AppleLiquidSheetConfiguration {
     }
 
     return resolvedSheetColor.appleLiquidPrefersDarkColorScheme ? .dark : .light
+  }
+}
+
+private struct AppleLiquidSheetContentConfiguration {
+  let title: String
+  let doneAccessibilityLabel: String
+  let sections: [AppleLiquidSheetSectionConfiguration]
+
+  init(value: Any?, fallbackTitle: String = "Settings") {
+    guard let dictionary = value as? [String: Any] else {
+      self = Self.defaultContent
+      return
+    }
+
+    let title = Self.nonEmptyString(
+      dictionary["title"],
+      defaultValue: fallbackTitle
+    )
+    let doneAccessibilityLabel = Self.nonEmptyString(
+      dictionary["doneSemanticLabel"],
+      defaultValue: "Done"
+    )
+    let sections = (dictionary["sections"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { index, value in
+        AppleLiquidSheetSectionConfiguration(
+          value: value,
+          index: index
+        )
+      }
+
+    self.init(
+      title: title,
+      doneAccessibilityLabel: doneAccessibilityLabel,
+      sections: sections.isEmpty ? Self.defaultContent.sections : sections
+    )
+  }
+
+  private init(
+    title: String,
+    doneAccessibilityLabel: String,
+    sections: [AppleLiquidSheetSectionConfiguration]
+  ) {
+    self.title = title
+    self.doneAccessibilityLabel = doneAccessibilityLabel
+    self.sections = sections
+  }
+
+  private static func nonEmptyString(
+    _ value: Any?,
+    defaultValue: String
+  ) -> String {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return defaultValue
+    }
+
+    return string
+  }
+
+  var preferredDetentHeight: CGFloat {
+    let navigationChromeHeight: CGFloat = 92
+    let sectionHeaderHeight = sections.reduce(CGFloat.zero) { partial, section in
+      partial + (section.title == nil ? 12 : 34)
+    }
+    let sectionSpacing = CGFloat(max(sections.count - 1, 0)) * 12
+    let rowHeight = sections.reduce(CGFloat.zero) { partial, section in
+      partial + section.estimatedHeight
+    }
+
+    return Self.normalizedDetentHeight(
+      navigationChromeHeight + sectionHeaderHeight + sectionSpacing + rowHeight
+    )
+  }
+
+  static func normalizedDetentHeight(_ height: CGFloat) -> CGFloat {
+    let screenHeight = UIScreen.main.bounds.height
+    let screenBoundedMaximum = max(320, screenHeight * 0.82)
+    let maximumHeight = min(700, screenBoundedMaximum)
+    return min(max(height.rounded(.up), 240), maximumHeight)
+  }
+
+  static let defaultContent = AppleLiquidSheetContentConfiguration(
+    title: "Settings",
+    doneAccessibilityLabel: "Done",
+    sections: [
+      AppleLiquidSheetSectionConfiguration(
+        id: "default-overview",
+        title: "Overview",
+        rows: [
+          AppleLiquidSheetRowConfiguration.value(
+            id: "default-component",
+            title: "Component",
+            value: "Liquid Sheet"
+          ),
+          AppleLiquidSheetRowConfiguration.value(
+            id: "default-mode",
+            title: "Mode",
+            value: "Navigation Form"
+          ),
+          AppleLiquidSheetRowConfiguration.navigation(
+            id: "default-preview-link",
+            title: "Preview details",
+            content: AppleLiquidSheetContentConfiguration(
+              title: "Preview",
+              doneAccessibilityLabel: "Done",
+              sections: [
+                AppleLiquidSheetSectionConfiguration(
+                  id: "default-preview",
+                  title: "Preview",
+                  rows: [
+                    AppleLiquidSheetRowConfiguration.textField(
+                      id: "default-preview-title",
+                      title: "Title",
+                      value: "Sheet Preview"
+                    ),
+                    AppleLiquidSheetRowConfiguration.textField(
+                      id: "default-preview-owner",
+                      title: "Owner",
+                      value: "Design Team"
+                    ),
+                  ]
+                ),
+                AppleLiquidSheetSectionConfiguration(
+                  id: "default-preview-context",
+                  title: "Context",
+                  rows: [
+                    AppleLiquidSheetRowConfiguration.value(
+                      id: "default-preview-surface",
+                      title: "Surface",
+                      value: "Form"
+                    ),
+                    AppleLiquidSheetRowConfiguration.value(
+                      id: "default-preview-detents",
+                      title: "Detents",
+                      value: "Content-sized"
+                    ),
+                  ]
+                ),
+              ]
+            )
+          ),
+        ]
+      ),
+      AppleLiquidSheetSectionConfiguration(
+        id: "default-appearance",
+        title: "Appearance",
+        rows: [
+          AppleLiquidSheetRowConfiguration.toggle(
+            id: "default-liquid-glass",
+            title: "Liquid Glass",
+            value: true
+          ),
+          AppleLiquidSheetRowConfiguration.toggle(
+            id: "default-reduce-motion",
+            title: "Reduce motion",
+            value: false
+          ),
+          AppleLiquidSheetRowConfiguration.picker(
+            id: "default-accent",
+            title: "Accent",
+            options: ["Blue", "Teal", "Graphite"],
+            selectedOption: "Blue"
+          ),
+        ]
+      ),
+      AppleLiquidSheetSectionConfiguration(
+        id: "default-updates",
+        title: "Updates",
+        rows: [
+          AppleLiquidSheetRowConfiguration.picker(
+            id: "default-refresh",
+            title: "Refresh",
+            options: ["Manual", "Daily", "Weekly"],
+            selectedOption: "Daily"
+          ),
+          AppleLiquidSheetRowConfiguration.navigation(
+            id: "default-rules-link",
+            title: "Notification rules",
+            content: AppleLiquidSheetContentConfiguration(
+              title: "Rules",
+              doneAccessibilityLabel: "Done",
+              sections: [
+                AppleLiquidSheetSectionConfiguration(
+                  id: "default-rules",
+                  title: "Rules",
+                  rows: [
+                    AppleLiquidSheetRowConfiguration.toggle(
+                      id: "default-critical-updates",
+                      title: "Critical updates",
+                      value: true
+                    ),
+                    AppleLiquidSheetRowConfiguration.toggle(
+                      id: "default-weekly-digest",
+                      title: "Weekly digest",
+                      value: false
+                    ),
+                  ]
+                ),
+                AppleLiquidSheetSectionConfiguration(
+                  id: "default-routing",
+                  title: "Routing",
+                  rows: [
+                    AppleLiquidSheetRowConfiguration.value(
+                      id: "default-channel",
+                      title: "Channel",
+                      value: "In-app"
+                    ),
+                    AppleLiquidSheetRowConfiguration.value(
+                      id: "default-priority",
+                      title: "Priority",
+                      value: "Normal"
+                    ),
+                  ]
+                ),
+              ]
+            )
+          ),
+        ]
+      ),
+      AppleLiquidSheetSectionConfiguration(
+        id: "default-metadata",
+        title: "Metadata",
+        rows: [
+          AppleLiquidSheetRowConfiguration.value(
+            id: "default-platform",
+            title: "Platform",
+            value: "iOS"
+          ),
+          AppleLiquidSheetRowConfiguration.value(
+            id: "default-status",
+            title: "Status",
+            value: "Prototype"
+          ),
+        ]
+      ),
+    ]
+  )
+}
+
+private struct AppleLiquidSheetSectionConfiguration: Identifiable {
+  let id: String
+  let title: String?
+  let rows: [AppleLiquidSheetRowConfiguration]
+
+  init?(value: Any?, index: Int) {
+    guard let dictionary = value as? [String: Any] else {
+      return nil
+    }
+
+    let rows = (dictionary["rows"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { rowIndex, value in
+        AppleLiquidSheetRowConfiguration(
+          value: value,
+          id: "section-\(index)-row-\(rowIndex)"
+        )
+      }
+
+    guard !rows.isEmpty else {
+      return nil
+    }
+
+    self.init(
+      id: "section-\(index)",
+      title: Self.optionalNonEmptyString(dictionary["title"]),
+      rows: rows
+    )
+  }
+
+  init(id: String, title: String?, rows: [AppleLiquidSheetRowConfiguration]) {
+    self.id = id
+    self.title = title
+    self.rows = rows
+  }
+
+  private static func optionalNonEmptyString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+
+  var estimatedHeight: CGFloat {
+    rows.reduce(CGFloat.zero) { partial, row in
+      partial + row.estimatedHeight
+    }
+  }
+}
+
+private enum AppleLiquidSheetRowKind: String {
+  case text
+  case value
+  case toggle
+  case picker
+  case navigation
+  case textField
+}
+
+private struct AppleLiquidSheetRowConfiguration: Identifiable {
+  let id: String
+  let kind: AppleLiquidSheetRowKind
+  let title: String
+  let subtitle: String?
+  let value: String?
+  let boolValue: Bool
+  let options: [String]
+  let selectedOption: String?
+  let content: AppleLiquidSheetContentConfiguration?
+  let systemImage: String?
+
+  init?(value: Any?, id: String) {
+    guard let dictionary = value as? [String: Any] else {
+      return nil
+    }
+
+    let kind = AppleLiquidSheetRowKind(
+      rawValue: Self.string(dictionary["type"], defaultValue: "text")
+    ) ?? .text
+    let title = Self.string(dictionary["title"], defaultValue: "Item")
+    let options = Self.stringArray(dictionary["options"])
+
+    if kind == .picker && options.isEmpty {
+      return nil
+    }
+
+    let content: AppleLiquidSheetContentConfiguration?
+    if kind == .navigation {
+      guard dictionary["content"] != nil else {
+        return nil
+      }
+
+      content = AppleLiquidSheetContentConfiguration(
+        value: dictionary["content"],
+        fallbackTitle: title
+      )
+    } else {
+      content = nil
+    }
+
+    self.id = id
+    self.kind = kind
+    self.title = title
+    self.subtitle = Self.optionalString(dictionary["subtitle"])
+    self.value = Self.optionalString(dictionary["value"])
+    self.boolValue = Self.bool(dictionary["boolValue"], defaultValue: false)
+    self.options = options
+    self.selectedOption = Self.optionalString(dictionary["selectedOption"])
+    self.content = content
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+  }
+
+  private init(
+    id: String,
+    kind: AppleLiquidSheetRowKind,
+    title: String,
+    subtitle: String? = nil,
+    value: String? = nil,
+    boolValue: Bool = false,
+    options: [String] = [],
+    selectedOption: String? = nil,
+    content: AppleLiquidSheetContentConfiguration? = nil,
+    systemImage: String? = nil
+  ) {
+    self.id = id
+    self.kind = kind
+    self.title = title
+    self.subtitle = subtitle
+    self.value = value
+    self.boolValue = boolValue
+    self.options = options
+    self.selectedOption = selectedOption
+    self.content = content
+    self.systemImage = systemImage
+  }
+
+  static func text(
+    id: String,
+    title: String,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .text,
+      title: title,
+      subtitle: subtitle,
+      systemImage: systemImage
+    )
+  }
+
+  static func value(
+    id: String,
+    title: String,
+    value: String,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .value,
+      title: title,
+      subtitle: subtitle,
+      value: value,
+      systemImage: systemImage
+    )
+  }
+
+  static func toggle(
+    id: String,
+    title: String,
+    value: Bool,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .toggle,
+      title: title,
+      subtitle: subtitle,
+      boolValue: value,
+      systemImage: systemImage
+    )
+  }
+
+  static func picker(
+    id: String,
+    title: String,
+    options: [String],
+    selectedOption: String? = nil,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .picker,
+      title: title,
+      subtitle: subtitle,
+      options: options,
+      selectedOption: selectedOption,
+      systemImage: systemImage
+    )
+  }
+
+  static func navigation(
+    id: String,
+    title: String,
+    content: AppleLiquidSheetContentConfiguration,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .navigation,
+      title: title,
+      subtitle: subtitle,
+      content: content,
+      systemImage: systemImage
+    )
+  }
+
+  static func textField(
+    id: String,
+    title: String,
+    value: String,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .textField,
+      title: title,
+      subtitle: subtitle,
+      value: value,
+      systemImage: systemImage
+    )
+  }
+
+  var resolvedSelectedOption: String {
+    if let selectedOption, options.contains(selectedOption) {
+      return selectedOption
+    }
+
+    return options.first ?? ""
+  }
+
+  var estimatedHeight: CGFloat {
+    let baseHeight: CGFloat
+
+    switch kind {
+    case .text:
+      baseHeight = subtitle == nil ? 48 : 68
+    case .value:
+      baseHeight = subtitle == nil ? 48 : 66
+    case .toggle:
+      baseHeight = subtitle == nil ? 50 : 68
+    case .picker:
+      baseHeight = subtitle == nil ? 50 : 68
+    case .navigation:
+      baseHeight = subtitle == nil ? 50 : 68
+    case .textField:
+      baseHeight = 54
+    }
+
+    return systemImage == nil ? baseHeight : max(baseHeight, 54)
+  }
+
+  private static func string(_ value: Any?, defaultValue: String) -> String {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return defaultValue
+    }
+
+    return string
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+
+  private static func stringArray(_ value: Any?) -> [String] {
+    guard let values = value as? [Any] else {
+      return []
+    }
+
+    return values.compactMap { value in
+      guard let string = value as? String,
+        !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      else {
+        return nil
+      }
+
+      return string
+    }
+  }
+
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
   }
 }
 
@@ -617,138 +1178,207 @@ private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
   let onFrameChange: (CGRect, CGRect) -> Void
   @Environment(\.dismiss) private var dismiss
-  @State private var currentDetent: PresentationDetent = .medium
-  @State private var liquidGlassEnabled = true
-  @State private var reduceMotion = false
-  @State private var updateCadence = "Daily"
-  @State private var accent = "Blue"
+  @State private var selectedDetent: PresentationDetent
+  @State private var contentDetentHeight: CGFloat
+
+  init(
+    configuration: AppleLiquidSheetConfiguration,
+    onFrameChange: @escaping (CGRect, CGRect) -> Void
+  ) {
+    self.configuration = configuration
+    self.onFrameChange = onFrameChange
+
+    let detentHeight = configuration.content.preferredDetentHeight
+    self._selectedDetent = State(initialValue: .height(detentHeight))
+    self._contentDetentHeight = State(initialValue: detentHeight)
+  }
 
   var body: some View {
     NavigationStack {
-      Form {
-        Section("Overview") {
-          LabeledContent("Component", value: "Liquid Sheet")
-          LabeledContent("Mode", value: "Navigation Form")
-          NavigationLink("Preview details") {
-            AppleLiquidPreviewDetailsView(currentDetent: currentDetent)
-          }
+      AppleLiquidSheetFormScreen(
+        content: configuration.content,
+        showsDoneButton: true,
+        onPreferredDetentHeightChange: setPreferredDetentHeight,
+        onDone: {
+          dismiss()
         }
-
-        Section("Appearance") {
-          Toggle("Liquid Glass", isOn: $liquidGlassEnabled)
-          Toggle("Reduce motion", isOn: $reduceMotion)
-          Picker("Accent", selection: $accent) {
-            ForEach(["Blue", "Teal", "Graphite"], id: \.self) { option in
-              Text(option)
-            }
-          }
-          .pickerStyle(.navigationLink)
-          .scrollContentBackground(formBackgroundVisibility)
-          .appleLiquidNavigationContainerBackground()
-        }
-
-        Section("Updates") {
-          Picker("Refresh", selection: $updateCadence) {
-            ForEach(["Manual", "Daily", "Weekly"], id: \.self) { option in
-              Text(option)
-            }
-          }
-          .pickerStyle(.navigationLink)
-          .scrollContentBackground(formBackgroundVisibility)
-          .appleLiquidNavigationContainerBackground()
-
-          NavigationLink("Notification rules") {
-            AppleLiquidNotificationRulesView(currentDetent: currentDetent)
-          }
-        }
-
-        Section("Metadata") {
-          LabeledContent("Platform", value: "iOS")
-          LabeledContent("Status", value: "Prototype")
-        }
-      }
-      .navigationTitle("Settings")
-      .toolbar {
-        ToolbarItem(placement: .confirmationAction) {
-          Button {
-            dismiss()
-          } label: {
-            Image(systemName: "checkmark")
-          }
-          .accessibilityLabel("Done")
-        }
-      }
-      .scrollContentBackground(formBackgroundVisibility)
+      )
     }
     .appleLiquidSheetBackground(
       configuration.resolvedSheetSwiftUIColor,
       isEnabled: configuration.sheetColor != nil
     )
     .appleLiquidColorScheme(configuration.resolvedSheetColorScheme)
-    .presentationDetents([.medium, .large], selection: $currentDetent)
+    .presentationDetents([contentDetent], selection: $selectedDetent)
+    .presentationDragIndicator(.visible)
     .background(
       AppleLiquidSheetFrameObserver(onFrameChange: onFrameChange)
     )
   }
 
-  private var formBackgroundVisibility: Visibility {
-    currentDetent == .medium ? .hidden : .automatic
+  private var contentDetent: PresentationDetent {
+    .height(contentDetentHeight)
+  }
+
+  private func setPreferredDetentHeight(_ height: CGFloat) {
+    let normalizedHeight = AppleLiquidSheetContentConfiguration
+      .normalizedDetentHeight(height)
+
+    guard abs(contentDetentHeight - normalizedHeight) > 0.5 else {
+      return
+    }
+
+    contentDetentHeight = normalizedHeight
+    selectedDetent = .height(normalizedHeight)
   }
 }
 
 @available(iOS 16.0, *)
-private struct AppleLiquidPreviewDetailsView: View {
-  let currentDetent: PresentationDetent
-  @State private var title = "Sheet Preview"
-  @State private var owner = "Design Team"
+private struct AppleLiquidSheetFormScreen: View {
+  let content: AppleLiquidSheetContentConfiguration
+  let showsDoneButton: Bool
+  let onPreferredDetentHeightChange: (CGFloat) -> Void
+  let onDone: (() -> Void)?
 
   var body: some View {
     Form {
-      Section("Preview") {
-        TextField("Title", text: $title)
-        TextField("Owner", text: $owner)
-      }
-
-      Section("Context") {
-        LabeledContent("Surface", value: "Form")
-        LabeledContent("Detents", value: "Medium + Large")
+      ForEach(content.sections) { section in
+        Section {
+          ForEach(section.rows) { row in
+            AppleLiquidSheetRowView(
+              row: row,
+              onPreferredDetentHeightChange: onPreferredDetentHeightChange
+            )
+          }
+        } header: {
+          if let title = section.title {
+            Text(title)
+          }
+        }
       }
     }
-    .navigationTitle("Preview")
+    .navigationTitle(content.title)
+    .toolbar {
+      if showsDoneButton {
+        ToolbarItem(placement: .confirmationAction) {
+          Button {
+            onDone?()
+          } label: {
+            Image(systemName: "checkmark")
+          }
+          .accessibilityLabel(content.doneAccessibilityLabel)
+        }
+      }
+    }
     .scrollContentBackground(formBackgroundVisibility)
     .appleLiquidNavigationContainerBackground()
+    .onAppear {
+      onPreferredDetentHeightChange(content.preferredDetentHeight)
+    }
   }
 
   private var formBackgroundVisibility: Visibility {
-    currentDetent == .medium ? .hidden : .automatic
+    .hidden
   }
 }
 
 @available(iOS 16.0, *)
-private struct AppleLiquidNotificationRulesView: View {
-  let currentDetent: PresentationDetent
-  @State private var criticalUpdates = true
-  @State private var weeklyDigest = false
+private struct AppleLiquidSheetRowView: View {
+  let row: AppleLiquidSheetRowConfiguration
+  let onPreferredDetentHeightChange: (CGFloat) -> Void
+  @State private var toggleValue: Bool
+  @State private var pickerSelection: String
+  @State private var textValue: String
 
+  init(
+    row: AppleLiquidSheetRowConfiguration,
+    onPreferredDetentHeightChange: @escaping (CGFloat) -> Void
+  ) {
+    self.row = row
+    self.onPreferredDetentHeightChange = onPreferredDetentHeightChange
+    self._toggleValue = State(initialValue: row.boolValue)
+    self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
+    self._textValue = State(initialValue: row.value ?? "")
+  }
+
+  @ViewBuilder
   var body: some View {
-    Form {
-      Section("Rules") {
-        Toggle("Critical updates", isOn: $criticalUpdates)
-        Toggle("Weekly digest", isOn: $weeklyDigest)
+    switch row.kind {
+    case .text:
+      AppleLiquidSheetRowLabel(row: row)
+
+    case .value:
+      LabeledContent {
+        Text(row.value ?? "")
+      } label: {
+        AppleLiquidSheetRowLabel(row: row)
       }
 
-      Section("Routing") {
-        LabeledContent("Channel", value: "In-app")
-        LabeledContent("Priority", value: "Normal")
+    case .toggle:
+      Toggle(isOn: $toggleValue) {
+        AppleLiquidSheetRowLabel(row: row)
       }
+
+    case .picker:
+      Picker(selection: $pickerSelection) {
+        ForEach(row.options, id: \.self) { option in
+          Text(option)
+        }
+      } label: {
+        AppleLiquidSheetRowLabel(row: row)
+      }
+      .pickerStyle(.navigationLink)
+      .scrollContentBackground(formBackgroundVisibility)
+      .appleLiquidNavigationContainerBackground()
+
+    case .navigation:
+      if let content = row.content {
+        NavigationLink {
+          AppleLiquidSheetFormScreen(
+            content: content,
+            showsDoneButton: false,
+            onPreferredDetentHeightChange: onPreferredDetentHeightChange,
+            onDone: nil
+          )
+        } label: {
+          AppleLiquidSheetRowLabel(row: row)
+        }
+      }
+
+    case .textField:
+      TextField(row.title, text: $textValue)
     }
-    .navigationTitle("Rules")
-    .scrollContentBackground(formBackgroundVisibility)
-    .appleLiquidNavigationContainerBackground()
   }
 
   private var formBackgroundVisibility: Visibility {
-    currentDetent == .medium ? .hidden : .automatic
+    .hidden
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetRowLabel: View {
+  let row: AppleLiquidSheetRowConfiguration
+
+  var body: some View {
+    if let subtitle = row.subtitle {
+      VStack(alignment: .leading, spacing: 3) {
+        title
+        Text(subtitle)
+          .font(.footnote)
+          .foregroundStyle(.secondary)
+      }
+    } else {
+      title
+    }
+  }
+
+  @ViewBuilder
+  private var title: some View {
+    if let systemImage = row.systemImage {
+      Label(row.title, systemImage: systemImage)
+    } else {
+      Text(row.title)
+    }
   }
 }
 

@@ -106,12 +106,94 @@ class _DemoShellState extends State<DemoShell> {
     }
   }
 
+  AppleLiquidSheetContent get _sheetContent {
+    final String colorMode = switch (templateSheetColor) {
+      const Color(0xFFF7F7FA) => 'Light',
+      const Color(0xFF1C1C1E) => 'Dark',
+      _ => 'Automatic',
+    };
+
+    return AppleLiquidSheetContent(
+      title: 'Sheet Demo',
+      doneSemanticLabel: 'Close sheet',
+      sections: <AppleLiquidSheetSection>[
+        const AppleLiquidSheetSection(
+          title: 'Package',
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.value(
+              title: 'Name',
+              value: 'mjn_liquid_ui',
+              systemImage: 'shippingbox.fill',
+            ),
+            AppleLiquidSheetRow.value(
+              title: 'Content',
+              value: 'Configured from Flutter',
+              systemImage: 'doc.text.fill',
+            ),
+            AppleLiquidSheetRow.navigation(
+              title: 'Release details',
+              systemImage: 'sparkles',
+              content: AppleLiquidSheetContent(
+                title: 'Release',
+                sections: <AppleLiquidSheetSection>[
+                  AppleLiquidSheetSection(
+                    title: 'Highlights',
+                    rows: <AppleLiquidSheetRow>[
+                      AppleLiquidSheetRow.text(
+                        title: 'Native SwiftUI form',
+                        subtitle:
+                            'Sections, rows, controls, and nested pages are passed from Dart.',
+                        systemImage: 'rectangle.bottomthird.inset.filled',
+                      ),
+                      AppleLiquidSheetRow.value(
+                        title: 'Detents',
+                        value: 'Content-sized',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        AppleLiquidSheetSection(
+          title: 'Presentation',
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.toggle(
+              title: 'Background zoom',
+              value: templateSheetBackgroundZoom,
+              systemImage: 'viewfinder',
+            ),
+            AppleLiquidSheetRow.picker(
+              title: 'Sheet color',
+              options: const <String>['Automatic', 'Light', 'Dark'],
+              selectedOption: colorMode,
+              systemImage: 'paintpalette.fill',
+            ),
+            const AppleLiquidSheetRow.textField(
+              title: 'Label',
+              value: 'Liquid Glass',
+            ),
+          ],
+        ),
+        const AppleLiquidSheetSection(
+          title: 'State',
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.value(title: 'Platform', value: 'iOS'),
+            AppleLiquidSheetRow.value(title: 'Renderer', value: 'SwiftUI Form'),
+          ],
+        ),
+      ],
+    );
+  }
+
   Future<void> _showTemplateSheet() async {
-    final bool didShowNativeSheet = await templateSheetController
-        .showTemplateSheet(
-          backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
-          sheetColor: templateSheetColor,
-        );
+    final AppleLiquidSheetContent sheetContent = _sheetContent;
+    final bool didShowNativeSheet = await templateSheetController.showSheet(
+      backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
+      sheetColor: templateSheetColor,
+      content: sheetContent,
+    );
     if (didShowNativeSheet || !mounted) {
       return;
     }
@@ -125,7 +207,8 @@ class _DemoShellState extends State<DemoShell> {
       showDragHandle: true,
       useSafeArea: true,
       backgroundColor: templateSheetColor,
-      builder: (BuildContext context) => const _TemplateSheetFallback(),
+      builder: (BuildContext context) =>
+          _TemplateSheetFallback(content: sheetContent),
     );
   }
 }
@@ -589,7 +672,9 @@ class _SymbolSample extends StatelessWidget {
 }
 
 class _TemplateSheetFallback extends StatelessWidget {
-  const _TemplateSheetFallback();
+  const _TemplateSheetFallback({required this.content});
+
+  final AppleLiquidSheetContent content;
 
   @override
   Widget build(BuildContext context) {
@@ -607,50 +692,55 @@ class _TemplateSheetFallback extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const Spacer(),
-                Text('Settings', style: Theme.of(context).textTheme.titleLarge),
+                Text(
+                  content.title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
                 const Spacer(),
                 IconButton.filled(
-                  tooltip: 'Done',
+                  tooltip: content.doneSemanticLabel,
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.check_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const _SettingsFallbackSection(
-              title: 'Overview',
-              children: <Widget>[
-                _SettingsFallbackRow(label: 'Component', value: 'Liquid Sheet'),
-                _SettingsFallbackRow(label: 'Mode', value: 'Navigation Form'),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const _SettingsFallbackSection(
-              title: 'Appearance',
-              children: <Widget>[
-                _SettingsFallbackRow(label: 'Liquid Glass', value: 'On'),
-                _SettingsFallbackRow(label: 'Accent', value: 'Blue'),
-              ],
-            ),
-            const SizedBox(height: 14),
-            const _SettingsFallbackSection(
-              title: 'Updates',
-              children: <Widget>[
-                _SettingsFallbackRow(label: 'Refresh', value: 'Daily'),
-                _SettingsFallbackRow(label: 'Status', value: 'Prototype'),
-              ],
-            ),
+            for (final AppleLiquidSheetSection section in content.sections) ...[
+              _SettingsFallbackSection(
+                title: section.title,
+                children: <Widget>[
+                  for (final AppleLiquidSheetRow row in section.rows)
+                    _SettingsFallbackRow(
+                      label: row.title,
+                      value: _valueFor(row),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  String _valueFor(AppleLiquidSheetRow row) {
+    return switch (row.type) {
+      AppleLiquidSheetRowType.text => row.subtitle ?? '',
+      AppleLiquidSheetRowType.value => row.value ?? '',
+      AppleLiquidSheetRowType.toggle => row.boolValue == true ? 'On' : 'Off',
+      AppleLiquidSheetRowType.picker =>
+        row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
+      AppleLiquidSheetRowType.navigation => 'Details',
+      AppleLiquidSheetRowType.textField => row.value ?? '',
+    };
   }
 }
 
 class _SettingsFallbackSection extends StatelessWidget {
   const _SettingsFallbackSection({required this.title, required this.children});
 
-  final String title;
+  final String? title;
   final List<Widget> children;
 
   @override
@@ -660,11 +750,13 @@ class _SettingsFallbackSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          child: Text(title, style: Theme.of(context).textTheme.labelLarge),
-        ),
-        const SizedBox(height: 8),
+        if (title != null) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Text(title!, style: Theme.of(context).textTheme.labelLarge),
+          ),
+          const SizedBox(height: 8),
+        ],
         DecoratedBox(
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
@@ -691,12 +783,15 @@ class _SettingsFallbackRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: <Widget>[
           Expanded(child: Text(label)),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+          Flexible(
+            child: Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],

@@ -28,7 +28,7 @@ void main() {
     expect(find.text('Surface'), findsOneWidget);
   });
 
-  testWidgets('opens and closes the settings sheet demo', (
+  testWidgets('opens and closes the custom sheet demo', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MyApp());
@@ -37,8 +37,9 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Settings'), findsOneWidget);
-    expect(find.text('Component'), findsOneWidget);
+    expect(find.text('Sheet Demo'), findsOneWidget);
+    expect(find.text('Name'), findsOneWidget);
+    expect(find.text('mjn_liquid_ui'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
 
@@ -46,6 +47,6 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    expect(find.text('Settings'), findsNothing);
+    expect(find.text('Sheet Demo'), findsNothing);
   });
 }
