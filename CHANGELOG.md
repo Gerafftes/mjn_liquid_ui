@@ -1,3 +1,10 @@
+## 0.2.5
+
+- Rebuilt the native sheet presentation around a Liquid Glass SwiftUI
+  `NavigationStack` and `Form` settings sheet.
+- Removed the sheet search bar option and related native search debug helpers.
+- Updated the native sheet background to extend through the bottom safe area.
+
 ## 0.2.4
 
 - Added configurable SF Symbol weights for standalone symbols and tab icons.

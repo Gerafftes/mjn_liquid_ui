@@ -18,8 +18,9 @@ structure.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
-- Native iOS sheet presentation with configurable detent height, toolbar
-  controls, search, and background zoom.
+- Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
+  settings sheet, preview/settings content, medium and large detents, optional
+  background color, and background zoom.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
@@ -88,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.4
+  mjn_liquid_ui: ^0.2.5
 ```
 
 Then import the package:
@@ -249,14 +250,15 @@ buttons or other tappable Flutter children.
 ### Native sheet
 
 `AppleLiquidSheet` presents a native iOS sheet from Flutter. The current
-template sheet uses SwiftUI navigation, native toolbar controls, a bottom search
-field, configurable detent height, and optional background zoom on the
-presenting page.
+reference sheet mirrors a Liquid Glass SwiftUI `NavigationStack` with `Form`
+content, preview/settings rows, medium and large detents, and optional
+background zoom on the presenting page. The sheet uses native form navigation
+for detail rows and a checkmark toolbar action to dismiss.
 
 ```dart
 final bool didShow = await AppleLiquidSheet.showTemplateSheet(
-  heightFraction: 0.72,
   backgroundZoomScale: 0.94,
+  sheetColor: const Color(0xFFEAF3FF),
 );
 ```
 
@@ -266,25 +268,27 @@ or presentation state:
 ```dart
 final AppleLiquidSheetController sheetController =
     AppleLiquidSheetController(
-  heightFraction: 0.72,
   backgroundZoomScale: 0.94,
+  sheetColor: null,
 );
 
 final bool didShow = await sheetController.showTemplateSheet();
 await sheetController.dismiss();
 ```
 
-`heightFraction` controls the presented detent height and `backgroundZoomScale`
-controls how far the presenting view scales back while the sheet is open.
+`backgroundZoomScale` controls how far the presenting view scales back while
+the sheet is open. Set `sheetColor` to force a specific sheet background color;
+leave it null to use the native Liquid Glass/system presentation background.
 The method returns `true` after a native iOS sheet was shown and dismissed. It
 returns `false` on unsupported platforms so apps can present their own Flutter
 fallback.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 
-Use `heightFraction` values between `0.25` and `1.0`. Custom heights are backed
-by UIKit sheet detents and the implementation keeps keyboard transitions
-separate from detent restoration to avoid search-bar overshoot while typing.
+The iOS implementation uses SwiftUI system sheet detents and hides the form
+scroll background in the partial detent so the Liquid Glass sheet remains
+visible behind the form content.
+The earlier bottom search bar option has been removed from the sheet API.
 
 ## iOS notes
 
@@ -299,6 +303,9 @@ separate from detent restoration to avoid search-bar overshoot while typing.
 - Liquid Glass appearance depends on the iOS and Xcode versions used to build
   and run the app. Unsupported iOS versions may display a simpler fallback
   surface.
+- Changes inside `ios/Classes` are native Swift/SwiftUI changes. Flutter hot
+  restart does not recompile those files; stop and rerun the example app so
+  Xcode performs an incremental iOS build.
 
 ## Limitations
 
@@ -319,7 +326,7 @@ flutter run -d <ios-simulator-id>
 ```
 
 The example demonstrates the liquid tab bar, standalone SF Symbols, search
-segment, switch, slider, and liquid glass surface.
+segment, switch, slider, liquid glass surface, and native settings sheet.
 
 ## License
 

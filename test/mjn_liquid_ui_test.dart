@@ -61,6 +61,7 @@ void main() {
     final AppleLiquidSheetController controller = AppleLiquidSheetController(
       heightFraction: 0.72,
       backgroundZoomScale: 0.94,
+      sheetColor: const Color(0xFFEAF3FF),
     );
 
     try {
@@ -82,6 +83,7 @@ void main() {
     final AppleLiquidSheetController controller = AppleLiquidSheetController(
       heightFraction: 0.72,
       backgroundZoomScale: 0.94,
+      sheetColor: const Color(0xFFEAF3FF),
     );
 
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -111,6 +113,7 @@ void main() {
       expect(calls.single.method, 'showTemplateSheet');
       expect(calls.single.arguments, containsPair('heightFraction', 0.72));
       expect(calls.single.arguments, containsPair('backgroundZoomScale', 0.94));
+      expect(calls.single.arguments, containsPair('sheetColor', 0xFFEAF3FF));
 
       expect(await controller.dismiss(), isTrue);
       expect(await showFuture, isTrue);

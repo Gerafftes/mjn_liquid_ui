@@ -7,18 +7,21 @@ class AppleLiquidSheetController extends ChangeNotifier {
   AppleLiquidSheetController({
     double heightFraction = 1,
     double backgroundZoomScale = 1,
+    Color? sheetColor,
   }) : assert(heightFraction >= 0.25 && heightFraction <= 1),
        assert(backgroundZoomScale >= 0.85 && backgroundZoomScale <= 1),
        _heightFraction = heightFraction,
-       _backgroundZoomScale = backgroundZoomScale;
+       _backgroundZoomScale = backgroundZoomScale,
+       _sheetColor = sheetColor;
 
   double _heightFraction;
   double _backgroundZoomScale;
+  Color? _sheetColor;
   Future<bool>? _activeShow;
   bool _isShown = false;
   bool _isDisposed = false;
 
-  /// Default detent height used by [showTemplateSheet].
+  /// Legacy maximum detent height option used by [showTemplateSheet].
   double get heightFraction => _heightFraction;
 
   set heightFraction(double value) {
@@ -46,6 +49,21 @@ class AppleLiquidSheetController extends ChangeNotifier {
     _notifyStateChanged();
   }
 
+  /// Optional sheet background color.
+  ///
+  /// When null, iOS uses an automatic dynamic color that adapts to light and
+  /// dark mode.
+  Color? get sheetColor => _sheetColor;
+
+  set sheetColor(Color? value) {
+    if (_sheetColor == value) {
+      return;
+    }
+
+    _sheetColor = value;
+    _notifyStateChanged();
+  }
+
   /// Whether this controller currently has a native sheet presentation pending.
   bool get isShowing => _activeShow != null;
 
@@ -59,6 +77,7 @@ class AppleLiquidSheetController extends ChangeNotifier {
   Future<bool> showTemplateSheet({
     double? heightFraction,
     double? backgroundZoomScale,
+    Color? sheetColor,
   }) async {
     if (_activeShow != null || !AppleLiquidSheet._supportsNativeSheets) {
       return false;
@@ -67,6 +86,7 @@ class AppleLiquidSheetController extends ChangeNotifier {
     final double effectiveHeightFraction = heightFraction ?? _heightFraction;
     final double effectiveBackgroundZoomScale =
         backgroundZoomScale ?? _backgroundZoomScale;
+    final Color? effectiveSheetColor = sheetColor ?? _sheetColor;
 
     assert(effectiveHeightFraction >= 0.25 && effectiveHeightFraction <= 1);
     assert(
@@ -76,6 +96,7 @@ class AppleLiquidSheetController extends ChangeNotifier {
     final Future<bool> showFuture = AppleLiquidSheet.showTemplateSheet(
       heightFraction: effectiveHeightFraction,
       backgroundZoomScale: effectiveBackgroundZoomScale,
+      sheetColor: effectiveSheetColor,
     );
 
     _updateState(activeShow: showFuture, isShown: true);
@@ -146,11 +167,18 @@ class AppleLiquidSheet {
 
   /// Shows a native template picker sheet on iOS.
   ///
+  /// Pass [sheetColor] to force a specific sheet background color. When
+  /// [sheetColor] is null, iOS uses an automatic dynamic color for light and
+  /// dark mode.
+  ///
+  /// [heightFraction] is retained for compatibility with earlier sheet demos.
+  ///
   /// Returns false on unsupported platforms so callers can provide a fallback.
   /// On iOS, the returned future completes after the sheet has closed.
   static Future<bool> showTemplateSheet({
     double heightFraction = 1,
     double backgroundZoomScale = 1,
+    Color? sheetColor,
   }) async {
     assert(heightFraction >= 0.25 && heightFraction <= 1);
     assert(backgroundZoomScale >= 0.85 && backgroundZoomScale <= 1);
@@ -161,13 +189,12 @@ class AppleLiquidSheet {
 
     _attachDebugLogHandler();
 
-    return await _channel.invokeMethod<bool>(
-          'showTemplateSheet',
-          <String, Object?>{
-            'heightFraction': heightFraction,
-            'backgroundZoomScale': backgroundZoomScale,
-          },
-        ) ??
+    return await _channel
+            .invokeMethod<bool>('showTemplateSheet', <String, Object?>{
+              'heightFraction': heightFraction,
+              'backgroundZoomScale': backgroundZoomScale,
+              'sheetColor': sheetColor?.toARGB32(),
+            }) ??
         false;
   }
 

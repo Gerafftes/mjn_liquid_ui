@@ -36,8 +36,8 @@ class _DemoShellState extends State<DemoShell> {
   double normalSliderValue = 0.45;
   double steppedSliderValue = 0.6;
   double coarseSliderValue = 0.5;
-  double templateSheetHeightFraction = 0.72;
   bool templateSheetBackgroundZoom = true;
+  Color? templateSheetColor;
   final AppleLiquidSheetController templateSheetController =
       AppleLiquidSheetController();
 
@@ -93,13 +93,13 @@ class _DemoShellState extends State<DemoShell> {
       case 0:
       default:
         return _TabbarDemoPage(
-          sheetHeightFraction: templateSheetHeightFraction,
           sheetBackgroundZoom: templateSheetBackgroundZoom,
-          onSheetHeightChanged: (double value) {
-            setState(() => templateSheetHeightFraction = value);
-          },
+          sheetColor: templateSheetColor,
           onSheetBackgroundZoomChanged: (bool value) {
             setState(() => templateSheetBackgroundZoom = value);
+          },
+          onSheetColorChanged: (Color? value) {
+            setState(() => templateSheetColor = value);
           },
           onShowTemplateSheet: _showTemplateSheet,
         );
@@ -109,8 +109,8 @@ class _DemoShellState extends State<DemoShell> {
   Future<void> _showTemplateSheet() async {
     final bool didShowNativeSheet = await templateSheetController
         .showTemplateSheet(
-          heightFraction: templateSheetHeightFraction,
           backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
+          sheetColor: templateSheetColor,
         );
     if (didShowNativeSheet || !mounted) {
       return;
@@ -119,12 +119,12 @@ class _DemoShellState extends State<DemoShell> {
     await showModalBottomSheet<void>(
       context: context,
       constraints: BoxConstraints(
-        maxHeight:
-            MediaQuery.sizeOf(context).height * templateSheetHeightFraction,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.72,
       ),
       isScrollControlled: true,
       showDragHandle: true,
       useSafeArea: true,
+      backgroundColor: templateSheetColor,
       builder: (BuildContext context) => const _TemplateSheetFallback(),
     );
   }
@@ -222,17 +222,17 @@ class _DemoPageScaffold extends StatelessWidget {
 
 class _TabbarDemoPage extends StatelessWidget {
   const _TabbarDemoPage({
-    required this.sheetHeightFraction,
     required this.sheetBackgroundZoom,
-    required this.onSheetHeightChanged,
+    required this.sheetColor,
     required this.onSheetBackgroundZoomChanged,
+    required this.onSheetColorChanged,
     required this.onShowTemplateSheet,
   });
 
-  final double sheetHeightFraction;
   final bool sheetBackgroundZoom;
-  final ValueChanged<double> onSheetHeightChanged;
+  final Color? sheetColor;
   final ValueChanged<bool> onSheetBackgroundZoomChanged;
+  final ValueChanged<Color?> onSheetColorChanged;
   final VoidCallback onShowTemplateSheet;
 
   @override
@@ -269,7 +269,7 @@ class _TabbarDemoPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           AppleLiquidSurface(
-            height: 308,
+            height: 300,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -292,32 +292,14 @@ class _TabbarDemoPage extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: Text(
-                        'Height ${(sheetHeightFraction * 100).round()}%',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 190,
-                      child: AppleLiquidSlider(
-                        value: sheetHeightFraction,
-                        min: 0.45,
-                        max: 1,
-                        step: 0.05,
-                        height: 48,
-                        tintColor: const Color(0xFF007AFF),
-                        onChanged: onSheetHeightChanged,
-                      ),
-                    ),
-                  ],
-                ),
                 _SheetToggleRow(
                   label: 'Background zoom',
                   value: sheetBackgroundZoom,
                   onChanged: onSheetBackgroundZoomChanged,
+                ),
+                _SheetColorRow(
+                  value: sheetColor,
+                  onChanged: onSheetColorChanged,
                 ),
               ],
             ),
@@ -349,7 +331,7 @@ class _SheetControlHeaderText extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Open a native sheet with configurable height.',
+          'Open a native settings sheet with form navigation.',
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: textTheme.bodySmall,
@@ -390,6 +372,91 @@ class _SheetToggleRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SheetColorRow extends StatelessWidget {
+  const _SheetColorRow({required this.value, required this.onChanged});
+
+  static const List<_SheetColorOption> _options = <_SheetColorOption>[
+    _SheetColorOption(label: 'Auto'),
+    _SheetColorOption(label: 'Light', color: Color(0xFFF7F7FA)),
+    _SheetColorOption(label: 'Dark', color: Color(0xFF1C1C1E)),
+  ];
+
+  final Color? value;
+  final ValueChanged<Color?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 82,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text('Sheet color', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _options.length,
+              separatorBuilder: (BuildContext context, int index) {
+                return const SizedBox(width: 8);
+              },
+              itemBuilder: (BuildContext context, int index) {
+                final _SheetColorOption option = _options[index];
+
+                return _SheetColorChip(
+                  option: option,
+                  isSelected: option.color == value,
+                  onSelected: () => onChanged(option.color),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetColorChip extends StatelessWidget {
+  const _SheetColorChip({
+    required this.option,
+    required this.isSelected,
+    required this.onSelected,
+  });
+
+  final _SheetColorOption option;
+  final bool isSelected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+    final Color swatchColor = option.color ?? colorScheme.surface;
+
+    return ChoiceChip(
+      selected: isSelected,
+      label: Text(option.label),
+      avatar: DecoratedBox(
+        decoration: BoxDecoration(
+          color: swatchColor,
+          shape: BoxShape.circle,
+          border: Border.all(color: colorScheme.outlineVariant),
+        ),
+        child: const SizedBox.square(dimension: 14),
+      ),
+      onSelected: (_) => onSelected(),
+    );
+  }
+}
+
+class _SheetColorOption {
+  const _SheetColorOption({required this.label, this.color});
+
+  final String label;
+  final Color? color;
 }
 
 class _SymbolGrid extends StatelessWidget {
@@ -540,29 +607,37 @@ class _TemplateSheetFallback extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                 ),
                 const Spacer(),
-                Text(
-                  'Templates',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
+                Text('Settings', style: Theme.of(context).textTheme.titleLarge),
                 const Spacer(),
                 IconButton.filled(
-                  tooltip: 'Confirm',
-                  icon: const Icon(Icons.check_rounded),
+                  tooltip: 'Done',
                   onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.check_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            const SearchBar(
-              leading: Icon(Icons.search_rounded),
-              hintText: 'Search templates',
-            ),
-            const SizedBox(height: 20),
-            const Row(
+            const _SettingsFallbackSection(
+              title: 'Overview',
               children: <Widget>[
-                Expanded(child: _TemplateFallbackCard(title: 'Meeting notes')),
-                SizedBox(width: 16),
-                Expanded(child: _TemplateFallbackCard(title: 'Class notes')),
+                _SettingsFallbackRow(label: 'Component', value: 'Liquid Sheet'),
+                _SettingsFallbackRow(label: 'Mode', value: 'Navigation Form'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const _SettingsFallbackSection(
+              title: 'Appearance',
+              children: <Widget>[
+                _SettingsFallbackRow(label: 'Liquid Glass', value: 'On'),
+                _SettingsFallbackRow(label: 'Accent', value: 'Blue'),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const _SettingsFallbackSection(
+              title: 'Updates',
+              children: <Widget>[
+                _SettingsFallbackRow(label: 'Refresh', value: 'Daily'),
+                _SettingsFallbackRow(label: 'Status', value: 'Prototype'),
               ],
             ),
           ],
@@ -572,74 +647,59 @@ class _TemplateSheetFallback extends StatelessWidget {
   }
 }
 
-class _TemplateFallbackCard extends StatelessWidget {
-  const _TemplateFallbackCard({required this.title});
+class _SettingsFallbackSection extends StatelessWidget {
+  const _SettingsFallbackSection({required this.title, required this.children});
 
   final String title;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 0.82,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: const Color(0xFF181818),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    _TemplateFallbackLine(widthFactor: 0.62, height: 10),
-                    SizedBox(height: 14),
-                    _TemplateFallbackLine(widthFactor: 0.82),
-                    SizedBox(height: 8),
-                    _TemplateFallbackLine(widthFactor: 0.54),
-                    SizedBox(height: 8),
-                    _TemplateFallbackLine(widthFactor: 0.72),
-                    Spacer(),
-                    _TemplateFallbackLine(widthFactor: 0.44, height: 12),
-                  ],
-                ),
-              ),
-            ),
+    final ColorScheme colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(title, style: Theme.of(context).textTheme.labelLarge),
+        ),
+        const SizedBox(height: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(18),
           ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-        ],
-      ),
+          child: Column(children: children),
+        ),
+      ],
     );
   }
 }
 
-class _TemplateFallbackLine extends StatelessWidget {
-  const _TemplateFallbackLine({required this.widthFactor, this.height = 7});
+class _SettingsFallbackRow extends StatelessWidget {
+  const _SettingsFallbackRow({required this.label, required this.value});
 
-  final double widthFactor;
-  final double height;
+  final String label;
+  final String value;
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      widthFactor: widthFactor,
-      child: SizedBox(
-        height: height,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(height / 2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Expanded(child: Text(label)),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

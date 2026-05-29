@@ -1,8 +1,10 @@
+import Combine
 import Flutter
 import SwiftUI
 import UIKit
 
 enum AppleLiquidSheetPresenter {
+  @available(iOS 16.0, *)
   private static var activeSession: AppleLiquidSheetSession?
   #if DEBUG
   private static var debugChannel: FlutterMethodChannel?
@@ -52,61 +54,37 @@ enum AppleLiquidSheetPresenter {
       return
     }
 
-    guard let presenter = topViewController(from: activeRootViewController()) else {
+    guard let presenter = topViewController(from: activeRootViewController()),
+      presenter.viewIfLoaded?.window != nil
+    else {
       result(false)
       return
     }
 
-    var sheetSession: AppleLiquidSheetSession?
     let configuration = AppleLiquidSheetConfiguration(arguments: arguments)
-    let rootView = AppleLiquidTemplateSheetView(
-      onFrameChange: { sheetFrame, windowBounds in
-        sheetSession?.attachPresentationController()
-        sheetSession?.updateBackgroundZoom(
-          sheetFrame: sheetFrame,
-          windowBounds: windowBounds
-        )
-      },
-      onCancel: {
-        sheetSession?.dismissFromControl()
-      },
-      onConfirm: {
-        sheetSession?.dismissFromControl()
-      }
-    )
-
-    let hostingController = UIHostingController(rootView: rootView)
-    hostingController.modalPresentationStyle = .pageSheet
-
-    if let sheetPresentationController = hostingController.sheetPresentationController {
-      configuration.apply(to: sheetPresentationController)
-    }
-
     let session = AppleLiquidSheetSession(
-      hostingController: hostingController,
+      configuration: configuration,
       presentingView: presenter.view,
-      sheetConfiguration: configuration,
-      backgroundZoomScale: configuration.backgroundZoomScale,
       result: result,
       onFinish: {
         activeSession = nil
       }
     )
-    sheetSession = session
-    activeSession = session
 
-    session.attachPresentationController()
-    session.applyBackgroundZoom()
-    presenter.present(hostingController, animated: true) {
-      if let sheetPresentationController = hostingController.sheetPresentationController {
-        configuration.apply(to: sheetPresentationController)
-      }
-
-      session.attachPresentationController()
+    guard session.present(from: presenter) else {
+      result(false)
+      return
     }
+
+    activeSession = session
   }
 
   private static func dismissTemplateSheet(result: @escaping FlutterResult) {
+    guard #available(iOS 16.0, *) else {
+      result(false)
+      return
+    }
+
     guard let activeSession else {
       result(false)
       return
@@ -150,40 +128,20 @@ enum AppleLiquidSheetPresenter {
 }
 
 private struct AppleLiquidSheetConfiguration {
-  let heightFraction: CGFloat
   let backgroundZoomScale: CGFloat
-  let detentMode: AppleLiquidSheetDetentMode
-  private let customDetentResolver: AppleLiquidSheetCustomDetentResolver?
+  let sheetColor: Int?
 
   init(arguments: Any?) {
     let arguments = arguments as? [String: Any]
-    let heightFraction = Self.clampedCGFloat(
-      arguments?["heightFraction"],
-      defaultValue: 1,
-      minValue: 0.25,
-      maxValue: 1
-    )
     self.backgroundZoomScale = Self.clampedCGFloat(
       arguments?["backgroundZoomScale"],
       defaultValue: 1,
       minValue: 0.85,
       maxValue: 1
     )
-    self.heightFraction = heightFraction
-    self.detentMode = Self.detentMode(for: heightFraction)
-    self.customDetentResolver = detentMode == .custom ?
-      AppleLiquidSheetCustomDetentResolver(heightFraction: heightFraction)
-      : nil
-  }
-
-  private static func detentMode(
-    for heightFraction: CGFloat
-  ) -> AppleLiquidSheetDetentMode {
-    if heightFraction >= 0.995 {
-      return .large
-    }
-
-    return .custom
+    self.sheetColor = AppleLiquidTabbarConfiguration.intValue(
+      arguments?["sheetColor"]
+    )
   }
 
   private static func clampedCGFloat(
@@ -203,39 +161,79 @@ private struct AppleLiquidSheetConfiguration {
 
     return CGFloat(min(max(doubleValue, minValue), maxValue))
   }
-}
 
-private enum AppleLiquidSheetDetentMode: String {
-  case medium
-  case custom
-  case large
-}
-
-private final class AppleLiquidSheetCustomDetentResolver {
-  private let heightFraction: CGFloat
-  private var resolvedHeight: CGFloat?
-
-  init(heightFraction: CGFloat) {
-    self.heightFraction = heightFraction
-  }
-
-  func resolve(maximumDetentValue: CGFloat) -> CGFloat {
-    if let resolvedHeight {
-      return resolvedHeight
+  var resolvedSheetColor: UIColor {
+    if let customColor = UIColor(appleLiquidARGB: sheetColor) {
+      return customColor
     }
 
-    let resolvedHeight = maximumDetentValue * heightFraction
-    self.resolvedHeight = resolvedHeight
-    return resolvedHeight
+    return UIColor { traits in
+      if traits.userInterfaceStyle == .dark {
+        return .secondarySystemBackground
+      }
+
+      return .systemBackground
+    }
+  }
+
+  @available(iOS 15.0, *)
+  var resolvedSheetSwiftUIColor: Color {
+    Color(uiColor: resolvedSheetColor)
+  }
+
+  @available(iOS 15.0, *)
+  var resolvedSheetColorScheme: ColorScheme? {
+    guard sheetColor != nil else {
+      return nil
+    }
+
+    return resolvedSheetColor.appleLiquidPrefersDarkColorScheme ? .dark : .light
   }
 }
 
-private final class AppleLiquidSheetSession: NSObject {
+private extension UIColor {
+  var appleLiquidPrefersDarkColorScheme: Bool {
+    guard let components = appleLiquidRGBAComponents(
+      in: UIScreen.main.traitCollection
+    ) else {
+      return false
+    }
+
+    let luminance = 0.2126 * components.red +
+      0.7152 * components.green +
+      0.0722 * components.blue
+    return luminance < 0.5
+  }
+
+  private func appleLiquidRGBAComponents(
+    in traits: UITraitCollection? = nil
+  ) -> (
+    red: CGFloat,
+    green: CGFloat,
+    blue: CGFloat,
+    alpha: CGFloat
+  )? {
+    let color = traits.map { resolvedColor(with: $0) } ?? self
+    var red: CGFloat = 0
+    var green: CGFloat = 0
+    var blue: CGFloat = 0
+    var alpha: CGFloat = 0
+
+    guard color.getRed(&red, green: &green, blue: &blue, alpha: &alpha) else {
+      return nil
+    }
+
+    return (red, green, blue, alpha)
+  }
+}
+
+@available(iOS 16.0, *)
+private final class AppleLiquidSheetSession {
   private let zoomedCornerRadius: CGFloat = 44
-  private weak var hostingController: UIViewController?
+  private let configuration: AppleLiquidSheetConfiguration
+  private let presentationState = AppleLiquidSheetPresentationState()
   private weak var presentingView: UIView?
-  private let sheetConfiguration: AppleLiquidSheetConfiguration
-  private let backgroundZoomScale: CGFloat
+  private var hostController: UIViewController?
   private let result: FlutterResult
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
@@ -249,39 +247,93 @@ private final class AppleLiquidSheetSession: NSObject {
   private var isKeyboardVisible = false
   private var isKeyboardTransitioning = false
   private var keyboardTransitionWorkItem: DispatchWorkItem?
-  private var keyboardDetentRestoreWorkItem: DispatchWorkItem?
   private var dismissalCallbacks: [() -> Void] = []
   private var isDismissing = false
 
   init(
-    hostingController: UIViewController,
+    configuration: AppleLiquidSheetConfiguration,
     presentingView: UIView?,
-    sheetConfiguration: AppleLiquidSheetConfiguration,
-    backgroundZoomScale: CGFloat,
     result: @escaping FlutterResult,
     onFinish: @escaping () -> Void
   ) {
-    self.hostingController = hostingController
+    self.configuration = configuration
     self.presentingView = presentingView
-    self.sheetConfiguration = sheetConfiguration
-    self.backgroundZoomScale = backgroundZoomScale
     self.result = result
     self.onFinish = onFinish
     self.originalTransform = presentingView?.transform ?? .identity
     self.originalCornerRadius = presentingView?.layer.cornerRadius ?? 0
     self.originalMasksToBounds = presentingView?.layer.masksToBounds ?? false
-    super.init()
     registerKeyboardNotifications()
   }
 
   deinit {
     keyboardTransitionWorkItem?.cancel()
-    keyboardDetentRestoreWorkItem?.cancel()
     NotificationCenter.default.removeObserver(self)
   }
 
-  func applyBackgroundZoom() {
-    guard backgroundZoomScale < 0.999, let presentingView else {
+  func present(from presenter: UIViewController) -> Bool {
+    guard presenter.viewIfLoaded?.window != nil else {
+      return false
+    }
+
+    let hostView = AppleLiquidSheetPresentationHost(
+      configuration: configuration,
+      presentationState: presentationState,
+      onFrameChange: { [weak self] sheetFrame, windowBounds in
+        self?.updateBackgroundZoom(
+          sheetFrame: sheetFrame,
+          windowBounds: windowBounds
+        )
+      },
+      onDismiss: { [weak self] in
+        self?.completeDismissal()
+      }
+    )
+
+    let hostController = UIHostingController(rootView: hostView)
+    hostController.view.backgroundColor = .clear
+    hostController.modalPresentationStyle = .overFullScreen
+    hostController.modalTransitionStyle = .crossDissolve
+    self.hostController = hostController
+
+    presenter.present(hostController, animated: false) { [weak self] in
+      guard let self, !self.didFinish else {
+        return
+      }
+
+      self.applyBackgroundZoom()
+      self.presentationState.present()
+    }
+
+    return true
+  }
+
+  func dismissFromControl(onDismissed: (() -> Void)? = nil) {
+    guard !didFinish else {
+      onDismissed?()
+      return
+    }
+
+    if let onDismissed {
+      dismissalCallbacks.append(onDismissed)
+    }
+
+    guard !isDismissing else {
+      return
+    }
+
+    isDismissing = true
+    beginStationaryDismissAnimation()
+
+    if presentationState.isPresented {
+      presentationState.dismiss()
+    } else {
+      completeDismissal()
+    }
+  }
+
+  private func applyBackgroundZoom() {
+    guard configuration.backgroundZoomScale < 0.999, let presentingView else {
       return
     }
 
@@ -292,8 +344,8 @@ private final class AppleLiquidSheetSession: NSObject {
       options: [.curveEaseOut, .allowUserInteraction],
       animations: {
         presentingView.transform = CGAffineTransform(
-          scaleX: self.backgroundZoomScale,
-          y: self.backgroundZoomScale
+          scaleX: self.configuration.backgroundZoomScale,
+          y: self.configuration.backgroundZoomScale
         )
         presentingView.layer.cornerRadius = self.zoomedCornerRadius
         presentingView.layer.cornerCurve = .continuous
@@ -302,11 +354,11 @@ private final class AppleLiquidSheetSession: NSObject {
     )
   }
 
-  func updateBackgroundZoom(sheetFrame: CGRect, windowBounds: CGRect) {
+  private func updateBackgroundZoom(sheetFrame: CGRect, windowBounds: CGRect) {
     guard didApplyZoom,
       !didRestoreZoom,
       !didFinish,
-      backgroundZoomScale < 0.999,
+      configuration.backgroundZoomScale < 0.999,
       let presentingView
     else {
       return
@@ -334,7 +386,8 @@ private final class AppleLiquidSheetSession: NSObject {
     )
     dismissProgress = dragProgress
 
-    let scale = backgroundZoomScale + (1 - backgroundZoomScale) * dragProgress
+    let scale = configuration.backgroundZoomScale +
+      (1 - configuration.backgroundZoomScale) * dragProgress
 
     CATransaction.begin()
     CATransaction.setDisableActions(true)
@@ -345,43 +398,8 @@ private final class AppleLiquidSheetSession: NSObject {
     CATransaction.commit()
   }
 
-  func attachPresentationController() {
-    if #available(iOS 15.0, *),
-      let sheetPresentationController = hostingController?.sheetPresentationController {
-      sheetPresentationController.delegate = self
-    } else {
-      hostingController?.presentationController?.delegate = self
-    }
-  }
-
-  func dismissFromControl(onDismissed: (() -> Void)? = nil) {
-    guard !didFinish else {
-      onDismissed?()
-      return
-    }
-
-    if let onDismissed {
-      dismissalCallbacks.append(onDismissed)
-    }
-
-    guard !isDismissing else {
-      return
-    }
-
-    guard let hostingController else {
-      completeDismissal()
-      return
-    }
-
-    isDismissing = true
-    beginStationaryDismissAnimation(isGestureDriven: false)
-    hostingController.dismiss(animated: true) { [weak self] in
-      self?.completeDismissal()
-    }
-  }
-
-  private func beginStationaryDismissAnimation(isGestureDriven: Bool) {
-    guard !isGestureDriven, dismissProgress <= 0.02 else {
+  private func beginStationaryDismissAnimation() {
+    guard dismissProgress <= 0.02 else {
       return
     }
 
@@ -418,8 +436,8 @@ private final class AppleLiquidSheetSession: NSObject {
     CATransaction.begin()
     CATransaction.setDisableActions(true)
     presentingView.transform = CGAffineTransform(
-      scaleX: backgroundZoomScale,
-      y: backgroundZoomScale
+      scaleX: configuration.backgroundZoomScale,
+      y: configuration.backgroundZoomScale
     )
     presentingView.layer.cornerRadius = zoomedCornerRadius
     presentingView.layer.cornerCurve = .continuous
@@ -431,7 +449,6 @@ private final class AppleLiquidSheetSession: NSObject {
     restingSheetMinY = nil
     dismissProgress = 0
     applyPresentedBackgroundZoomWithoutAnimation()
-    attachPresentationController()
   }
 
   private func registerKeyboardNotifications() {
@@ -459,31 +476,23 @@ private final class AppleLiquidSheetSession: NSObject {
   @objc private func keyboardWillShow(_ notification: Notification) {
     isKeyboardVisible = true
     lockKeyboardLayoutUpdates(using: notification)
-    expandCustomDetentForKeyboard(event: "keyboardWillShow")
     resetKeyboardAffectedZoomState()
-    logDetentState(event: "keyboardWillShow")
+    logZoomState(event: "keyboardWillShow")
   }
 
   @objc private func keyboardWillHide(_ notification: Notification) {
     isKeyboardVisible = false
     lockKeyboardLayoutUpdates(using: notification)
-    expandCustomDetentForKeyboard(event: "keyboardWillHide")
-    logDetentState(event: "keyboardWillHide")
+    logZoomState(event: "keyboardWillHide")
   }
 
   @objc private func keyboardDidHide(_ notification: Notification) {
     isKeyboardVisible = false
     keyboardTransitionWorkItem?.cancel()
     keyboardTransitionWorkItem = nil
-
-    if restoreCustomDetentAfterKeyboard() {
-      logDetentState(event: "keyboardDidHideRestoreCustom")
-      return
-    }
-
     isKeyboardTransitioning = false
     resetKeyboardAffectedZoomState()
-    logDetentState(event: "keyboardDidHide")
+    logZoomState(event: "keyboardDidHide")
   }
 
   private func lockKeyboardLayoutUpdates(using notification: Notification) {
@@ -495,10 +504,6 @@ private final class AppleLiquidSheetSession: NSObject {
       as? Double ?? 0.25
     let workItem = DispatchWorkItem { [weak self] in
       guard let self else {
-        return
-      }
-
-      if self.keyboardDetentRestoreWorkItem != nil {
         return
       }
 
@@ -515,191 +520,290 @@ private final class AppleLiquidSheetSession: NSObject {
     )
   }
 
-  private func expandCustomDetentForKeyboard(event: String) {
-    guard #available(iOS 16.0, *),
-      sheetConfiguration.detentMode == .custom,
-      let sheetPresentationController = hostingController?.sheetPresentationController
-    else {
-      return
-    }
-
-    keyboardDetentRestoreWorkItem?.cancel()
-    keyboardDetentRestoreWorkItem = nil
-    sheetPresentationController.animateChanges {
-      sheetConfiguration.applyKeyboardDetents(to: sheetPresentationController)
-    }
-    logDetentState(event: "\(event)ExpandLarge")
-  }
-
-  private func restoreCustomDetentAfterKeyboard() -> Bool {
-    guard #available(iOS 16.0, *),
-      sheetConfiguration.detentMode == .custom,
-      let sheetPresentationController = hostingController?.sheetPresentationController
-    else {
-      return false
-    }
-
-    keyboardDetentRestoreWorkItem?.cancel()
-    isKeyboardTransitioning = true
-    resetKeyboardAffectedZoomState()
-
-    sheetPresentationController.animateChanges {
-      sheetConfiguration.selectRestingDetent(on: sheetPresentationController)
-    }
-
-    let workItem = DispatchWorkItem { [weak self] in
-      guard let self, !self.didFinish else {
-        return
-      }
-
-      if #available(iOS 16.0, *) {
-        self.sheetConfiguration.apply(to: sheetPresentationController)
-      }
-      self.isKeyboardTransitioning = false
-      self.keyboardDetentRestoreWorkItem = nil
-      self.resetKeyboardAffectedZoomState()
-      self.logDetentState(event: "keyboardDetentRestoreFinished")
-    }
-
-    keyboardDetentRestoreWorkItem = workItem
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.42, execute: workItem)
-    return true
-  }
-
   private func completeDismissal() {
     guard !didFinish else {
       return
     }
 
     didFinish = true
+    keyboardTransitionWorkItem?.cancel()
+    keyboardTransitionWorkItem = nil
+    restoreBackgroundZoom()
+
     let callbacks = dismissalCallbacks
     dismissalCallbacks.removeAll()
-    keyboardDetentRestoreWorkItem?.cancel()
-    keyboardDetentRestoreWorkItem = nil
-    restoreBackgroundZoom()
-    result(true)
-    onFinish()
-    callbacks.forEach { $0() }
+    let finished = { [weak self] in
+      guard let self else {
+        return
+      }
+
+      self.result(true)
+      self.onFinish()
+      callbacks.forEach { $0() }
+      self.hostController = nil
+    }
+
+    if let hostController, hostController.presentingViewController != nil {
+      hostController.dismiss(animated: false, completion: finished)
+    } else {
+      finished()
+    }
   }
 
   #if DEBUG
-  private func logDetentState(event: String) {
-    guard #available(iOS 15.0, *),
-      let sheetPresentationController = hostingController?.sheetPresentationController
-    else {
-      return
-    }
-
-    let selectedDetent = sheetPresentationController.selectedDetentIdentifier
-      .map { String(describing: $0) } ?? "nil"
-    let frame = sheetFrame()
-    let frameDescription = frame.map {
-      "sheetY=\(format($0.minY)) sheetH=\(format($0.height))"
-    } ?? "sheetY=nil sheetH=nil"
-
+  private func logZoomState(event: String) {
     AppleLiquidSheetPresenter.debugLog(
-      "[mjn_liquid_ui][sheet-detent] " +
+      "[mjn_liquid_ui][sheet-zoom] " +
         "event=\(event) " +
-        "mode=\(sheetConfiguration.detentMode.rawValue) " +
-        "selected=\(selectedDetent) " +
-        frameDescription
+        "keyboardVisible=\(isKeyboardVisible) " +
+        "keyboardTransitioning=\(isKeyboardTransitioning) " +
+        "progress=\(format(dismissProgress))"
     )
-  }
-
-  private func sheetFrame() -> CGRect? {
-    guard let view = hostingController?.view, let window = view.window else {
-      return nil
-    }
-
-    return view.convert(view.bounds, to: window)
   }
 
   private func format(_ value: CGFloat) -> String {
-    String(format: "%.1f", value)
+    String(format: "%.2f", value)
   }
   #else
-  private func logDetentState(event: String) {}
+  private func logZoomState(event: String) {}
   #endif
 }
 
-@available(iOS 15.0, *)
-extension AppleLiquidSheetSession: UISheetPresentationControllerDelegate {
-  func presentationControllerWillDismiss(
-    _ presentationController: UIPresentationController
-  ) {
-    beginStationaryDismissAnimation(
-      isGestureDriven: presentationController.isGestureDrivenDismissal
-    )
+@available(iOS 16.0, *)
+private final class AppleLiquidSheetPresentationState: ObservableObject {
+  @Published var isPresented = false
+
+  func present() {
+    guard !isPresented else {
+      return
+    }
+
+    isPresented = true
   }
 
-  func presentationControllerDidDismiss(
-    _ presentationController: UIPresentationController
-  ) {
-    completeDismissal()
-  }
+  func dismiss() {
+    guard isPresented else {
+      return
+    }
 
-  func sheetPresentationControllerDidChangeSelectedDetentIdentifier(
-    _ sheetPresentationController: UISheetPresentationController
-  ) {
-    logDetentState(event: "selectedDetentDidChange")
+    isPresented = false
   }
 }
 
 @available(iOS 16.0, *)
-private struct AppleLiquidTemplateSheetView: View {
+private struct AppleLiquidSheetPresentationHost: View {
+  let configuration: AppleLiquidSheetConfiguration
+  @ObservedObject var presentationState: AppleLiquidSheetPresentationState
   let onFrameChange: (CGRect, CGRect) -> Void
-  let onCancel: () -> Void
-  let onConfirm: () -> Void
-  @State private var searchText = ""
+  let onDismiss: () -> Void
+
+  var body: some View {
+    Color.clear
+      .ignoresSafeArea()
+      .sheet(
+        isPresented: $presentationState.isPresented,
+        onDismiss: onDismiss
+      ) {
+        AppleLiquidSettingsSheetView(
+          configuration: configuration,
+          onFrameChange: onFrameChange
+        )
+      }
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSettingsSheetView: View {
+  let configuration: AppleLiquidSheetConfiguration
+  let onFrameChange: (CGRect, CGRect) -> Void
+  @Environment(\.dismiss) private var dismiss
+  @State private var currentDetent: PresentationDetent = .medium
+  @State private var liquidGlassEnabled = true
+  @State private var reduceMotion = false
+  @State private var updateCadence = "Daily"
+  @State private var accent = "Blue"
 
   var body: some View {
     NavigationStack {
-      AppleLiquidTemplatePickerContent(searchText: searchText)
-        .navigationTitle("Templates")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-          AppleLiquidCancelButton(action: onCancel)
-          AppleLiquidConfirmButton(action: onConfirm)
-
-          if #available(iOS 26.0, *) {
-            DefaultToolbarItem(kind: .search, placement: .bottomBar)
+      Form {
+        Section("Overview") {
+          LabeledContent("Component", value: "Liquid Sheet")
+          LabeledContent("Mode", value: "Navigation Form")
+          NavigationLink("Preview details") {
+            AppleLiquidPreviewDetailsView(currentDetent: currentDetent)
           }
         }
+
+        Section("Appearance") {
+          Toggle("Liquid Glass", isOn: $liquidGlassEnabled)
+          Toggle("Reduce motion", isOn: $reduceMotion)
+          Picker("Accent", selection: $accent) {
+            ForEach(["Blue", "Teal", "Graphite"], id: \.self) { option in
+              Text(option)
+            }
+          }
+          .pickerStyle(.navigationLink)
+          .scrollContentBackground(formBackgroundVisibility)
+          .appleLiquidNavigationContainerBackground()
+        }
+
+        Section("Updates") {
+          Picker("Refresh", selection: $updateCadence) {
+            ForEach(["Manual", "Daily", "Weekly"], id: \.self) { option in
+              Text(option)
+            }
+          }
+          .pickerStyle(.navigationLink)
+          .scrollContentBackground(formBackgroundVisibility)
+          .appleLiquidNavigationContainerBackground()
+
+          NavigationLink("Notification rules") {
+            AppleLiquidNotificationRulesView(currentDetent: currentDetent)
+          }
+        }
+
+        Section("Metadata") {
+          LabeledContent("Platform", value: "iOS")
+          LabeledContent("Status", value: "Prototype")
+        }
+      }
+      .navigationTitle("Settings")
+      .toolbar {
+        ToolbarItem(placement: .confirmationAction) {
+          Button {
+            dismiss()
+          } label: {
+            Image(systemName: "checkmark")
+          }
+          .accessibilityLabel("Done")
+        }
+      }
+      .scrollContentBackground(formBackgroundVisibility)
     }
-    .searchable(text: $searchText, prompt: "Search templates")
+    .appleLiquidSheetBackground(
+      configuration.resolvedSheetSwiftUIColor,
+      isEnabled: configuration.sheetColor != nil
+    )
+    .appleLiquidColorScheme(configuration.resolvedSheetColorScheme)
+    .presentationDetents([.medium, .large], selection: $currentDetent)
     .background(
       AppleLiquidSheetFrameObserver(onFrameChange: onFrameChange)
     )
-    #if DEBUG
-    .background(AppleLiquidSearchFrameDebugObserver())
-    #endif
+  }
+
+  private var formBackgroundVisibility: Visibility {
+    currentDetent == .medium ? .hidden : .automatic
   }
 }
 
-private extension UIView {
-  var hasActivePanGesture: Bool {
-    let hasActiveGesture = gestureRecognizers?.contains { gestureRecognizer in
-      guard gestureRecognizer is UIPanGestureRecognizer else {
-        return false
+@available(iOS 16.0, *)
+private struct AppleLiquidPreviewDetailsView: View {
+  let currentDetent: PresentationDetent
+  @State private var title = "Sheet Preview"
+  @State private var owner = "Design Team"
+
+  var body: some View {
+    Form {
+      Section("Preview") {
+        TextField("Title", text: $title)
+        TextField("Owner", text: $owner)
       }
 
-      return gestureRecognizer.state == .began ||
-        gestureRecognizer.state == .changed ||
-        gestureRecognizer.state == .ended
-    } ?? false
+      Section("Context") {
+        LabeledContent("Surface", value: "Form")
+        LabeledContent("Detents", value: "Medium + Large")
+      }
+    }
+    .navigationTitle("Preview")
+    .scrollContentBackground(formBackgroundVisibility)
+    .appleLiquidNavigationContainerBackground()
+  }
 
-    return hasActiveGesture || subviews.contains { $0.hasActivePanGesture }
+  private var formBackgroundVisibility: Visibility {
+    currentDetent == .medium ? .hidden : .automatic
   }
 }
 
-private extension UIPresentationController {
-  var isGestureDrivenDismissal: Bool {
-    if presentedViewController.transitionCoordinator?.isInteractive == true {
-      return true
-    }
+@available(iOS 16.0, *)
+private struct AppleLiquidNotificationRulesView: View {
+  let currentDetent: PresentationDetent
+  @State private var criticalUpdates = true
+  @State private var weeklyDigest = false
 
-    return presentedView?.hasActivePanGesture == true ||
-      containerView?.hasActivePanGesture == true
+  var body: some View {
+    Form {
+      Section("Rules") {
+        Toggle("Critical updates", isOn: $criticalUpdates)
+        Toggle("Weekly digest", isOn: $weeklyDigest)
+      }
+
+      Section("Routing") {
+        LabeledContent("Channel", value: "In-app")
+        LabeledContent("Priority", value: "Normal")
+      }
+    }
+    .navigationTitle("Rules")
+    .scrollContentBackground(formBackgroundVisibility)
+    .appleLiquidNavigationContainerBackground()
+  }
+
+  private var formBackgroundVisibility: Visibility {
+    currentDetent == .medium ? .hidden : .automatic
+  }
+}
+
+@available(iOS 16.0, *)
+private extension View {
+  @ViewBuilder
+  func appleLiquidSheetBackground(_ color: Color, isEnabled: Bool) -> some View {
+    if isEnabled {
+      let backgroundView = background(
+        color.ignoresSafeArea(.container, edges: .bottom)
+      )
+        .ignoresSafeArea(.container, edges: .bottom)
+
+      if #available(iOS 16.4, *) {
+        backgroundView.presentationBackground(color)
+      } else {
+        backgroundView
+      }
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidToolbarBackground(_ color: Color) -> some View {
+    toolbarBackground(.hidden, for: .navigationBar)
+      .toolbarBackground(color, for: .bottomBar)
+      .toolbarBackground(.visible, for: .bottomBar)
+  }
+
+  @ViewBuilder
+  func appleLiquidColorScheme(_ colorScheme: ColorScheme?) -> some View {
+    if let colorScheme {
+      environment(\.colorScheme, colorScheme)
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidSheetPreferredCornerRadius(_ radius: CGFloat) -> some View {
+    if #available(iOS 16.4, *) {
+      presentationCornerRadius(radius)
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidNavigationContainerBackground() -> some View {
+    if #available(iOS 18.0, *) {
+      containerBackground(.clear, for: .navigation)
+    } else {
+      self
+    }
   }
 }
 
@@ -783,471 +887,5 @@ private final class AppleLiquidSheetFrameObserverView: UIView {
     }
 
     return bestFrame ?? convert(bounds, to: window)
-  }
-}
-
-#if DEBUG
-@available(iOS 16.0, *)
-private struct AppleLiquidSearchFrameDebugObserver: UIViewRepresentable {
-  func makeUIView(context: Context) -> AppleLiquidSearchFrameDebugObserverView {
-    AppleLiquidSearchFrameDebugObserverView()
-  }
-
-  func updateUIView(
-    _ uiView: AppleLiquidSearchFrameDebugObserverView,
-    context: Context
-  ) {}
-}
-
-private final class AppleLiquidSearchFrameDebugObserverView: UIView {
-  private var displayLink: CADisplayLink?
-  private var keyboardPhase = "idle"
-  private var keyboardY: CGFloat = 0
-  private var keyboardHeight: CGFloat = 0
-  private var keyboardDuration: Double = 0
-  private var lastFrame: CGRect?
-  private var lastClassName: String?
-  private var didLogMissingSearchView = false
-
-  override func didMoveToWindow() {
-    super.didMoveToWindow()
-
-    if window == nil {
-      stopTracking()
-    } else {
-      startTracking()
-    }
-  }
-
-  deinit {
-    stopTracking()
-    NotificationCenter.default.removeObserver(self)
-  }
-
-  private func startTracking() {
-    guard displayLink == nil else {
-      return
-    }
-
-    registerKeyboardNotifications()
-
-    let displayLink = CADisplayLink(
-      target: self,
-      selector: #selector(tick)
-    )
-    displayLink.add(to: .main, forMode: .common)
-    self.displayLink = displayLink
-  }
-
-  private func stopTracking() {
-    displayLink?.invalidate()
-    displayLink = nil
-  }
-
-  private func registerKeyboardNotifications() {
-    let notificationCenter = NotificationCenter.default
-    notificationCenter.addObserver(
-      self,
-      selector: #selector(keyboardWillShow),
-      name: UIResponder.keyboardWillShowNotification,
-      object: nil
-    )
-    notificationCenter.addObserver(
-      self,
-      selector: #selector(keyboardDidShow),
-      name: UIResponder.keyboardDidShowNotification,
-      object: nil
-    )
-    notificationCenter.addObserver(
-      self,
-      selector: #selector(keyboardWillHide),
-      name: UIResponder.keyboardWillHideNotification,
-      object: nil
-    )
-    notificationCenter.addObserver(
-      self,
-      selector: #selector(keyboardDidHide),
-      name: UIResponder.keyboardDidHideNotification,
-      object: nil
-    )
-  }
-
-  @objc private func keyboardWillShow(_ notification: Notification) {
-    keyboardPhase = "willShow"
-    logKeyboardEvent("keyboardWillShow", notification: notification)
-  }
-
-  @objc private func keyboardDidShow(_ notification: Notification) {
-    keyboardPhase = "visible"
-    logKeyboardEvent("keyboardDidShow", notification: notification)
-  }
-
-  @objc private func keyboardWillHide(_ notification: Notification) {
-    keyboardPhase = "willHide"
-    logKeyboardEvent("keyboardWillHide", notification: notification)
-  }
-
-  @objc private func keyboardDidHide(_ notification: Notification) {
-    keyboardPhase = "hidden"
-    logKeyboardEvent("keyboardDidHide", notification: notification)
-  }
-
-  @objc private func tick() {
-    guard let window else {
-      return
-    }
-
-    guard let searchView = primarySearchView(in: window) else {
-      if !didLogMissingSearchView {
-        AppleLiquidSheetPresenter.debugLog(
-          "[mjn_liquid_ui][search-frame] missing phase=\(keyboardPhase)"
-        )
-        didLogMissingSearchView = true
-      }
-      return
-    }
-
-    didLogMissingSearchView = false
-
-    let frame = searchView.convert(searchView.bounds, to: window)
-    let className = String(describing: type(of: searchView))
-
-    guard shouldLog(frame: frame, className: className) else {
-      return
-    }
-
-    let sheetFrame = observedSheetFrame(in: window)
-    let deltaY = lastFrame.map { frame.minY - $0.minY } ?? 0
-
-    AppleLiquidSheetPresenter.debugLog(
-      "[mjn_liquid_ui][search-frame] " +
-        "phase=\(keyboardPhase) " +
-        "class=\(className) " +
-        "y=\(format(frame.minY)) " +
-        "h=\(format(frame.height)) " +
-        "deltaY=\(format(deltaY)) " +
-        "sheetY=\(format(sheetFrame.minY)) " +
-        "sheetH=\(format(sheetFrame.height))"
-    )
-
-    lastFrame = frame
-    lastClassName = className
-  }
-
-  private func shouldLog(frame: CGRect, className: String) -> Bool {
-    guard let lastFrame, let lastClassName else {
-      return true
-    }
-
-    return className != lastClassName ||
-      abs(frame.minY - lastFrame.minY) >= 0.5 ||
-      abs(frame.height - lastFrame.height) >= 0.5
-  }
-
-  private func logKeyboardEvent(
-    _ name: String,
-    notification: Notification
-  ) {
-    let duration =
-      notification.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey]
-      as? Double ?? 0
-    let endFrame =
-      notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey]
-      as? CGRect ?? .zero
-    keyboardDuration = duration
-    keyboardY = endFrame.minY
-    keyboardHeight = endFrame.height
-
-    AppleLiquidSheetPresenter.debugLog(
-      "[mjn_liquid_ui][search-frame] " +
-        "event=\(name) " +
-        "duration=\(format(duration)) " +
-        "keyboardY=\(format(endFrame.minY)) " +
-        "keyboardH=\(format(endFrame.height))"
-    )
-  }
-
-  private func primarySearchView(in rootView: UIView) -> UIView? {
-    let candidates = searchCandidates(in: rootView)
-
-    return candidates.first { $0 is UISearchBar } ??
-      candidates.first { $0 is UISearchTextField } ??
-      candidates.max { first, second in
-        first.bounds.width < second.bounds.width
-      }
-  }
-
-  private func searchCandidates(in view: UIView) -> [UIView] {
-    var candidates: [UIView] = []
-
-    if isSearchView(view) {
-      candidates.append(view)
-    }
-
-    for subview in view.subviews {
-      candidates.append(contentsOf: searchCandidates(in: subview))
-    }
-
-    return candidates
-  }
-
-  private func isSearchView(_ view: UIView) -> Bool {
-    if view is UISearchBar || view is UISearchTextField {
-      return true
-    }
-
-    let className = String(describing: type(of: view))
-    let hasSearchClassName = className.localizedCaseInsensitiveContains("Search")
-    let hasSearchBarSize = view.bounds.width >= 120 &&
-      view.bounds.height >= 28 &&
-      view.bounds.height <= 80
-
-    return hasSearchClassName && hasSearchBarSize
-  }
-
-  private func observedSheetFrame(in window: UIWindow) -> CGRect {
-    var view: UIView? = self
-    var bestFrame: CGRect?
-    let windowBounds = window.bounds
-
-    while let currentView = view, currentView !== window {
-      let frame = currentView.convert(currentView.bounds, to: window)
-      let isSheetSized = frame.width >= windowBounds.width * 0.82 &&
-        frame.height >= 120 &&
-        frame.height < windowBounds.height * 0.98
-
-      if isSheetSized &&
-        (bestFrame == nil || frame.height > bestFrame!.height) {
-        bestFrame = frame
-      }
-
-      view = currentView.superview
-    }
-
-    return bestFrame ?? convert(bounds, to: window)
-  }
-
-  private func format(_ value: CGFloat) -> String {
-    String(format: "%.1f", value)
-  }
-
-  private func format(_ value: Double) -> String {
-    String(format: "%.2f", value)
-  }
-}
-#endif
-
-@available(iOS 16.0, *)
-private extension AppleLiquidSheetConfiguration {
-  static let customDetentIdentifier =
-    UISheetPresentationController.Detent.Identifier("appleLiquidTemplate")
-
-  func apply(to sheetPresentationController: UISheetPresentationController) {
-    sheetPresentationController.detents = detents
-    sheetPresentationController.selectedDetentIdentifier = detentIdentifier
-    sheetPresentationController.prefersGrabberVisible = false
-    sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = false
-  }
-
-  var detents: [UISheetPresentationController.Detent] {
-    switch detentMode {
-    case .medium:
-      return [.medium(), .large()]
-
-    case .large:
-      return [.large()]
-
-    case .custom:
-      return [customDetent]
-    }
-  }
-
-  var detentIdentifier: UISheetPresentationController.Detent.Identifier {
-    switch detentMode {
-    case .medium:
-      return .medium
-
-    case .large:
-      return .large
-
-    case .custom:
-      return Self.customDetentIdentifier
-    }
-  }
-
-  func applyKeyboardDetents(
-    to sheetPresentationController: UISheetPresentationController
-  ) {
-    guard detentMode == .custom else {
-      return
-    }
-
-    sheetPresentationController.detents = [customDetent, .large()]
-    sheetPresentationController.selectedDetentIdentifier = .large
-    sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = false
-  }
-
-  func selectRestingDetent(
-    on sheetPresentationController: UISheetPresentationController
-  ) {
-    sheetPresentationController.detents = [customDetent, .large()]
-    sheetPresentationController.selectedDetentIdentifier = detentIdentifier
-  }
-
-  private var customDetent: UISheetPresentationController.Detent {
-    .custom(identifier: Self.customDetentIdentifier) { context in
-      customDetentResolver?.resolve(
-        maximumDetentValue: context.maximumDetentValue
-      ) ?? context.maximumDetentValue * heightFraction
-    }
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidCancelButton: ToolbarContent {
-  var isDisabled = false
-  let action: () -> Void
-
-  @ToolbarContentBuilder
-  var body: some ToolbarContent {
-    ToolbarItem(placement: .cancellationAction) {
-      Button(role: .cancel, action: action) {
-        Image(systemName: "xmark")
-      }
-      .disabled(isDisabled)
-      .accessibilityLabel("Cancel")
-    }
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidConfirmButton: ToolbarContent {
-  var isDisabled = false
-  let action: () -> Void
-
-  @ToolbarContentBuilder
-  var body: some ToolbarContent {
-    ToolbarItem {
-      if #available(iOS 26.0, *) {
-        Button(role: .confirm, action: action) {
-          Image(systemName: "checkmark")
-        }
-        .disabled(isDisabled)
-        .accessibilityLabel("Confirm")
-      } else {
-        Button(action: action) {
-          Image(systemName: "checkmark")
-        }
-        .disabled(isDisabled)
-        .accessibilityLabel("Confirm")
-      }
-    }
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidTemplatePickerContent: View {
-  let searchText: String
-
-  private let templates = [
-    AppleLiquidTemplatePreview(
-      title: "Meeting notes",
-      accentColor: Color(red: 0.00, green: 0.48, blue: 1.00),
-      rowWidths: [0.74, 0.60, 0.86, 0.42, 0.66]
-    ),
-    AppleLiquidTemplatePreview(
-      title: "Class notes",
-      accentColor: Color(red: 0.65, green: 0.54, blue: 0.96),
-      rowWidths: [0.68, 0.82, 0.54, 0.70, 0.46]
-    ),
-    AppleLiquidTemplatePreview(
-      title: "Project plan",
-      accentColor: Color(red: 0.13, green: 0.77, blue: 0.37),
-      rowWidths: [0.58, 0.76, 0.64, 0.88, 0.50]
-    ),
-    AppleLiquidTemplatePreview(
-      title: "Research brief",
-      accentColor: Color(red: 0.96, green: 0.62, blue: 0.04),
-      rowWidths: [0.84, 0.72, 0.52, 0.78, 0.60]
-    ),
-  ]
-
-  private let columns = [
-    GridItem(.flexible(), spacing: 18),
-    GridItem(.flexible(), spacing: 18),
-  ]
-
-  var body: some View {
-    ScrollView {
-      LazyVGrid(columns: columns, spacing: 22) {
-        ForEach(filteredTemplates) { template in
-          AppleLiquidTemplatePreviewCard(template: template)
-        }
-      }
-      .padding(.horizontal, 24)
-      .padding(.top, 18)
-      .padding(.bottom, 36)
-    }
-    .scrollDismissesKeyboard(.interactively)
-  }
-
-  private var filteredTemplates: [AppleLiquidTemplatePreview] {
-    let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-
-    guard !query.isEmpty else {
-      return templates
-    }
-
-    return templates.filter { template in
-      template.title.localizedCaseInsensitiveContains(query)
-    }
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidTemplatePreview: Identifiable {
-  let id = UUID()
-  let title: String
-  let accentColor: Color
-  let rowWidths: [CGFloat]
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidTemplatePreviewCard: View {
-  let template: AppleLiquidTemplatePreview
-
-  var body: some View {
-    VStack(alignment: .leading, spacing: 12) {
-      preview
-      Text(template.title)
-        .font(.headline)
-        .lineLimit(1)
-        .foregroundStyle(.primary)
-    }
-  }
-
-  private var preview: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      Text(template.title)
-        .font(.caption.weight(.bold))
-        .lineLimit(1)
-
-      ForEach(Array(template.rowWidths.enumerated()), id: \.offset) { _, width in
-        Capsule()
-          .fill(.secondary.opacity(0.22))
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .frame(width: 130 * width, height: 7)
-      }
-
-      Spacer()
-
-      Capsule()
-        .fill(template.accentColor.opacity(0.75))
-        .frame(width: 78, height: 12)
-    }
-    .padding(14)
-    .frame(height: 150)
-    .foregroundStyle(.white)
-    .background(Color.black.opacity(0.86), in: RoundedRectangle(cornerRadius: 18))
   }
 }
