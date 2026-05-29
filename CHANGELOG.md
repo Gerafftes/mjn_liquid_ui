@@ -1,3 +1,12 @@
+## 0.2.6
+
+- Added customizable native sheet content through `AppleLiquidSheetContent`,
+  `AppleLiquidSheetSection`, and `AppleLiquidSheetRow`.
+- Added `AppleLiquidSheet.showSheet()` and `AppleLiquidSheetController.showSheet()`
+  while keeping the previous template sheet methods as compatibility aliases.
+- Changed the native sheet to use a content-sized detent instead of expanding
+  to `.large`.
+
 ## 0.2.5
 
 - Rebuilt the native sheet presentation around a Liquid Glass SwiftUI
