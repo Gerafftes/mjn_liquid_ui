@@ -412,14 +412,19 @@ class AppleLiquidSheetController extends ChangeNotifier {
   /// Shows the native sheet.
   ///
   /// Returns false on unsupported platforms, when the native side cannot present
-  /// a sheet, or when this controller already has a pending presentation.
+  /// a sheet. Repeated calls while a native presentation is already active
+  /// return true so callers do not open a fallback sheet on top.
   Future<bool> showSheet({
     double? heightFraction,
     double? backgroundZoomScale,
     Color? sheetColor,
     AppleLiquidSheetContent? content,
   }) async {
-    if (_activeShow != null || !AppleLiquidSheet._supportsNativeSheets) {
+    if (_activeShow != null) {
+      return true;
+    }
+
+    if (!AppleLiquidSheet._supportsNativeSheets) {
       return false;
     }
 
@@ -523,6 +528,7 @@ class AppleLiquidSheet {
 
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/sheets');
   static bool _debugLogHandlerAttached = false;
+  static Future<bool>? _activeShow;
 
   /// Shows a native sheet on iOS.
   ///
@@ -536,6 +542,8 @@ class AppleLiquidSheet {
   /// [heightFraction] is retained for compatibility with earlier sheet demos.
   ///
   /// Returns false on unsupported platforms so callers can provide a fallback.
+  /// Repeated calls while a native presentation is already active return true
+  /// without opening another sheet.
   /// On iOS, the returned future completes after the sheet has closed.
   static Future<bool> showSheet({
     double heightFraction = 1,
@@ -550,16 +558,30 @@ class AppleLiquidSheet {
       return false;
     }
 
+    if (_activeShow != null) {
+      return true;
+    }
+
     _attachDebugLogHandler();
 
-    return await _channel
-            .invokeMethod<bool>('showTemplateSheet', <String, Object?>{
-              'heightFraction': heightFraction,
-              'backgroundZoomScale': backgroundZoomScale,
-              'sheetColor': sheetColor?.toARGB32(),
-              if (content != null) 'content': content.toMap(),
-            }) ??
-        false;
+    final Future<bool> showFuture = _channel
+        .invokeMethod<bool>('showTemplateSheet', <String, Object?>{
+          'heightFraction': heightFraction,
+          'backgroundZoomScale': backgroundZoomScale,
+          'sheetColor': sheetColor?.toARGB32(),
+          if (content != null) 'content': content.toMap(),
+        })
+        .then((bool? didShow) => didShow ?? false);
+
+    _activeShow = showFuture;
+
+    try {
+      return await showFuture;
+    } finally {
+      if (identical(_activeShow, showFuture)) {
+        _activeShow = null;
+      }
+    }
   }
 
   /// Shows a native sheet on iOS.

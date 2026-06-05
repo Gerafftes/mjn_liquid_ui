@@ -1,3 +1,11 @@
+## 0.2.7
+
+- Blocked touches from passing through the native sheet presentation to Flutter
+  content behind it, including the top safe-area gap while the background is
+  zoomed.
+- Prevented duplicate show requests from opening fallback sheets while a native
+  sheet is already active.
+
 ## 0.2.6
 
 - Added customizable native sheet content through `AppleLiquidSheetContent`,

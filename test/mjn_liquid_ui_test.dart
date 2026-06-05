@@ -216,6 +216,9 @@ void main() {
       expect(calls.single.arguments, containsPair('sheetColor', 0xFFEAF3FF));
       expect(calls.single.arguments, containsPair('content', content.toMap()));
 
+      expect(await controller.showSheet(), isTrue);
+      expect(calls, hasLength(1));
+
       expect(await controller.dismiss(), isTrue);
       expect(await showFuture, isTrue);
       expect(controller.isShowing, isFalse);
@@ -226,6 +229,41 @@ void main() {
       ]);
     } finally {
       controller.dispose();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, null);
+    }
+  });
+
+  test('AppleLiquidSheet ignores duplicate native show requests', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final Completer<bool> showCompleter = Completer<bool>();
+    final List<MethodCall> calls = <MethodCall>[];
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+          calls.add(call);
+
+          switch (call.method) {
+            case 'showTemplateSheet':
+              return showCompleter.future;
+            default:
+              return null;
+          }
+        });
+
+    try {
+      final Future<bool> showFuture = AppleLiquidSheet.showSheet();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(calls, hasLength(1));
+      expect(await AppleLiquidSheet.showSheet(), isTrue);
+      expect(calls, hasLength(1));
+
+      showCompleter.complete(true);
+      expect(await showFuture, isTrue);
+    } finally {
       debugDefaultTargetPlatformOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(sheetChannel, null);
