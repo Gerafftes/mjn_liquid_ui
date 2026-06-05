@@ -89,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.6
+  mjn_liquid_ui: ^0.2.7
 ```
 
 Then import the package:
@@ -330,6 +330,9 @@ leave it null to use the native Liquid Glass/system presentation background.
 The method returns `true` after a native iOS sheet was shown and dismissed. It
 returns `false` on unsupported platforms so apps can present their own Flutter
 fallback.
+While a native sheet is active, touches are blocked from reaching the Flutter
+content behind it. Repeated show calls return `true` without opening another
+sheet so fallback code does not stack a second presentation.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 

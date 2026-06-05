@@ -50,7 +50,7 @@ enum AppleLiquidSheetPresenter {
     }
 
     guard activeSession == nil else {
-      result(false)
+      result(true)
       return
     }
 
@@ -788,6 +788,24 @@ private extension UIColor {
   }
 }
 
+private final class AppleLiquidBackgroundInteractionBlockerView: UIView {
+  override init(frame: CGRect) {
+    super.init(frame: frame)
+
+    backgroundColor = .clear
+    isUserInteractionEnabled = true
+    isAccessibilityElement = false
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    bounds.contains(point) ? self : nil
+  }
+}
+
 @available(iOS 16.0, *)
 private final class AppleLiquidSheetSession {
   private let zoomedCornerRadius: CGFloat = 44
@@ -795,6 +813,7 @@ private final class AppleLiquidSheetSession {
   private let presentationState = AppleLiquidSheetPresentationState()
   private weak var presentingView: UIView?
   private var hostController: UIViewController?
+  private var backgroundInteractionBlocker: UIView?
   private let result: FlutterResult
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
@@ -830,12 +849,15 @@ private final class AppleLiquidSheetSession {
   deinit {
     keyboardTransitionWorkItem?.cancel()
     NotificationCenter.default.removeObserver(self)
+    removeBackgroundInteractionBlocker()
   }
 
   func present(from presenter: UIViewController) -> Bool {
-    guard presenter.viewIfLoaded?.window != nil else {
+    guard let window = presenter.viewIfLoaded?.window else {
       return false
     }
+
+    installBackgroundInteractionBlocker(in: window)
 
     let hostView = AppleLiquidSheetPresentationHost(
       configuration: configuration,
@@ -867,6 +889,28 @@ private final class AppleLiquidSheetSession {
     }
 
     return true
+  }
+
+  private func installBackgroundInteractionBlocker(in window: UIWindow) {
+    removeBackgroundInteractionBlocker()
+
+    let blocker = AppleLiquidBackgroundInteractionBlockerView()
+    blocker.translatesAutoresizingMaskIntoConstraints = false
+    window.addSubview(blocker)
+
+    NSLayoutConstraint.activate([
+      blocker.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+      blocker.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+      blocker.topAnchor.constraint(equalTo: window.topAnchor),
+      blocker.bottomAnchor.constraint(equalTo: window.bottomAnchor),
+    ])
+
+    backgroundInteractionBlocker = blocker
+  }
+
+  private func removeBackgroundInteractionBlocker() {
+    backgroundInteractionBlocker?.removeFromSuperview()
+    backgroundInteractionBlocker = nil
   }
 
   func dismissFromControl(onDismissed: (() -> Void)? = nil) {
@@ -1101,6 +1145,7 @@ private final class AppleLiquidSheetSession {
       self.result(true)
       self.onFinish()
       callbacks.forEach { $0() }
+      self.removeBackgroundInteractionBlocker()
       self.hostController = nil
     }
 
@@ -1159,7 +1204,8 @@ private struct AppleLiquidSheetPresentationHost: View {
   let onDismiss: () -> Void
 
   var body: some View {
-    Color.clear
+    AppleLiquidSheetTouchBlocker()
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
       .ignoresSafeArea()
       .sheet(
         isPresented: $presentationState.isPresented,
@@ -1170,6 +1216,20 @@ private struct AppleLiquidSheetPresentationHost: View {
           onFrameChange: onFrameChange
         )
       }
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetTouchBlocker: UIViewRepresentable {
+  func makeUIView(context: Context) -> UIView {
+    let view = UIView()
+    view.backgroundColor = .clear
+    view.isUserInteractionEnabled = true
+    return view
+  }
+
+  func updateUIView(_ uiView: UIView, context: Context) {
+    uiView.isUserInteractionEnabled = true
   }
 }
 

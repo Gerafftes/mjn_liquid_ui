@@ -188,6 +188,10 @@ class _DemoShellState extends State<DemoShell> {
   }
 
   Future<void> _showTemplateSheet() async {
+    if (templateSheetController.isShowing || templateSheetController.isShown) {
+      return;
+    }
+
     final AppleLiquidSheetContent sheetContent = _sheetContent;
     final bool didShowNativeSheet = await templateSheetController.showSheet(
       backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
