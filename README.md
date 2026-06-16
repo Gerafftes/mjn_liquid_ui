@@ -66,9 +66,9 @@ structure.
 | --- | --- |
 | ![Liquid Slider](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png) | ![Liquid Surface](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png) |
 
-| Liquid Sheet | Liquid Search |
+| Liquid Sheet | Search Role Tab |
 | --- | --- |
-| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Liquid Search](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
+| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Search Role Tab](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
 
 ## Platform support
 
@@ -89,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.7
+  mjn_liquid_ui: ^0.2.8
 ```
 
 Then import the package:
@@ -255,14 +255,51 @@ detent, optional background zoom on the presenting page, and a checkmark toolbar
 action to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
-supports sections plus text, value, toggle, picker, text-field, and nested
-navigation rows. Toggle, picker, and text-field state stays local to the native
-sheet while it is presented.
+supports sections plus text, value, toggle, picker, slider, text-field, and
+nested navigation rows. Toggle, picker, slider, and text-field state stays local
+to the native sheet while it is presented. Omit `step` on
+`AppleLiquidSheetRow.slider` for a continuous slider.
+
+| API | Purpose |
+| --- | --- |
+| `AppleLiquidSheetContent` | One native sheet page with title, optional detents, and sections |
+| `AppleLiquidSheetSection` | Optional section header plus native form rows |
+| `AppleLiquidSheetRow.text` | Title and optional subtitle |
+| `AppleLiquidSheetRow.value` | Native label-value row |
+| `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
+| `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
+| `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, and tint |
+| `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
+| `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page |
+
+`AppleLiquidSheetDetents` can be set on every `AppleLiquidSheetContent`, not
+only the root sheet. Heights are native iOS points:
+
+```dart
+const AppleLiquidSheetContent(
+  title: 'Release',
+  detents: AppleLiquidSheetDetents(
+    initialHeight: 300,
+    expandedHeight: 520,
+  ),
+  sections: <AppleLiquidSheetSection>[
+    AppleLiquidSheetSection(
+      rows: <AppleLiquidSheetRow>[
+        AppleLiquidSheetRow.value(title: 'Detents', value: 'Two-step'),
+      ],
+    ),
+  ],
+)
+```
 
 ```dart
 final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   title: 'Project',
   doneSemanticLabel: 'Close sheet',
+  detents: AppleLiquidSheetDetents(
+    initialHeight: 420,
+    expandedHeight: 640,
+  ),
   sections: <AppleLiquidSheetSection>[
     AppleLiquidSheetSection(
       title: 'Overview',
@@ -281,10 +318,19 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           options: <String>['Auto', 'Light', 'Dark'],
           selectedOption: 'Auto',
         ),
+        AppleLiquidSheetRow.slider(
+          title: 'Intensity',
+          value: 0.72,
+          tintColor: Color(0xFF0A84FF),
+        ),
         AppleLiquidSheetRow.navigation(
           title: 'Details',
           content: AppleLiquidSheetContent(
             title: 'Details',
+            detents: AppleLiquidSheetDetents(
+              initialHeight: 300,
+              expandedHeight: 520,
+            ),
             sections: <AppleLiquidSheetSection>[
               AppleLiquidSheetSection(
                 rows: <AppleLiquidSheetRow>[
@@ -336,11 +382,14 @@ sheet so fallback code does not stack a second presentation.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 
-The iOS implementation uses a single SwiftUI content-sized sheet detent instead
-of a `.large` expansion target. The estimated height is derived from the active
-form content and updates for nested navigation screens. The form scroll
-background stays hidden so the Liquid Glass sheet remains visible behind the
-form content.
+The iOS implementation opens at a SwiftUI content-sized sheet detent instead of
+expanding straight to `.large`. Pass `AppleLiquidSheetDetents` to any
+`AppleLiquidSheetContent` to customize the starting height and optional second
+higher height for that page, including nested navigation pages. When no custom
+detents are supplied and the estimated active form content is taller than the
+normal sheet height, iOS also gets an automatic second higher detent so the user
+can pull the sheet up. The form scroll background stays hidden so the Liquid
+Glass sheet remains visible behind the form content.
 `showTemplateSheet()` and `AppleLiquidSheetController.showTemplateSheet()` are
 kept as compatibility aliases for older code.
 The earlier bottom search bar option has been removed from the sheet API.

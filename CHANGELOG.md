@@ -1,3 +1,17 @@
+## 0.2.8
+
+- Added native slider rows to `AppleLiquidSheetContent` via
+  `AppleLiquidSheetRow.slider`, including min/max, optional step, tint color,
+  and local SwiftUI sheet state.
+- Isolated sheet slider tracking from the sheet drag gesture so touching or
+  dragging a slider does not trigger the sheet background zoom interaction.
+- Updated the built-in sheet slider examples to use continuous sliders when
+  `step` is omitted.
+- Added a second higher sheet detent for oversized native sheet content while
+  keeping smaller sheets content-sized.
+- Added per-page `AppleLiquidSheetDetents` so root and nested sheet content can
+  define their own initial and expanded detent heights.
+
 ## 0.2.7
 
 - Blocked touches from passing through the native sheet presentation to Flutter

@@ -116,6 +116,10 @@ class _DemoShellState extends State<DemoShell> {
     return AppleLiquidSheetContent(
       title: 'Sheet Demo',
       doneSemanticLabel: 'Close sheet',
+      detents: const AppleLiquidSheetDetents(
+        initialHeight: 430,
+        expandedHeight: 660,
+      ),
       sections: <AppleLiquidSheetSection>[
         const AppleLiquidSheetSection(
           title: 'Package',
@@ -135,6 +139,10 @@ class _DemoShellState extends State<DemoShell> {
               systemImage: 'sparkles',
               content: AppleLiquidSheetContent(
                 title: 'Release',
+                detents: AppleLiquidSheetDetents(
+                  initialHeight: 300,
+                  expandedHeight: 520,
+                ),
                 sections: <AppleLiquidSheetSection>[
                   AppleLiquidSheetSection(
                     title: 'Highlights',
@@ -147,7 +155,7 @@ class _DemoShellState extends State<DemoShell> {
                       ),
                       AppleLiquidSheetRow.value(
                         title: 'Detents',
-                        value: 'Content-sized',
+                        value: 'Custom two-step',
                       ),
                     ],
                   ),
@@ -169,6 +177,12 @@ class _DemoShellState extends State<DemoShell> {
               options: const <String>['Automatic', 'Light', 'Dark'],
               selectedOption: colorMode,
               systemImage: 'paintpalette.fill',
+            ),
+            const AppleLiquidSheetRow.slider(
+              title: 'Corner feel',
+              value: 0.7,
+              tintColor: Color(0xFF0A84FF),
+              systemImage: 'slider.horizontal.3',
             ),
             const AppleLiquidSheetRow.textField(
               title: 'Label',
@@ -735,9 +749,22 @@ class _TemplateSheetFallback extends StatelessWidget {
       AppleLiquidSheetRowType.toggle => row.boolValue == true ? 'On' : 'Off',
       AppleLiquidSheetRowType.picker =>
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
+      AppleLiquidSheetRowType.slider => _sliderValueFor(row),
       AppleLiquidSheetRowType.navigation => 'Details',
       AppleLiquidSheetRowType.textField => row.value ?? '',
     };
+  }
+
+  String _sliderValueFor(AppleLiquidSheetRow row) {
+    final double min = row.min ?? 0;
+    final double max = row.max ?? 1;
+    final double value = (row.sliderValue ?? min).clamp(min, max);
+
+    if (min == 0 && max == 1) {
+      return '${(value * 100).round()}%';
+    }
+
+    return value.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
   }
 }
 
