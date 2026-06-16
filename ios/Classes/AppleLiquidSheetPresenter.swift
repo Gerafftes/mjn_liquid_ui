@@ -198,6 +198,7 @@ private struct AppleLiquidSheetConfiguration {
 private struct AppleLiquidSheetContentConfiguration {
   let title: String
   let doneAccessibilityLabel: String
+  let detents: AppleLiquidSheetDetentConfiguration
   let sections: [AppleLiquidSheetSectionConfiguration]
 
   init(value: Any?, fallbackTitle: String = "Settings") {
@@ -214,6 +215,9 @@ private struct AppleLiquidSheetContentConfiguration {
       dictionary["doneSemanticLabel"],
       defaultValue: "Done"
     )
+    let detents = AppleLiquidSheetDetentConfiguration(
+      value: dictionary["detents"]
+    )
     let sections = (dictionary["sections"] as? [Any] ?? [])
       .enumerated()
       .compactMap { index, value in
@@ -226,6 +230,7 @@ private struct AppleLiquidSheetContentConfiguration {
     self.init(
       title: title,
       doneAccessibilityLabel: doneAccessibilityLabel,
+      detents: detents,
       sections: sections.isEmpty ? Self.defaultContent.sections : sections
     )
   }
@@ -233,10 +238,12 @@ private struct AppleLiquidSheetContentConfiguration {
   private init(
     title: String,
     doneAccessibilityLabel: String,
+    detents: AppleLiquidSheetDetentConfiguration = .automatic,
     sections: [AppleLiquidSheetSectionConfiguration]
   ) {
     self.title = title
     self.doneAccessibilityLabel = doneAccessibilityLabel
+    self.detents = detents
     self.sections = sections
   }
 
@@ -253,7 +260,7 @@ private struct AppleLiquidSheetContentConfiguration {
     return string
   }
 
-  var preferredDetentHeight: CGFloat {
+  var estimatedDetentHeight: CGFloat {
     let navigationChromeHeight: CGFloat = 92
     let sectionHeaderHeight = sections.reduce(CGFloat.zero) { partial, section in
       partial + (section.title == nil ? 12 : 34)
@@ -263,16 +270,81 @@ private struct AppleLiquidSheetContentConfiguration {
       partial + section.estimatedHeight
     }
 
-    return Self.normalizedDetentHeight(
-      navigationChromeHeight + sectionHeaderHeight + sectionSpacing + rowHeight
-    )
+    return navigationChromeHeight + sectionHeaderHeight + sectionSpacing + rowHeight
+  }
+
+  var preferredDetentHeights: AppleLiquidSheetDetentHeights {
+    Self.detentHeights(for: estimatedDetentHeight, configuration: detents)
+  }
+
+  var preferredDetentHeight: CGFloat {
+    preferredDetentHeights.primary
   }
 
   static func normalizedDetentHeight(_ height: CGFloat) -> CGFloat {
+    detentHeights(for: height).primary
+  }
+
+  static func detentHeights(
+    for estimatedHeight: CGFloat,
+    configuration: AppleLiquidSheetDetentConfiguration = .automatic
+  ) -> AppleLiquidSheetDetentHeights {
     let screenHeight = UIScreen.main.bounds.height
-    let screenBoundedMaximum = max(320, screenHeight * 0.82)
-    let maximumHeight = min(700, screenBoundedMaximum)
-    return min(max(height.rounded(.up), 240), maximumHeight)
+    let roundedHeight = estimatedHeight.rounded(.up)
+    let minimumHeight: CGFloat = 240
+    let primaryMaximumHeight = min(560, max(320, screenHeight * 0.64))
+    let expandedMaximumHeight = min(700, max(360, screenHeight * 0.88))
+    let primaryHeight = configuration.initialHeight.map { height in
+      Self.clampedDetentHeight(
+        height,
+        min: minimumHeight,
+        max: expandedMaximumHeight
+      )
+    } ?? min(
+      max(roundedHeight, minimumHeight),
+      primaryMaximumHeight
+    )
+
+    if let configuredExpandedHeight = configuration.expandedHeight {
+      let expandedHeight = Self.clampedDetentHeight(
+        configuredExpandedHeight,
+        min: minimumHeight,
+        max: expandedMaximumHeight
+      )
+
+      if expandedHeight > primaryHeight + 24 {
+        return AppleLiquidSheetDetentHeights(
+          primary: primaryHeight,
+          expanded: expandedHeight
+        )
+      }
+    }
+
+    let automaticExpandedHeight = min(
+      max(roundedHeight, primaryHeight + 96),
+      expandedMaximumHeight
+    )
+    guard roundedHeight > primaryHeight + 24,
+      automaticExpandedHeight > primaryHeight + 24
+    else {
+      return AppleLiquidSheetDetentHeights(
+        primary: primaryHeight,
+        expanded: nil
+      )
+    }
+
+    return AppleLiquidSheetDetentHeights(
+      primary: primaryHeight,
+      expanded: automaticExpandedHeight
+    )
+  }
+
+  private static func clampedDetentHeight(
+    _ height: CGFloat,
+    min minimumHeight: CGFloat,
+    max maximumHeight: CGFloat
+  ) -> CGFloat {
+    Swift.min(Swift.max(height.rounded(.up), minimumHeight), maximumHeight)
   }
 
   static let defaultContent = AppleLiquidSheetContentConfiguration(
@@ -357,6 +429,12 @@ private struct AppleLiquidSheetContentConfiguration {
             options: ["Blue", "Teal", "Graphite"],
             selectedOption: "Blue"
           ),
+          AppleLiquidSheetRowConfiguration.slider(
+            id: "default-intensity",
+            title: "Intensity",
+            value: 0.72,
+            tintColor: 0xFF0A84FF
+          ),
         ]
       ),
       AppleLiquidSheetSectionConfiguration(
@@ -433,6 +511,51 @@ private struct AppleLiquidSheetContentConfiguration {
   )
 }
 
+private struct AppleLiquidSheetDetentHeights {
+  let primary: CGFloat
+  let expanded: CGFloat?
+}
+
+private struct AppleLiquidSheetDetentConfiguration {
+  static let automatic = AppleLiquidSheetDetentConfiguration(
+    initialHeight: nil,
+    expandedHeight: nil
+  )
+
+  let initialHeight: CGFloat?
+  let expandedHeight: CGFloat?
+
+  init(value: Any?) {
+    let dictionary = value as? [String: Any] ?? [:]
+    self.init(
+      initialHeight: Self.height(dictionary["initialHeight"]),
+      expandedHeight: Self.height(dictionary["expandedHeight"])
+    )
+  }
+
+  private init(initialHeight: CGFloat?, expandedHeight: CGFloat?) {
+    self.initialHeight = initialHeight
+    self.expandedHeight = expandedHeight
+  }
+
+  private static func height(_ value: Any?) -> CGFloat? {
+    let doubleValue: Double?
+    if let value = value as? Double {
+      doubleValue = value
+    } else if let value = value as? NSNumber {
+      doubleValue = value.doubleValue
+    } else {
+      doubleValue = nil
+    }
+
+    guard let doubleValue, doubleValue > 0 else {
+      return nil
+    }
+
+    return CGFloat(doubleValue)
+  }
+}
+
 private struct AppleLiquidSheetSectionConfiguration: Identifiable {
   let id: String
   let title: String?
@@ -491,6 +614,7 @@ private enum AppleLiquidSheetRowKind: String {
   case value
   case toggle
   case picker
+  case slider
   case navigation
   case textField
 }
@@ -504,6 +628,11 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let boolValue: Bool
   let options: [String]
   let selectedOption: String?
+  let sliderValue: Double
+  let sliderMin: Double
+  let sliderMax: Double
+  let sliderStep: Double?
+  let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
 
@@ -517,6 +646,14 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     ) ?? .text
     let title = Self.string(dictionary["title"], defaultValue: "Item")
     let options = Self.stringArray(dictionary["options"])
+    let sliderMin = Self.double(dictionary["min"], defaultValue: 0)
+    let rawSliderMax = Self.double(dictionary["max"], defaultValue: 1)
+    let sliderMax = rawSliderMax > sliderMin ? rawSliderMax : sliderMin + 1
+    let sliderStep = Self.validStep(
+      Self.optionalDouble(dictionary["step"]),
+      min: sliderMin,
+      max: sliderMax
+    )
 
     if kind == .picker && options.isEmpty {
       return nil
@@ -544,6 +681,20 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = Self.bool(dictionary["boolValue"], defaultValue: false)
     self.options = options
     self.selectedOption = Self.optionalString(dictionary["selectedOption"])
+    self.sliderMin = sliderMin
+    self.sliderMax = sliderMax
+    self.sliderStep = sliderStep
+    self.sliderValue = Self.normalizedSliderValue(
+      Self.optionalDouble(dictionary["sliderValue"]) ??
+        Self.optionalDouble(dictionary["value"]) ??
+        sliderMin,
+      min: sliderMin,
+      max: sliderMax,
+      step: sliderStep
+    )
+    self.tintColor = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["tintColor"]
+    )
     self.content = content
     self.systemImage = Self.optionalString(dictionary["systemImage"])
   }
@@ -557,6 +708,11 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     boolValue: Bool = false,
     options: [String] = [],
     selectedOption: String? = nil,
+    sliderValue: Double = 0,
+    sliderMin: Double = 0,
+    sliderMax: Double = 1,
+    sliderStep: Double? = nil,
+    tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil
   ) {
@@ -568,6 +724,16 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = boolValue
     self.options = options
     self.selectedOption = selectedOption
+    self.sliderMin = sliderMin
+    self.sliderMax = sliderMax
+    self.sliderStep = sliderStep
+    self.sliderValue = Self.normalizedSliderValue(
+      sliderValue,
+      min: sliderMin,
+      max: sliderMax,
+      step: sliderStep
+    )
+    self.tintColor = tintColor
     self.content = content
     self.systemImage = systemImage
   }
@@ -640,6 +806,34 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     )
   }
 
+  static func slider(
+    id: String,
+    title: String,
+    value: Double,
+    min: Double = 0,
+    max: Double = 1,
+    step: Double? = nil,
+    tintColor: Int? = nil,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    let resolvedMax = max > min ? max : min + 1
+    let resolvedStep = validStep(step, min: min, max: resolvedMax)
+
+    return AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .slider,
+      title: title,
+      subtitle: subtitle,
+      sliderValue: value,
+      sliderMin: min,
+      sliderMax: resolvedMax,
+      sliderStep: resolvedStep,
+      tintColor: tintColor,
+      systemImage: systemImage
+    )
+  }
+
   static func navigation(
     id: String,
     title: String,
@@ -694,6 +888,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = subtitle == nil ? 50 : 68
     case .picker:
       baseHeight = subtitle == nil ? 50 : 68
+    case .slider:
+      baseHeight = subtitle == nil ? 76 : 94
     case .navigation:
       baseHeight = subtitle == nil ? 50 : 68
     case .textField:
@@ -749,6 +945,69 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     }
 
     return defaultValue
+  }
+
+  private static func double(_ value: Any?, defaultValue: Double) -> Double {
+    optionalDouble(value) ?? defaultValue
+  }
+
+  private static func optionalDouble(_ value: Any?) -> Double? {
+    if let value = value as? Double {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.doubleValue
+    }
+
+    return nil
+  }
+
+  private static func validStep(
+    _ step: Double?,
+    min: Double,
+    max: Double
+  ) -> Double? {
+    guard let step, step > 0, step <= max - min else {
+      return nil
+    }
+
+    return step
+  }
+
+  private static func normalizedSliderValue(
+    _ value: Double,
+    min: Double,
+    max: Double,
+    step: Double?
+  ) -> Double {
+    let clampedValue = Swift.min(Swift.max(value, min), max)
+    guard let step else {
+      return clampedValue
+    }
+
+    let steppedValue = min + ((clampedValue - min) / step).rounded() * step
+    return Swift.min(Swift.max(steppedValue, min), max)
+  }
+
+  func normalizedSliderValue(_ value: Double) -> Double {
+    Self.normalizedSliderValue(
+      value,
+      min: sliderMin,
+      max: sliderMax,
+      step: sliderStep
+    )
+  }
+
+  func formattedSliderValue(_ value: Double) -> String {
+    let normalizedValue = normalizedSliderValue(value)
+
+    if sliderMin == 0 && sliderMax == 1 {
+      return "\(Int((normalizedValue * 100).rounded()))%"
+    }
+
+    return String(format: "%.2f", normalizedValue)
+      .replacingOccurrences(of: ".00", with: "")
   }
 }
 
@@ -826,6 +1085,7 @@ private final class AppleLiquidSheetSession {
   private var dismissProgress: CGFloat = 0
   private var isKeyboardVisible = false
   private var isKeyboardTransitioning = false
+  private var isControlInteractionActive = false
   private var keyboardTransitionWorkItem: DispatchWorkItem?
   private var dismissalCallbacks: [() -> Void] = []
   private var isDismissing = false
@@ -867,6 +1127,9 @@ private final class AppleLiquidSheetSession {
           sheetFrame: sheetFrame,
           windowBounds: windowBounds
         )
+      },
+      onControlInteractionChanged: { [weak self] isInteracting in
+        self?.setControlInteractionActive(isInteracting)
       },
       onDismiss: { [weak self] in
         self?.completeDismissal()
@@ -969,6 +1232,12 @@ private final class AppleLiquidSheetSession {
       return
     }
 
+    if isControlInteractionActive {
+      dismissProgress = 0
+      applyPresentedBackgroundZoomWithoutAnimation()
+      return
+    }
+
     if isKeyboardAffectingLayout {
       dismissProgress = 0
       applyPresentedBackgroundZoomWithoutAnimation()
@@ -1001,6 +1270,19 @@ private final class AppleLiquidSheetSession {
     presentingView.layer.cornerCurve = .continuous
     presentingView.layer.masksToBounds = true
     CATransaction.commit()
+  }
+
+  private func setControlInteractionActive(_ isActive: Bool) {
+    guard isControlInteractionActive != isActive else {
+      return
+    }
+
+    isControlInteractionActive = isActive
+
+    if isActive {
+      dismissProgress = 0
+      applyPresentedBackgroundZoomWithoutAnimation()
+    }
   }
 
   private func beginStationaryDismissAnimation() {
@@ -1201,6 +1483,7 @@ private struct AppleLiquidSheetPresentationHost: View {
   let configuration: AppleLiquidSheetConfiguration
   @ObservedObject var presentationState: AppleLiquidSheetPresentationState
   let onFrameChange: (CGRect, CGRect) -> Void
+  let onControlInteractionChanged: (Bool) -> Void
   let onDismiss: () -> Void
 
   var body: some View {
@@ -1213,7 +1496,8 @@ private struct AppleLiquidSheetPresentationHost: View {
       ) {
         AppleLiquidSettingsSheetView(
           configuration: configuration,
-          onFrameChange: onFrameChange
+          onFrameChange: onFrameChange,
+          onControlInteractionChanged: onControlInteractionChanged
         )
       }
   }
@@ -1237,20 +1521,25 @@ private struct AppleLiquidSheetTouchBlocker: UIViewRepresentable {
 private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
   let onFrameChange: (CGRect, CGRect) -> Void
+  let onControlInteractionChanged: (Bool) -> Void
   @Environment(\.dismiss) private var dismiss
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
+  @State private var expandedDetentHeight: CGFloat?
 
   init(
     configuration: AppleLiquidSheetConfiguration,
-    onFrameChange: @escaping (CGRect, CGRect) -> Void
+    onFrameChange: @escaping (CGRect, CGRect) -> Void,
+    onControlInteractionChanged: @escaping (Bool) -> Void
   ) {
     self.configuration = configuration
     self.onFrameChange = onFrameChange
+    self.onControlInteractionChanged = onControlInteractionChanged
 
-    let detentHeight = configuration.content.preferredDetentHeight
-    self._selectedDetent = State(initialValue: .height(detentHeight))
-    self._contentDetentHeight = State(initialValue: detentHeight)
+    let detentHeights = configuration.content.preferredDetentHeights
+    self._selectedDetent = State(initialValue: .height(detentHeights.primary))
+    self._contentDetentHeight = State(initialValue: detentHeights.primary)
+    self._expandedDetentHeight = State(initialValue: detentHeights.expanded)
   }
 
   var body: some View {
@@ -1258,7 +1547,8 @@ private struct AppleLiquidSettingsSheetView: View {
       AppleLiquidSheetFormScreen(
         content: configuration.content,
         showsDoneButton: true,
-        onPreferredDetentHeightChange: setPreferredDetentHeight,
+        onPreferredDetentHeightsChange: setPreferredDetentHeights,
+        onControlInteractionChanged: onControlInteractionChanged,
         onDone: {
           dismiss()
         }
@@ -1269,7 +1559,7 @@ private struct AppleLiquidSettingsSheetView: View {
       isEnabled: configuration.sheetColor != nil
     )
     .appleLiquidColorScheme(configuration.resolvedSheetColorScheme)
-    .presentationDetents([contentDetent], selection: $selectedDetent)
+    .presentationDetents(presentationDetents, selection: $selectedDetent)
     .presentationDragIndicator(.visible)
     .background(
       AppleLiquidSheetFrameObserver(onFrameChange: onFrameChange)
@@ -1280,16 +1570,48 @@ private struct AppleLiquidSettingsSheetView: View {
     .height(contentDetentHeight)
   }
 
-  private func setPreferredDetentHeight(_ height: CGFloat) {
-    let normalizedHeight = AppleLiquidSheetContentConfiguration
-      .normalizedDetentHeight(height)
+  private var presentationDetents: Set<PresentationDetent> {
+    var detents: Set<PresentationDetent> = [contentDetent]
 
-    guard abs(contentDetentHeight - normalizedHeight) > 0.5 else {
+    if let expandedDetentHeight {
+      detents.insert(.height(expandedDetentHeight))
+    }
+
+    return detents
+  }
+
+  private func setPreferredDetentHeights(
+    _ detentHeights: AppleLiquidSheetDetentHeights
+  ) {
+    let shouldUpdatePrimary = abs(
+      contentDetentHeight - detentHeights.primary
+    ) > 0.5
+    let shouldUpdateExpanded = !Self.optionalCGFloat(
+      expandedDetentHeight,
+      equals: detentHeights.expanded
+    )
+
+    guard shouldUpdatePrimary || shouldUpdateExpanded else {
       return
     }
 
-    contentDetentHeight = normalizedHeight
-    selectedDetent = .height(normalizedHeight)
+    contentDetentHeight = detentHeights.primary
+    expandedDetentHeight = detentHeights.expanded
+    selectedDetent = .height(detentHeights.primary)
+  }
+
+  private static func optionalCGFloat(
+    _ lhs: CGFloat?,
+    equals rhs: CGFloat?
+  ) -> Bool {
+    switch (lhs, rhs) {
+    case (.none, .none):
+      return true
+    case let (.some(lhs), .some(rhs)):
+      return abs(lhs - rhs) <= 0.5
+    default:
+      return false
+    }
   }
 }
 
@@ -1297,7 +1619,8 @@ private struct AppleLiquidSettingsSheetView: View {
 private struct AppleLiquidSheetFormScreen: View {
   let content: AppleLiquidSheetContentConfiguration
   let showsDoneButton: Bool
-  let onPreferredDetentHeightChange: (CGFloat) -> Void
+  let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onControlInteractionChanged: (Bool) -> Void
   let onDone: (() -> Void)?
 
   var body: some View {
@@ -1307,7 +1630,8 @@ private struct AppleLiquidSheetFormScreen: View {
           ForEach(section.rows) { row in
             AppleLiquidSheetRowView(
               row: row,
-              onPreferredDetentHeightChange: onPreferredDetentHeightChange
+              onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+              onControlInteractionChanged: onControlInteractionChanged
             )
           }
         } header: {
@@ -1333,7 +1657,7 @@ private struct AppleLiquidSheetFormScreen: View {
     .scrollContentBackground(formBackgroundVisibility)
     .appleLiquidNavigationContainerBackground()
     .onAppear {
-      onPreferredDetentHeightChange(content.preferredDetentHeight)
+      onPreferredDetentHeightsChange(content.preferredDetentHeights)
     }
   }
 
@@ -1345,19 +1669,26 @@ private struct AppleLiquidSheetFormScreen: View {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetRowView: View {
   let row: AppleLiquidSheetRowConfiguration
-  let onPreferredDetentHeightChange: (CGFloat) -> Void
+  let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onControlInteractionChanged: (Bool) -> Void
   @State private var toggleValue: Bool
   @State private var pickerSelection: String
+  @State private var sliderValue: Double
   @State private var textValue: String
 
   init(
     row: AppleLiquidSheetRowConfiguration,
-    onPreferredDetentHeightChange: @escaping (CGFloat) -> Void
+    onPreferredDetentHeightsChange: @escaping (
+      AppleLiquidSheetDetentHeights
+    ) -> Void,
+    onControlInteractionChanged: @escaping (Bool) -> Void
   ) {
     self.row = row
-    self.onPreferredDetentHeightChange = onPreferredDetentHeightChange
+    self.onPreferredDetentHeightsChange = onPreferredDetentHeightsChange
+    self.onControlInteractionChanged = onControlInteractionChanged
     self._toggleValue = State(initialValue: row.boolValue)
     self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
+    self._sliderValue = State(initialValue: row.sliderValue)
     self._textValue = State(initialValue: row.value ?? "")
   }
 
@@ -1391,13 +1722,35 @@ private struct AppleLiquidSheetRowView: View {
       .scrollContentBackground(formBackgroundVisibility)
       .appleLiquidNavigationContainerBackground()
 
+    case .slider:
+      VStack(alignment: .leading, spacing: 8) {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+          AppleLiquidSheetRowLabel(row: row)
+
+          Spacer(minLength: 12)
+
+          Text(row.formattedSliderValue(sliderValue))
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .monospacedDigit()
+        }
+
+        AppleLiquidSheetSliderControl(
+          row: row,
+          value: $sliderValue,
+          onInteractionChanged: onControlInteractionChanged
+        )
+      }
+      .padding(.vertical, 4)
+
     case .navigation:
       if let content = row.content {
         NavigationLink {
           AppleLiquidSheetFormScreen(
             content: content,
             showsDoneButton: false,
-            onPreferredDetentHeightChange: onPreferredDetentHeightChange,
+            onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+            onControlInteractionChanged: onControlInteractionChanged,
             onDone: nil
           )
         } label: {
@@ -1412,6 +1765,151 @@ private struct AppleLiquidSheetRowView: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetSliderControl: UIViewRepresentable {
+  let row: AppleLiquidSheetRowConfiguration
+  @Binding var value: Double
+  let onInteractionChanged: (Bool) -> Void
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(parent: self)
+  }
+
+  func makeUIView(context: Context) -> AppleLiquidSheetSliderUIKitView {
+    let slider = AppleLiquidSheetSliderUIKitView()
+    slider.isContinuous = true
+    slider.addTarget(
+      context.coordinator,
+      action: #selector(Coordinator.valueChanged(_:)),
+      for: .valueChanged
+    )
+    slider.addTarget(
+      context.coordinator,
+      action: #selector(Coordinator.touchDown(_:)),
+      for: .touchDown
+    )
+    slider.addTarget(
+      context.coordinator,
+      action: #selector(Coordinator.touchEnded(_:)),
+      for: [.touchUpInside, .touchUpOutside, .touchCancel]
+    )
+    configure(slider)
+    return slider
+  }
+
+  func updateUIView(
+    _ uiView: AppleLiquidSheetSliderUIKitView,
+    context: Context
+  ) {
+    context.coordinator.parent = self
+    configure(uiView)
+  }
+
+  private func configure(_ slider: UISlider) {
+    slider.minimumValue = Float(row.sliderMin)
+    slider.maximumValue = Float(row.sliderMax)
+
+    let normalizedValue = row.normalizedSliderValue(value)
+    if abs(Double(slider.value) - normalizedValue) > 0.0001 {
+      slider.setValue(Float(normalizedValue), animated: false)
+    }
+
+    let tintColor = UIColor(appleLiquidARGB: row.tintColor)
+    slider.tintColor = tintColor
+    slider.minimumTrackTintColor = tintColor
+    slider.thumbTintColor = tintColor
+  }
+
+  final class Coordinator: NSObject {
+    var parent: AppleLiquidSheetSliderControl
+    private var isInteracting = false
+
+    init(parent: AppleLiquidSheetSliderControl) {
+      self.parent = parent
+    }
+
+    @objc func valueChanged(_ sender: UISlider) {
+      let normalizedValue = parent.row.normalizedSliderValue(
+        Double(sender.value)
+      )
+      parent.value = normalizedValue
+      sender.setValue(Float(normalizedValue), animated: false)
+    }
+
+    @objc func touchDown(_ sender: AppleLiquidSheetSliderUIKitView) {
+      sender.lockAncestorPanGestures()
+      setInteracting(true)
+    }
+
+    @objc func touchEnded(_ sender: AppleLiquidSheetSliderUIKitView) {
+      valueChanged(sender)
+      sender.unlockAncestorPanGestures()
+      setInteracting(false)
+    }
+
+    private func setInteracting(_ isInteracting: Bool) {
+      guard self.isInteracting != isInteracting else {
+        return
+      }
+
+      self.isInteracting = isInteracting
+      parent.onInteractionChanged(isInteracting)
+    }
+  }
+}
+
+private final class AppleLiquidSheetSliderUIKitView: UISlider {
+  private var lockedPanGestureRecognizers: [UIPanGestureRecognizer] = []
+
+  override func beginTracking(_ touch: UITouch, with event: UIEvent?) -> Bool {
+    lockAncestorPanGestures()
+    return super.beginTracking(touch, with: event)
+  }
+
+  override func endTracking(_ touch: UITouch?, with event: UIEvent?) {
+    super.endTracking(touch, with: event)
+    unlockAncestorPanGestures()
+  }
+
+  override func cancelTracking(with event: UIEvent?) {
+    super.cancelTracking(with: event)
+    unlockAncestorPanGestures()
+  }
+
+  deinit {
+    unlockAncestorPanGestures()
+  }
+
+  func lockAncestorPanGestures() {
+    guard lockedPanGestureRecognizers.isEmpty else {
+      return
+    }
+
+    var view = superview
+    while let currentView = view {
+      currentView.gestureRecognizers?.forEach { recognizer in
+        guard let panGestureRecognizer = recognizer as? UIPanGestureRecognizer,
+          panGestureRecognizer.isEnabled
+        else {
+          return
+        }
+
+        panGestureRecognizer.isEnabled = false
+        lockedPanGestureRecognizers.append(panGestureRecognizer)
+      }
+
+      view = currentView.superview
+    }
+  }
+
+  func unlockAncestorPanGestures() {
+    lockedPanGestureRecognizers.forEach { recognizer in
+      recognizer.isEnabled = true
+    }
+    lockedPanGestureRecognizers.removeAll()
   }
 }
 

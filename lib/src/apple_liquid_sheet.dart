@@ -4,13 +4,15 @@ import 'package:flutter/services.dart';
 /// Declarative content rendered inside a native iOS Liquid Glass sheet.
 ///
 /// The content is rendered by SwiftUI as a native `NavigationStack` and `Form`.
-/// Interactive rows such as toggles, pickers, and text fields keep their state
-/// locally inside the native sheet for the duration of the presentation.
+/// Interactive rows such as toggles, pickers, sliders, and text fields keep
+/// their state locally inside the native sheet for the duration of the
+/// presentation.
 class AppleLiquidSheetContent {
   /// Creates native sheet content from form sections.
   const AppleLiquidSheetContent({
     this.title = 'Settings',
     this.doneSemanticLabel = 'Done',
+    this.detents,
     required this.sections,
   });
 
@@ -64,6 +66,11 @@ class AppleLiquidSheetContent {
             title: 'Accent',
             options: <String>['Blue', 'Teal', 'Graphite'],
             selectedOption: 'Blue',
+          ),
+          AppleLiquidSheetRow.slider(
+            title: 'Intensity',
+            value: 0.72,
+            tintColor: Color(0xFF0A84FF),
           ),
         ],
       ),
@@ -124,6 +131,12 @@ class AppleLiquidSheetContent {
   /// Accessibility label for the checkmark dismiss button.
   final String doneSemanticLabel;
 
+  /// Optional per-page sheet detent configuration.
+  ///
+  /// Heights are interpreted as native iOS points. When null, iOS estimates the
+  /// detents from the active form content.
+  final AppleLiquidSheetDetents? detents;
+
   /// Form sections rendered in order.
   final List<AppleLiquidSheetSection> sections;
 
@@ -131,9 +144,40 @@ class AppleLiquidSheetContent {
     return <String, Object?>{
       'title': title,
       'doneSemanticLabel': doneSemanticLabel,
+      if (detents != null) 'detents': detents!.toMap(),
       'sections': sections
           .map((AppleLiquidSheetSection section) => section.toMap())
           .toList(),
+    };
+  }
+}
+
+/// Optional native sheet detent heights for one [AppleLiquidSheetContent] page.
+class AppleLiquidSheetDetents {
+  /// Creates custom detent heights for native iOS sheets.
+  ///
+  /// Heights are native iOS points. Omit [initialHeight] to keep the automatic
+  /// content-sized starting detent. Omit [expandedHeight] to keep the automatic
+  /// second detent behavior for oversized content.
+  const AppleLiquidSheetDetents({this.initialHeight, this.expandedHeight})
+    : assert(initialHeight == null || initialHeight > 0),
+      assert(expandedHeight == null || expandedHeight > 0),
+      assert(
+        initialHeight == null ||
+            expandedHeight == null ||
+            expandedHeight > initialHeight,
+      );
+
+  /// Starting sheet height in native iOS points.
+  final double? initialHeight;
+
+  /// Optional second, higher sheet height in native iOS points.
+  final double? expandedHeight;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (initialHeight != null) 'initialHeight': initialHeight,
+      if (expandedHeight != null) 'expandedHeight': expandedHeight,
     };
   }
 }
@@ -171,6 +215,9 @@ enum AppleLiquidSheetRowType {
   /// Native SwiftUI navigation-link picker with local state.
   picker('picker'),
 
+  /// Native SwiftUI slider with local state.
+  slider('slider'),
+
   /// Navigation row that pushes nested [AppleLiquidSheetContent].
   navigation('navigation'),
 
@@ -193,9 +240,24 @@ class AppleLiquidSheetRow {
     this.boolValue,
     this.options = const <String>[],
     this.selectedOption,
+    this.sliderValue,
+    this.min,
+    this.max,
+    this.step,
+    this.tintColor,
     this.content,
     this.systemImage,
-  });
+  }) : assert(
+         type != AppleLiquidSheetRowType.slider || (min ?? 0) < (max ?? 1),
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.slider || step == null || step > 0,
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.slider ||
+             step == null ||
+             step <= (max ?? 1) - (min ?? 0),
+       );
 
   /// Creates a plain text row.
   const AppleLiquidSheetRow.text({
@@ -253,6 +315,28 @@ class AppleLiquidSheetRow {
          systemImage: systemImage,
        );
 
+  /// Creates a native slider row.
+  const AppleLiquidSheetRow.slider({
+    required String title,
+    double value = 0,
+    double min = 0,
+    double max = 1,
+    double? step,
+    Color? tintColor,
+    String? subtitle,
+    String? systemImage,
+  }) : this._(
+         type: AppleLiquidSheetRowType.slider,
+         title: title,
+         subtitle: subtitle,
+         sliderValue: value,
+         min: min,
+         max: max,
+         step: step,
+         tintColor: tintColor,
+         systemImage: systemImage,
+       );
+
   /// Creates a navigation row with nested sheet content.
   const AppleLiquidSheetRow.navigation({
     required String title,
@@ -304,6 +388,21 @@ class AppleLiquidSheetRow {
   /// not present in [options].
   final String? selectedOption;
 
+  /// Initial slider value for [AppleLiquidSheetRow.slider].
+  final double? sliderValue;
+
+  /// Smallest selectable slider value.
+  final double? min;
+
+  /// Largest selectable slider value.
+  final double? max;
+
+  /// Optional fixed slider increment.
+  final double? step;
+
+  /// Optional accent color for the slider track and thumb.
+  final Color? tintColor;
+
   /// Nested content for [AppleLiquidSheetRow.navigation].
   final AppleLiquidSheetContent? content;
 
@@ -319,6 +418,11 @@ class AppleLiquidSheetRow {
       if (boolValue != null) 'boolValue': boolValue,
       if (options.isNotEmpty) 'options': options,
       if (selectedOption != null) 'selectedOption': selectedOption,
+      if (sliderValue != null) 'sliderValue': sliderValue,
+      if (min != null) 'min': min,
+      if (max != null) 'max': max,
+      if (step != null) 'step': step,
+      if (tintColor != null) 'tintColor': tintColor!.toARGB32(),
       if (content != null) 'content': content!.toMap(),
       if (systemImage != null) 'systemImage': systemImage,
     };

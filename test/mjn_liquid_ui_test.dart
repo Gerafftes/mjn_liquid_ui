@@ -42,6 +42,7 @@ void main() {
     const AppleLiquidSheetContent content = AppleLiquidSheetContent(
       title: 'Project',
       doneSemanticLabel: 'Close sheet',
+      detents: AppleLiquidSheetDetents(initialHeight: 420, expandedHeight: 640),
       sections: <AppleLiquidSheetSection>[
         AppleLiquidSheetSection(
           title: 'Overview',
@@ -57,10 +58,27 @@ void main() {
               options: <String>['Auto', 'Light', 'Dark'],
               selectedOption: 'Auto',
             ),
+            AppleLiquidSheetRow.slider(
+              title: 'Intensity',
+              value: 0.75,
+              min: 0,
+              max: 1,
+              tintColor: Color(0xFF0A84FF),
+              systemImage: 'slider.horizontal.3',
+            ),
+            AppleLiquidSheetRow.slider(
+              title: 'Stepped amount',
+              value: 0.5,
+              step: 0.25,
+            ),
             AppleLiquidSheetRow.navigation(
               title: 'Details',
               content: AppleLiquidSheetContent(
                 title: 'Details',
+                detents: AppleLiquidSheetDetents(
+                  initialHeight: 300,
+                  expandedHeight: 520,
+                ),
                 sections: <AppleLiquidSheetSection>[
                   AppleLiquidSheetSection(
                     rows: <AppleLiquidSheetRow>[
@@ -81,6 +99,10 @@ void main() {
     expect(content.toMap(), <String, Object?>{
       'title': 'Project',
       'doneSemanticLabel': 'Close sheet',
+      'detents': <String, Object?>{
+        'initialHeight': 420.0,
+        'expandedHeight': 640.0,
+      },
       'sections': <Object?>[
         <String, Object?>{
           'title': 'Overview',
@@ -103,11 +125,32 @@ void main() {
               'selectedOption': 'Auto',
             },
             <String, Object?>{
+              'type': 'slider',
+              'title': 'Intensity',
+              'sliderValue': 0.75,
+              'min': 0.0,
+              'max': 1.0,
+              'tintColor': 0xFF0A84FF,
+              'systemImage': 'slider.horizontal.3',
+            },
+            <String, Object?>{
+              'type': 'slider',
+              'title': 'Stepped amount',
+              'sliderValue': 0.5,
+              'min': 0.0,
+              'max': 1.0,
+              'step': 0.25,
+            },
+            <String, Object?>{
               'type': 'navigation',
               'title': 'Details',
               'content': <String, Object?>{
                 'title': 'Details',
                 'doneSemanticLabel': 'Done',
+                'detents': <String, Object?>{
+                  'initialHeight': 300.0,
+                  'expandedHeight': 520.0,
+                },
                 'sections': <Object?>[
                   <String, Object?>{
                     'rows': <Object?>[
