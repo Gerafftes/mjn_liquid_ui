@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible problem with mjn_liquid_ui
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please provide a minimal reproduction and complete environment details.
+
+  - type: input
+    id: package_version
+    attributes:
+      label: Package version
+      description: Which mjn_liquid_ui version shows the problem?
+      placeholder: "0.2.8"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iOS
+        - Android fallback
+        - Web fallback
+        - macOS fallback
+        - Windows fallback
+        - Linux fallback
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Include Flutter, Dart, Xcode, and OS versions as applicable.
+      placeholder: "Flutter 3.x, Dart 3.x, Xcode 26.x, iOS 26.x"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide code or a repository and the exact steps required to reproduce the problem.
+      placeholder: |
+        1. Create ...
+        2. Present ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and media
+      description: Add relevant console output, screenshots, or recordings. Remove secrets and personal data.
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: I tested with the latest available package version or current main branch.
+          required: true
+        - label: This report does not contain a security vulnerability.
+          required: true

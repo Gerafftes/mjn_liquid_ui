@@ -1,0 +1,64 @@
+name: Feature request
+description: Propose an improvement to mjn_liquid_ui
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem first, then the API or behavior you think should solve it.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Use case
+      description: What are you trying to build, and what currently blocks you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior or API
+      description: Show a small Dart example when the request affects the public API.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Component area
+      options:
+        - Tab bar
+        - Search role tab
+        - Switch
+        - Slider
+        - Surface or stretch interaction
+        - SF Symbols
+        - Native sheet
+        - Platform support
+        - Documentation or example
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe existing workarounds or alternative APIs you evaluated.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, screenshots, platform references, or related links.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and pull requests for this request.
+          required: true
+        - label: The request is relevant to the package's native iOS or Flutter fallback scope.
+          required: true
