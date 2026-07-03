@@ -89,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.8
+  mjn_liquid_ui: ^0.2.9
 ```
 
 Then import the package:
@@ -255,10 +255,10 @@ detent, optional background zoom on the presenting page, and a checkmark toolbar
 action to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
-supports sections plus text, value, toggle, picker, slider, text-field, and
-nested navigation rows. Toggle, picker, slider, and text-field state stays local
-to the native sheet while it is presented. Omit `step` on
-`AppleLiquidSheetRow.slider` for a continuous slider.
+supports sections plus text, value, toggle, picker, segmented, slider,
+text-field, and nested navigation rows. Toggle, picker, segmented, slider, and
+text-field state stays local to the native sheet while it is presented. Omit
+`step` on `AppleLiquidSheetRow.slider` for a continuous slider.
 
 | API | Purpose |
 | --- | --- |
@@ -268,6 +268,8 @@ to the native sheet while it is presented. Omit `step` on
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
 | `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
+| `AppleLiquidSheetRow.segmented` | Two separate, equal-width native buttons with local selection state |
+| `AppleLiquidSheetSegmentedStyle` | Per-row colors, dimensions, typography, spacing, borders, shadows, press feedback, and selection transitions |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, and tint |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
 | `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page |
@@ -318,6 +320,12 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           options: <String>['Auto', 'Light', 'Dark'],
           selectedOption: 'Auto',
         ),
+        AppleLiquidSheetRow.segmented(
+          title: 'Layout',
+          firstOption: 'List',
+          secondOption: 'Grid',
+          selectedOption: 'List',
+        ),
         AppleLiquidSheetRow.slider(
           title: 'Intensity',
           value: 0.72,
@@ -354,6 +362,63 @@ final bool didShow = await AppleLiquidSheet.showSheet(
   content: content,
 );
 ```
+
+`AppleLiquidSheetRow.segmented` requires exactly two distinct, non-empty
+options. It renders them as separate, equal-width rounded buttons. Keep both
+labels short so they fit comfortably next to each other.
+
+Pass `AppleLiquidSheetSegmentedStyle` to customize colors, dimensions,
+typography, spacing, borders, shadows, text scaling, press feedback, and the
+selection transition for each row:
+
+```dart
+AppleLiquidSheetRow.segmented(
+  title: 'Sort by',
+  subtitle: 'Choose the result order',
+  firstOption: 'Newest',
+  secondOption: 'Oldest',
+  selectedOption: 'Newest',
+  style: const AppleLiquidSheetSegmentedStyle(
+    selectedBackgroundColor: Color(0x2634C759),
+    unselectedBackgroundColor: Color(0xFFE5E5EA),
+    selectedTextColor: Color(0xFF34C759),
+    unselectedTextColor: Color(0xFF1C1C1E),
+    selectedBorderColor: Color(0x9934C759),
+    unselectedBorderColor: Color(0x338E8E93),
+    selectedShadowColor: Color(0x0AFFFFFF),
+    titleColor: Color(0xFF111111),
+    subtitleColor: Color(0xFF666666),
+    buttonHeight: 50,
+    cornerRadius: 16,
+    buttonSpacing: 14,
+    contentSpacing: 12,
+    verticalPadding: 8,
+    borderWidth: 1,
+    selectedShadowRadius: 8,
+    selectedShadowOffsetX: 0,
+    selectedShadowOffsetY: 2,
+    titleFontSize: 18,
+    subtitleFontSize: 13,
+    buttonFontSize: 17,
+    titleFontWeight: AppleLiquidSheetSegmentedFontWeight.bold,
+    subtitleFontWeight: AppleLiquidSheetSegmentedFontWeight.regular,
+    buttonFontWeight: AppleLiquidSheetSegmentedFontWeight.semibold,
+    minimumTextScaleFactor: 0.7,
+    pressedScale: 0.97,
+    pressedOpacity: 0.82,
+    pressAnimationDuration: 0.14,
+    selectionAnimationEnabled: true,
+    selectionAnimationCurve: AppleLiquidSheetSegmentedAnimationCurve.easeInOut,
+    selectionAnimationDuration: 0.15,
+  ),
+)
+```
+
+Leave individual color or font-size values null to retain adaptive native iOS
+colors and Dynamic Type sizing. Set `borderWidth` to `0` for borderless
+buttons. Set `selectionAnimationEnabled` to `false` or
+`selectionAnimationDuration` to `0` when the selected state should change
+without a transition.
 
 Use `AppleLiquidSheetController` when the calling code needs imperative control
 or presentation state:

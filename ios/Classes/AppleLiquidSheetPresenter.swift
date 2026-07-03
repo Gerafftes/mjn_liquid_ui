@@ -429,6 +429,12 @@ private struct AppleLiquidSheetContentConfiguration {
             options: ["Blue", "Teal", "Graphite"],
             selectedOption: "Blue"
           ),
+          AppleLiquidSheetRowConfiguration.segmented(
+            id: "default-layout",
+            title: "Layout",
+            options: ["List", "Grid"],
+            selectedOption: "List"
+          ),
           AppleLiquidSheetRowConfiguration.slider(
             id: "default-intensity",
             title: "Intensity",
@@ -614,9 +620,354 @@ private enum AppleLiquidSheetRowKind: String {
   case value
   case toggle
   case picker
+  case segmented
   case slider
   case navigation
   case textField
+}
+
+private enum AppleLiquidSheetSegmentedAnimationCurve: String {
+  case linear
+  case easeIn
+  case easeOut
+  case easeInOut
+  case spring
+}
+
+private struct AppleLiquidSheetSegmentedStyleConfiguration {
+  let selectedBackgroundARGB: Int?
+  let unselectedBackgroundARGB: Int?
+  let selectedTextARGB: Int?
+  let unselectedTextARGB: Int?
+  let selectedBorderARGB: Int?
+  let unselectedBorderARGB: Int?
+  let selectedShadowARGB: Int?
+  let titleARGB: Int?
+  let subtitleARGB: Int?
+  let buttonHeight: CGFloat
+  let cornerRadius: CGFloat
+  let buttonSpacing: CGFloat
+  let contentSpacing: CGFloat
+  let verticalPadding: CGFloat
+  let borderWidth: CGFloat
+  let selectedShadowRadius: CGFloat
+  let selectedShadowOffsetX: CGFloat
+  let selectedShadowOffsetY: CGFloat
+  let titleFontSize: CGFloat?
+  let subtitleFontSize: CGFloat?
+  let buttonFontSize: CGFloat?
+  let titleFontWeight: Font.Weight
+  let subtitleFontWeight: Font.Weight
+  let buttonFontWeight: Font.Weight
+  let minimumTextScaleFactor: CGFloat
+  let pressedScale: CGFloat
+  let pressedOpacity: Double
+  let pressAnimationDuration: Double
+  let selectionAnimationEnabled: Bool
+  let selectionAnimationCurve: AppleLiquidSheetSegmentedAnimationCurve
+  let selectionAnimationDuration: Double
+  let selectionSpringDamping: Double
+
+  init(value: Any?) {
+    let dictionary = value as? [String: Any] ?? [:]
+    self.selectedBackgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["selectedBackgroundColor"]
+    )
+    self.unselectedBackgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["unselectedBackgroundColor"]
+    )
+    self.selectedTextARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["selectedTextColor"]
+    )
+    self.unselectedTextARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["unselectedTextColor"]
+    )
+    self.selectedBorderARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["selectedBorderColor"]
+    )
+    self.unselectedBorderARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["unselectedBorderColor"]
+    )
+    self.selectedShadowARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["selectedShadowColor"]
+    )
+    self.titleARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["titleColor"]
+    )
+    self.subtitleARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["subtitleColor"]
+    )
+    self.buttonHeight = Self.clampedCGFloat(
+      dictionary["buttonHeight"],
+      defaultValue: 46,
+      minValue: 28,
+      maxValue: 120
+    )
+    self.cornerRadius = Self.clampedCGFloat(
+      dictionary["cornerRadius"],
+      defaultValue: 14,
+      minValue: 0,
+      maxValue: 60
+    )
+    self.buttonSpacing = Self.clampedCGFloat(
+      dictionary["buttonSpacing"],
+      defaultValue: 12,
+      minValue: 0,
+      maxValue: 64
+    )
+    self.contentSpacing = Self.clampedCGFloat(
+      dictionary["contentSpacing"],
+      defaultValue: 12,
+      minValue: 0,
+      maxValue: 64
+    )
+    self.verticalPadding = Self.clampedCGFloat(
+      dictionary["verticalPadding"],
+      defaultValue: 6,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.borderWidth = Self.clampedCGFloat(
+      dictionary["borderWidth"],
+      defaultValue: 1,
+      minValue: 0,
+      maxValue: 12
+    )
+    self.selectedShadowRadius = Self.clampedCGFloat(
+      dictionary["selectedShadowRadius"],
+      defaultValue: 8,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.selectedShadowOffsetX = Self.clampedCGFloat(
+      dictionary["selectedShadowOffsetX"],
+      defaultValue: 0,
+      minValue: -48,
+      maxValue: 48
+    )
+    self.selectedShadowOffsetY = Self.clampedCGFloat(
+      dictionary["selectedShadowOffsetY"],
+      defaultValue: 2,
+      minValue: -48,
+      maxValue: 48
+    )
+    self.titleFontSize = Self.optionalClampedCGFloat(
+      dictionary["titleFontSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.subtitleFontSize = Self.optionalClampedCGFloat(
+      dictionary["subtitleFontSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.buttonFontSize = Self.optionalClampedCGFloat(
+      dictionary["buttonFontSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.titleFontWeight = Self.fontWeight(
+      dictionary["titleFontWeight"],
+      defaultValue: .semibold
+    )
+    self.subtitleFontWeight = Self.fontWeight(
+      dictionary["subtitleFontWeight"],
+      defaultValue: .regular
+    )
+    self.buttonFontWeight = Self.fontWeight(
+      dictionary["buttonFontWeight"],
+      defaultValue: .semibold
+    )
+    self.minimumTextScaleFactor = Self.clampedCGFloat(
+      dictionary["minimumTextScaleFactor"],
+      defaultValue: 0.75,
+      minValue: 0.1,
+      maxValue: 1
+    )
+    self.pressedScale = Self.clampedCGFloat(
+      dictionary["pressedScale"],
+      defaultValue: 0.98,
+      minValue: 0.8,
+      maxValue: 1
+    )
+    self.pressedOpacity = Self.clampedDouble(
+      dictionary["pressedOpacity"],
+      defaultValue: 0.86,
+      minValue: 0.1,
+      maxValue: 1
+    )
+    self.pressAnimationDuration = Self.clampedDouble(
+      dictionary["pressAnimationDuration"],
+      defaultValue: 0.12,
+      minValue: 0,
+      maxValue: 1
+    )
+    self.selectionAnimationEnabled = Self.bool(
+      dictionary["selectionAnimationEnabled"],
+      defaultValue: true
+    )
+    self.selectionAnimationCurve =
+      AppleLiquidSheetSegmentedAnimationCurve(
+        rawValue: dictionary["selectionAnimationCurve"] as? String ?? ""
+      ) ?? .easeInOut
+    self.selectionAnimationDuration = Self.clampedDouble(
+      dictionary["selectionAnimationDuration"],
+      defaultValue: 0.15,
+      minValue: 0,
+      maxValue: 2
+    )
+    self.selectionSpringDamping = Self.clampedDouble(
+      dictionary["selectionSpringDamping"],
+      defaultValue: 0.82,
+      minValue: 0.1,
+      maxValue: 1
+    )
+  }
+
+  var titleFont: Font {
+    resolvedFont(
+      size: titleFontSize,
+      defaultFont: .headline,
+      weight: titleFontWeight
+    )
+  }
+
+  var subtitleFont: Font {
+    resolvedFont(
+      size: subtitleFontSize,
+      defaultFont: .footnote,
+      weight: subtitleFontWeight
+    )
+  }
+
+  var buttonFont: Font {
+    resolvedFont(
+      size: buttonFontSize,
+      defaultFont: .body,
+      weight: buttonFontWeight
+    )
+  }
+
+  var titleColor: Color? {
+    Color(appleLiquidARGB: titleARGB)
+  }
+
+  var subtitleColor: Color? {
+    Color(appleLiquidARGB: subtitleARGB)
+  }
+
+  var selectionAnimation: Animation? {
+    guard selectionAnimationEnabled, selectionAnimationDuration > 0 else {
+      return nil
+    }
+
+    switch selectionAnimationCurve {
+    case .linear:
+      return .linear(duration: selectionAnimationDuration)
+    case .easeIn:
+      return .easeIn(duration: selectionAnimationDuration)
+    case .easeOut:
+      return .easeOut(duration: selectionAnimationDuration)
+    case .easeInOut:
+      return .easeInOut(duration: selectionAnimationDuration)
+    case .spring:
+      return .spring(
+        response: selectionAnimationDuration,
+        dampingFraction: selectionSpringDamping,
+        blendDuration: selectionAnimationDuration * 0.15
+      )
+    }
+  }
+
+  func estimatedHeight(hasSubtitle: Bool) -> CGFloat {
+    let titleLineHeight = (titleFontSize ?? 17) * 1.2
+    let subtitleLineHeight = hasSubtitle
+      ? (subtitleFontSize ?? 13) * 1.2 + 3
+      : 0
+
+    return titleLineHeight + subtitleLineHeight + contentSpacing +
+      buttonHeight + verticalPadding * 2
+  }
+
+  private func resolvedFont(
+    size: CGFloat?,
+    defaultFont: Font,
+    weight: Font.Weight
+  ) -> Font {
+    if let size {
+      return .system(size: size, weight: weight)
+    }
+
+    return defaultFont.weight(weight)
+  }
+
+  private static func fontWeight(
+    _ value: Any?,
+    defaultValue: Font.Weight
+  ) -> Font.Weight {
+    AppleLiquidSymbolWeight.fontWeight(value as? String) ?? defaultValue
+  }
+
+  private static func optionalClampedCGFloat(
+    _ value: Any?,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat? {
+    guard let value = double(value) else {
+      return nil
+    }
+
+    return CGFloat(min(max(value, minValue), maxValue))
+  }
+
+  private static func clampedCGFloat(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat {
+    CGFloat(
+      clampedDouble(
+        value,
+        defaultValue: defaultValue,
+        minValue: minValue,
+        maxValue: maxValue
+      )
+    )
+  }
+
+  private static func clampedDouble(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> Double {
+    min(max(double(value) ?? defaultValue, minValue), maxValue)
+  }
+
+  private static func double(_ value: Any?) -> Double? {
+    if let value = value as? Double {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.doubleValue
+    }
+
+    return nil
+  }
+
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
+  }
 }
 
 private struct AppleLiquidSheetRowConfiguration: Identifiable {
@@ -635,6 +986,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
+  let segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration
 
   init?(value: Any?, id: String) {
     guard let dictionary = value as? [String: Any] else {
@@ -656,6 +1008,12 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     )
 
     if kind == .picker && options.isEmpty {
+      return nil
+    }
+
+    if kind == .segmented &&
+      (options.count != 2 || options.first == options.last)
+    {
       return nil
     }
 
@@ -697,6 +1055,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     )
     self.content = content
     self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.segmentedStyle = AppleLiquidSheetSegmentedStyleConfiguration(
+      value: dictionary["segmentedStyle"]
+    )
   }
 
   private init(
@@ -714,7 +1075,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     sliderStep: Double? = nil,
     tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
-    systemImage: String? = nil
+    systemImage: String? = nil,
+    segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration =
+      AppleLiquidSheetSegmentedStyleConfiguration(value: nil)
   ) {
     self.id = id
     self.kind = kind
@@ -736,6 +1099,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.tintColor = tintColor
     self.content = content
     self.systemImage = systemImage
+    self.segmentedStyle = segmentedStyle
   }
 
   static func text(
@@ -793,11 +1157,33 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     options: [String],
     selectedOption: String? = nil,
     subtitle: String? = nil,
-    systemImage: String? = nil
+    systemImage: String? = nil,
+    style: AppleLiquidSheetSegmentedStyleConfiguration =
+      AppleLiquidSheetSegmentedStyleConfiguration(value: nil)
   ) -> AppleLiquidSheetRowConfiguration {
     AppleLiquidSheetRowConfiguration(
       id: id,
       kind: .picker,
+      title: title,
+      subtitle: subtitle,
+      options: options,
+      selectedOption: selectedOption,
+      systemImage: systemImage,
+      segmentedStyle: style
+    )
+  }
+
+  static func segmented(
+    id: String,
+    title: String,
+    options: [String],
+    selectedOption: String? = nil,
+    subtitle: String? = nil,
+    systemImage: String? = nil
+  ) -> AppleLiquidSheetRowConfiguration {
+    AppleLiquidSheetRowConfiguration(
+      id: id,
+      kind: .segmented,
       title: title,
       subtitle: subtitle,
       options: options,
@@ -888,6 +1274,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = subtitle == nil ? 50 : 68
     case .picker:
       baseHeight = subtitle == nil ? 50 : 68
+    case .segmented:
+      baseHeight = segmentedStyle.estimatedHeight(hasSubtitle: subtitle != nil)
     case .slider:
       baseHeight = subtitle == nil ? 76 : 94
     case .navigation:
@@ -1722,6 +2110,31 @@ private struct AppleLiquidSheetRowView: View {
       .scrollContentBackground(formBackgroundVisibility)
       .appleLiquidNavigationContainerBackground()
 
+    case .segmented:
+      VStack(alignment: .leading, spacing: row.segmentedStyle.contentSpacing) {
+        AppleLiquidSheetRowLabel(
+          row: row,
+          titleFont: row.segmentedStyle.titleFont,
+          subtitleFont: row.segmentedStyle.subtitleFont,
+          titleColor: row.segmentedStyle.titleColor,
+          subtitleColor: row.segmentedStyle.subtitleColor
+        )
+
+        HStack(spacing: row.segmentedStyle.buttonSpacing) {
+          ForEach(row.options, id: \.self) { option in
+            AppleLiquidSheetSegmentOptionButton(
+              title: option,
+              isSelected: pickerSelection == option,
+              style: row.segmentedStyle,
+              onSelect: {
+                selectSegmentedOption(option)
+              }
+            )
+          }
+        }
+      }
+      .padding(.vertical, row.segmentedStyle.verticalPadding)
+
     case .slider:
       VStack(alignment: .leading, spacing: 8) {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
@@ -1765,6 +2178,134 @@ private struct AppleLiquidSheetRowView: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+
+  private func selectSegmentedOption(_ option: String) {
+    guard pickerSelection != option else {
+      return
+    }
+
+    if let animation = row.segmentedStyle.selectionAnimation {
+      withAnimation(animation) {
+        pickerSelection = option
+      }
+    } else {
+      pickerSelection = option
+    }
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetSegmentOptionButton: View {
+  let title: String
+  let isSelected: Bool
+  let style: AppleLiquidSheetSegmentedStyleConfiguration
+  let onSelect: () -> Void
+
+  var body: some View {
+    Button(action: onSelect) {
+      ZStack {
+        RoundedRectangle(
+          cornerRadius: style.cornerRadius,
+          style: .continuous
+        )
+        .fill(buttonBackground)
+        .shadow(
+          color: buttonShadowColor,
+          radius: buttonShadowRadius,
+          x: buttonShadowOffsetX,
+          y: buttonShadowOffsetY
+        )
+
+        if style.borderWidth > 0 {
+          RoundedRectangle(
+            cornerRadius: style.cornerRadius,
+            style: .continuous
+          )
+          .stroke(buttonBorder, lineWidth: style.borderWidth)
+        }
+
+        Text(title)
+          .font(style.buttonFont)
+          .foregroundStyle(buttonTextColor)
+          .lineLimit(1)
+          .minimumScaleFactor(style.minimumTextScaleFactor)
+      }
+      .frame(maxWidth: .infinity, minHeight: style.buttonHeight)
+      .contentShape(
+        RoundedRectangle(
+          cornerRadius: style.cornerRadius,
+          style: .continuous
+        )
+      )
+      .animation(style.selectionAnimation, value: isSelected)
+    }
+    .buttonStyle(AppleLiquidSheetSegmentOptionButtonStyle(style: style))
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
+  }
+
+  private var buttonBackground: Color {
+    if isSelected {
+      return Color(appleLiquidARGB: style.selectedBackgroundARGB) ??
+        Color.accentColor.opacity(0.16)
+    }
+
+    return Color(appleLiquidARGB: style.unselectedBackgroundARGB) ??
+      Color.primary.opacity(0.07)
+  }
+
+  private var buttonTextColor: Color {
+    if isSelected {
+      return Color(appleLiquidARGB: style.selectedTextARGB) ?? .accentColor
+    }
+
+    return Color(appleLiquidARGB: style.unselectedTextARGB) ?? .primary
+  }
+
+  private var buttonBorder: Color {
+    if isSelected {
+      return Color(appleLiquidARGB: style.selectedBorderARGB) ??
+        Color.accentColor.opacity(0.42)
+    }
+
+    return Color(appleLiquidARGB: style.unselectedBorderARGB) ??
+      Color.primary.opacity(0.04)
+  }
+
+  private var buttonShadowColor: Color {
+    guard isSelected, style.selectedShadowRadius > 0 else {
+      return .clear
+    }
+
+    return Color(appleLiquidARGB: style.selectedShadowARGB) ??
+      Color.white.opacity(0.04)
+  }
+
+  private var buttonShadowRadius: CGFloat {
+    isSelected ? style.selectedShadowRadius : 0
+  }
+
+  private var buttonShadowOffsetX: CGFloat {
+    isSelected ? style.selectedShadowOffsetX : 0
+  }
+
+  private var buttonShadowOffsetY: CGFloat {
+    isSelected ? style.selectedShadowOffsetY : 0
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetSegmentOptionButtonStyle: ButtonStyle {
+  let style: AppleLiquidSheetSegmentedStyleConfiguration
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .scaleEffect(configuration.isPressed ? style.pressedScale : 1)
+      .opacity(configuration.isPressed ? style.pressedOpacity : 1)
+      .animation(
+        .easeOut(duration: style.pressAnimationDuration),
+        value: configuration.isPressed
+      )
   }
 }
 
@@ -1916,14 +2457,30 @@ private final class AppleLiquidSheetSliderUIKitView: UISlider {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetRowLabel: View {
   let row: AppleLiquidSheetRowConfiguration
+  let titleFont: Font?
+  let subtitleFont: Font?
+  let titleColor: Color?
+  let subtitleColor: Color?
+
+  init(
+    row: AppleLiquidSheetRowConfiguration,
+    titleFont: Font? = nil,
+    subtitleFont: Font? = nil,
+    titleColor: Color? = nil,
+    subtitleColor: Color? = nil
+  ) {
+    self.row = row
+    self.titleFont = titleFont
+    self.subtitleFont = subtitleFont
+    self.titleColor = titleColor
+    self.subtitleColor = subtitleColor
+  }
 
   var body: some View {
     if let subtitle = row.subtitle {
       VStack(alignment: .leading, spacing: 3) {
         title
-        Text(subtitle)
-          .font(.footnote)
-          .foregroundStyle(.secondary)
+        styledSubtitle(subtitle)
       }
     } else {
       title
@@ -1933,9 +2490,33 @@ private struct AppleLiquidSheetRowLabel: View {
   @ViewBuilder
   private var title: some View {
     if let systemImage = row.systemImage {
-      Label(row.title, systemImage: systemImage)
+      styledTitle(Label(row.title, systemImage: systemImage))
     } else {
-      Text(row.title)
+      styledTitle(Text(row.title))
+    }
+  }
+
+  @ViewBuilder
+  private func styledTitle<Content: View>(_ content: Content) -> some View {
+    if let titleColor {
+      content
+        .font(titleFont)
+        .foregroundStyle(titleColor)
+    } else {
+      content.font(titleFont)
+    }
+  }
+
+  @ViewBuilder
+  private func styledSubtitle(_ subtitle: String) -> some View {
+    if let subtitleColor {
+      Text(subtitle)
+        .font(subtitleFont ?? .footnote)
+        .foregroundStyle(subtitleColor)
+    } else {
+      Text(subtitle)
+        .font(subtitleFont ?? .footnote)
+        .foregroundStyle(.secondary)
     }
   }
 }

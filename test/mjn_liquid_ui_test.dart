@@ -58,6 +58,48 @@ void main() {
               options: <String>['Auto', 'Light', 'Dark'],
               selectedOption: 'Auto',
             ),
+            AppleLiquidSheetRow.segmented(
+              title: 'Layout',
+              firstOption: 'List',
+              secondOption: 'Grid',
+              selectedOption: 'Grid',
+              systemImage: 'rectangle.grid.1x2',
+              style: AppleLiquidSheetSegmentedStyle(
+                selectedBackgroundColor: Color(0x2234C759),
+                unselectedBackgroundColor: Color(0x11222222),
+                selectedTextColor: Color(0xFF34C759),
+                unselectedTextColor: Color(0xFF8E8E93),
+                selectedBorderColor: Color(0x9934C759),
+                unselectedBorderColor: Color(0x338E8E93),
+                selectedShadowColor: Color(0x0AFFFFFF),
+                titleColor: Color(0xFF111111),
+                subtitleColor: Color(0xFF666666),
+                buttonHeight: 52,
+                cornerRadius: 18,
+                buttonSpacing: 16,
+                contentSpacing: 14,
+                verticalPadding: 8,
+                borderWidth: 2,
+                selectedShadowRadius: 9,
+                selectedShadowOffsetX: 1,
+                selectedShadowOffsetY: 3,
+                titleFontSize: 19,
+                subtitleFontSize: 13,
+                buttonFontSize: 17,
+                titleFontWeight: AppleLiquidSheetSegmentedFontWeight.bold,
+                subtitleFontWeight: AppleLiquidSheetSegmentedFontWeight.medium,
+                buttonFontWeight: AppleLiquidSheetSegmentedFontWeight.heavy,
+                minimumTextScaleFactor: 0.7,
+                pressedScale: 0.96,
+                pressedOpacity: 0.8,
+                pressAnimationDuration: 0.14,
+                selectionAnimationEnabled: false,
+                selectionAnimationCurve:
+                    AppleLiquidSheetSegmentedAnimationCurve.spring,
+                selectionAnimationDuration: 0.32,
+                selectionSpringDamping: 0.72,
+              ),
+            ),
             AppleLiquidSheetRow.slider(
               title: 'Intensity',
               value: 0.75,
@@ -125,6 +167,47 @@ void main() {
               'selectedOption': 'Auto',
             },
             <String, Object?>{
+              'type': 'segmented',
+              'title': 'Layout',
+              'options': <String>['List', 'Grid'],
+              'selectedOption': 'Grid',
+              'systemImage': 'rectangle.grid.1x2',
+              'segmentedStyle': <String, Object?>{
+                'selectedBackgroundColor': 0x2234C759,
+                'unselectedBackgroundColor': 0x11222222,
+                'selectedTextColor': 0xFF34C759,
+                'unselectedTextColor': 0xFF8E8E93,
+                'selectedBorderColor': 0x9934C759,
+                'unselectedBorderColor': 0x338E8E93,
+                'selectedShadowColor': 0x0AFFFFFF,
+                'titleColor': 0xFF111111,
+                'subtitleColor': 0xFF666666,
+                'buttonHeight': 52.0,
+                'cornerRadius': 18.0,
+                'buttonSpacing': 16.0,
+                'contentSpacing': 14.0,
+                'verticalPadding': 8.0,
+                'borderWidth': 2.0,
+                'selectedShadowRadius': 9.0,
+                'selectedShadowOffsetX': 1.0,
+                'selectedShadowOffsetY': 3.0,
+                'titleFontSize': 19.0,
+                'subtitleFontSize': 13.0,
+                'buttonFontSize': 17.0,
+                'titleFontWeight': 'bold',
+                'subtitleFontWeight': 'medium',
+                'buttonFontWeight': 'heavy',
+                'minimumTextScaleFactor': 0.7,
+                'pressedScale': 0.96,
+                'pressedOpacity': 0.8,
+                'pressAnimationDuration': 0.14,
+                'selectionAnimationEnabled': false,
+                'selectionAnimationCurve': 'spring',
+                'selectionAnimationDuration': 0.32,
+                'selectionSpringDamping': 0.72,
+              },
+            },
+            <String, Object?>{
               'type': 'slider',
               'title': 'Intensity',
               'sliderValue': 0.75,
@@ -168,6 +251,48 @@ void main() {
         },
       ],
     });
+  });
+
+  test('segmented sheet rows require non-empty distinct options', () {
+    expect(
+      () => AppleLiquidSheetRow.segmented(
+        title: 'Layout',
+        firstOption: 'List',
+        secondOption: 'List',
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.segmented(
+        title: 'Layout',
+        firstOption: '',
+        secondOption: 'Grid',
+      ),
+      throwsAssertionError,
+    );
+  });
+
+  test('segmented sheet styles validate dimensions and feedback values', () {
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(buttonHeight: 0),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(pressedScale: 1.1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(selectedShadowRadius: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(selectionAnimationDuration: -0.1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(selectionSpringDamping: 1.1),
+      throwsAssertionError,
+    );
   });
 
   test('AppleLiquidSheet returns false outside iOS', () async {
