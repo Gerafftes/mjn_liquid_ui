@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 /// Declarative content rendered inside a native iOS Liquid Glass sheet.
 ///
 /// The content is rendered by SwiftUI as a native `NavigationStack` and `Form`.
-/// Interactive rows such as toggles, pickers, sliders, and text fields keep
-/// their state locally inside the native sheet for the duration of the
-/// presentation.
+/// Interactive rows such as toggles, pickers, segmented controls, sliders, and
+/// text fields keep their state locally inside the native sheet for the
+/// duration of the presentation.
 class AppleLiquidSheetContent {
   /// Creates native sheet content from form sections.
   const AppleLiquidSheetContent({
@@ -66,6 +66,12 @@ class AppleLiquidSheetContent {
             title: 'Accent',
             options: <String>['Blue', 'Teal', 'Graphite'],
             selectedOption: 'Blue',
+          ),
+          AppleLiquidSheetRow.segmented(
+            title: 'Layout',
+            firstOption: 'List',
+            secondOption: 'Grid',
+            selectedOption: 'List',
           ),
           AppleLiquidSheetRow.slider(
             title: 'Intensity',
@@ -201,6 +207,265 @@ class AppleLiquidSheetSection {
   }
 }
 
+/// Font weights supported by [AppleLiquidSheetSegmentedStyle].
+enum AppleLiquidSheetSegmentedFontWeight {
+  /// The thinnest available native font weight.
+  ultraLight('ultraLight'),
+
+  /// A very thin native font weight.
+  thin('thin'),
+
+  /// A light native font weight.
+  light('light'),
+
+  /// The regular native font weight.
+  regular('regular'),
+
+  /// A medium native font weight.
+  medium('medium'),
+
+  /// A semibold native font weight.
+  semibold('semibold'),
+
+  /// A bold native font weight.
+  bold('bold'),
+
+  /// A heavy native font weight.
+  heavy('heavy'),
+
+  /// The heaviest available native font weight.
+  black('black');
+
+  const AppleLiquidSheetSegmentedFontWeight(this.platformValue);
+
+  /// Value sent to the native SwiftUI implementation.
+  final String platformValue;
+}
+
+/// Selection transition curves supported by [AppleLiquidSheetSegmentedStyle].
+enum AppleLiquidSheetSegmentedAnimationCurve {
+  /// Linear movement without easing.
+  linear('linear'),
+
+  /// Starts slowly and finishes faster.
+  easeIn('easeIn'),
+
+  /// Starts faster and settles slowly.
+  easeOut('easeOut'),
+
+  /// Smoothly eases at the beginning and end.
+  easeInOut('easeInOut'),
+
+  /// Spring movement with configurable damping.
+  spring('spring');
+
+  const AppleLiquidSheetSegmentedAnimationCurve(this.platformValue);
+
+  /// Value sent to the native SwiftUI implementation.
+  final String platformValue;
+}
+
+/// Visual configuration for [AppleLiquidSheetRow.segmented].
+class AppleLiquidSheetSegmentedStyle {
+  /// Creates a native two-button row style.
+  const AppleLiquidSheetSegmentedStyle({
+    this.selectedBackgroundColor,
+    this.unselectedBackgroundColor,
+    this.selectedTextColor,
+    this.unselectedTextColor,
+    this.selectedBorderColor,
+    this.unselectedBorderColor,
+    this.selectedShadowColor,
+    this.titleColor,
+    this.subtitleColor,
+    this.buttonHeight = 46,
+    this.cornerRadius = 14,
+    this.buttonSpacing = 12,
+    this.contentSpacing = 12,
+    this.verticalPadding = 6,
+    this.borderWidth = 1,
+    this.selectedShadowRadius = 8,
+    this.selectedShadowOffsetX = 0,
+    this.selectedShadowOffsetY = 2,
+    this.titleFontSize,
+    this.subtitleFontSize,
+    this.buttonFontSize,
+    this.titleFontWeight = AppleLiquidSheetSegmentedFontWeight.semibold,
+    this.subtitleFontWeight = AppleLiquidSheetSegmentedFontWeight.regular,
+    this.buttonFontWeight = AppleLiquidSheetSegmentedFontWeight.semibold,
+    this.minimumTextScaleFactor = 0.75,
+    this.pressedScale = 0.98,
+    this.pressedOpacity = 0.86,
+    this.pressAnimationDuration = 0.12,
+    this.selectionAnimationEnabled = true,
+    this.selectionAnimationCurve =
+        AppleLiquidSheetSegmentedAnimationCurve.easeInOut,
+    this.selectionAnimationDuration = 0.15,
+    this.selectionSpringDamping = 0.82,
+  }) : assert(buttonHeight > 0),
+       assert(cornerRadius >= 0),
+       assert(buttonSpacing >= 0),
+       assert(contentSpacing >= 0),
+       assert(verticalPadding >= 0),
+       assert(borderWidth >= 0),
+       assert(selectedShadowRadius >= 0),
+       assert(titleFontSize == null || titleFontSize > 0),
+       assert(subtitleFontSize == null || subtitleFontSize > 0),
+       assert(buttonFontSize == null || buttonFontSize > 0),
+       assert(minimumTextScaleFactor > 0 && minimumTextScaleFactor <= 1),
+       assert(pressedScale > 0 && pressedScale <= 1),
+       assert(pressedOpacity > 0 && pressedOpacity <= 1),
+       assert(pressAnimationDuration >= 0),
+       assert(selectionAnimationDuration >= 0),
+       assert(selectionSpringDamping > 0 && selectionSpringDamping <= 1);
+
+  /// Selected button fill. Null uses the native accent tint.
+  final Color? selectedBackgroundColor;
+
+  /// Unselected button fill. Null uses the native adaptive fill.
+  final Color? unselectedBackgroundColor;
+
+  /// Selected button text color. Null uses the native accent color.
+  final Color? selectedTextColor;
+
+  /// Unselected button text color. Null uses the native primary color.
+  final Color? unselectedTextColor;
+
+  /// Selected button border color. Null uses the native accent color.
+  final Color? selectedBorderColor;
+
+  /// Unselected button border color. Null uses an adaptive subtle border.
+  final Color? unselectedBorderColor;
+
+  /// Selected button shadow color. Null uses a very subtle native highlight.
+  final Color? selectedShadowColor;
+
+  /// Row title and SF Symbol color. Null uses the native primary color.
+  final Color? titleColor;
+
+  /// Row subtitle color. Null uses the native secondary label color.
+  final Color? subtitleColor;
+
+  /// Button height in native iOS points.
+  final double buttonHeight;
+
+  /// Button corner radius in native iOS points.
+  final double cornerRadius;
+
+  /// Horizontal space between the two buttons in native iOS points.
+  final double buttonSpacing;
+
+  /// Vertical space between the row label and buttons in native iOS points.
+  final double contentSpacing;
+
+  /// Vertical padding around the complete row in native iOS points.
+  final double verticalPadding;
+
+  /// Button border width in native iOS points.
+  final double borderWidth;
+
+  /// Selected button shadow blur radius in native iOS points.
+  final double selectedShadowRadius;
+
+  /// Selected button shadow horizontal offset in native iOS points.
+  final double selectedShadowOffsetX;
+
+  /// Selected button shadow vertical offset in native iOS points.
+  final double selectedShadowOffsetY;
+
+  /// Optional row title font size. Null keeps native Dynamic Type sizing.
+  final double? titleFontSize;
+
+  /// Optional row subtitle font size. Null keeps native Dynamic Type sizing.
+  final double? subtitleFontSize;
+
+  /// Optional button font size. Null keeps native Dynamic Type sizing.
+  final double? buttonFontSize;
+
+  /// Row title font weight.
+  final AppleLiquidSheetSegmentedFontWeight titleFontWeight;
+
+  /// Row subtitle font weight.
+  final AppleLiquidSheetSegmentedFontWeight subtitleFontWeight;
+
+  /// Button label font weight.
+  final AppleLiquidSheetSegmentedFontWeight buttonFontWeight;
+
+  /// Smallest scale allowed for long button labels.
+  final double minimumTextScaleFactor;
+
+  /// Scale applied while a button is pressed.
+  final double pressedScale;
+
+  /// Opacity applied while a button is pressed.
+  final double pressedOpacity;
+
+  /// Press feedback animation duration in seconds.
+  final double pressAnimationDuration;
+
+  /// Whether the selected button background should animate between buttons.
+  final bool selectionAnimationEnabled;
+
+  /// Curve used when the selected button background moves between buttons.
+  final AppleLiquidSheetSegmentedAnimationCurve selectionAnimationCurve;
+
+  /// Selection transition duration in seconds.
+  ///
+  /// For [AppleLiquidSheetSegmentedAnimationCurve.spring], this is used as the
+  /// spring response value.
+  final double selectionAnimationDuration;
+
+  /// Damping fraction for the spring selection transition.
+  ///
+  /// Only used when [selectionAnimationCurve] is
+  /// [AppleLiquidSheetSegmentedAnimationCurve.spring].
+  final double selectionSpringDamping;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (selectedBackgroundColor != null)
+        'selectedBackgroundColor': selectedBackgroundColor!.toARGB32(),
+      if (unselectedBackgroundColor != null)
+        'unselectedBackgroundColor': unselectedBackgroundColor!.toARGB32(),
+      if (selectedTextColor != null)
+        'selectedTextColor': selectedTextColor!.toARGB32(),
+      if (unselectedTextColor != null)
+        'unselectedTextColor': unselectedTextColor!.toARGB32(),
+      if (selectedBorderColor != null)
+        'selectedBorderColor': selectedBorderColor!.toARGB32(),
+      if (unselectedBorderColor != null)
+        'unselectedBorderColor': unselectedBorderColor!.toARGB32(),
+      if (selectedShadowColor != null)
+        'selectedShadowColor': selectedShadowColor!.toARGB32(),
+      if (titleColor != null) 'titleColor': titleColor!.toARGB32(),
+      if (subtitleColor != null) 'subtitleColor': subtitleColor!.toARGB32(),
+      'buttonHeight': buttonHeight,
+      'cornerRadius': cornerRadius,
+      'buttonSpacing': buttonSpacing,
+      'contentSpacing': contentSpacing,
+      'verticalPadding': verticalPadding,
+      'borderWidth': borderWidth,
+      'selectedShadowRadius': selectedShadowRadius,
+      'selectedShadowOffsetX': selectedShadowOffsetX,
+      'selectedShadowOffsetY': selectedShadowOffsetY,
+      if (titleFontSize != null) 'titleFontSize': titleFontSize,
+      if (subtitleFontSize != null) 'subtitleFontSize': subtitleFontSize,
+      if (buttonFontSize != null) 'buttonFontSize': buttonFontSize,
+      'titleFontWeight': titleFontWeight.platformValue,
+      'subtitleFontWeight': subtitleFontWeight.platformValue,
+      'buttonFontWeight': buttonFontWeight.platformValue,
+      'minimumTextScaleFactor': minimumTextScaleFactor,
+      'pressedScale': pressedScale,
+      'pressedOpacity': pressedOpacity,
+      'pressAnimationDuration': pressAnimationDuration,
+      'selectionAnimationEnabled': selectionAnimationEnabled,
+      'selectionAnimationCurve': selectionAnimationCurve.platformValue,
+      'selectionAnimationDuration': selectionAnimationDuration,
+      'selectionSpringDamping': selectionSpringDamping,
+    };
+  }
+}
+
 /// Native row types supported by [AppleLiquidSheetRow].
 enum AppleLiquidSheetRowType {
   /// Plain title/subtitle row.
@@ -214,6 +479,9 @@ enum AppleLiquidSheetRowType {
 
   /// Native SwiftUI navigation-link picker with local state.
   picker('picker'),
+
+  /// Native two-option button group with local state.
+  segmented('segmented'),
 
   /// Native SwiftUI slider with local state.
   slider('slider'),
@@ -238,7 +506,9 @@ class AppleLiquidSheetRow {
     this.subtitle,
     this.value,
     this.boolValue,
-    this.options = const <String>[],
+    List<String> options = const <String>[],
+    String? firstSegmentOption,
+    String? secondSegmentOption,
     this.selectedOption,
     this.sliderValue,
     this.min,
@@ -247,7 +517,11 @@ class AppleLiquidSheetRow {
     this.tintColor,
     this.content,
     this.systemImage,
-  }) : assert(
+    this.segmentedStyle,
+  }) : _options = options,
+       _firstSegmentOption = firstSegmentOption,
+       _secondSegmentOption = secondSegmentOption,
+       assert(
          type != AppleLiquidSheetRowType.slider || (min ?? 0) < (max ?? 1),
        ),
        assert(
@@ -257,6 +531,18 @@ class AppleLiquidSheetRow {
          type != AppleLiquidSheetRowType.slider ||
              step == null ||
              step <= (max ?? 1) - (min ?? 0),
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.segmented ||
+             firstSegmentOption != null && secondSegmentOption != null,
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.segmented ||
+             firstSegmentOption != '' && secondSegmentOption != '',
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.segmented ||
+             firstSegmentOption != secondSegmentOption,
        );
 
   /// Creates a plain text row.
@@ -313,6 +599,26 @@ class AppleLiquidSheetRow {
          options: options,
          selectedOption: selectedOption,
          systemImage: systemImage,
+       );
+
+  /// Creates a native segmented row with two side-by-side options.
+  const AppleLiquidSheetRow.segmented({
+    required String title,
+    required String firstOption,
+    required String secondOption,
+    String? selectedOption,
+    String? subtitle,
+    String? systemImage,
+    AppleLiquidSheetSegmentedStyle? style,
+  }) : this._(
+         type: AppleLiquidSheetRowType.segmented,
+         title: title,
+         subtitle: subtitle,
+         firstSegmentOption: firstOption,
+         secondSegmentOption: secondOption,
+         selectedOption: selectedOption,
+         systemImage: systemImage,
+         segmentedStyle: style,
        );
 
   /// Creates a native slider row.
@@ -381,11 +687,24 @@ class AppleLiquidSheetRow {
   /// Initial toggle value for [AppleLiquidSheetRow.toggle].
   final bool? boolValue;
 
-  /// Picker options for [AppleLiquidSheetRow.picker].
-  final List<String> options;
+  final List<String> _options;
+  final String? _firstSegmentOption;
+  final String? _secondSegmentOption;
 
-  /// Initial picker selection. Defaults to the first option on iOS when null or
-  /// not present in [options].
+  /// Options for picker and segmented rows.
+  ///
+  /// [AppleLiquidSheetRow.segmented] always returns its two distinct values.
+  List<String> get options {
+    if (type == AppleLiquidSheetRowType.segmented) {
+      return <String>[_firstSegmentOption!, _secondSegmentOption!];
+    }
+
+    return _options;
+  }
+
+  /// Initial picker or segmented selection.
+  ///
+  /// Defaults to the first option on iOS when null or not present in [options].
   final String? selectedOption;
 
   /// Initial slider value for [AppleLiquidSheetRow.slider].
@@ -409,6 +728,9 @@ class AppleLiquidSheetRow {
   /// Optional SF Symbol name used by native rows that can show a label icon.
   final String? systemImage;
 
+  /// Visual style for [AppleLiquidSheetRow.segmented].
+  final AppleLiquidSheetSegmentedStyle? segmentedStyle;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
       'type': type.platformValue,
@@ -425,6 +747,7 @@ class AppleLiquidSheetRow {
       if (tintColor != null) 'tintColor': tintColor!.toARGB32(),
       if (content != null) 'content': content!.toMap(),
       if (systemImage != null) 'systemImage': systemImage,
+      if (segmentedStyle != null) 'segmentedStyle': segmentedStyle!.toMap(),
     };
   }
 }

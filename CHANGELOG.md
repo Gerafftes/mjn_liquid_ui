@@ -1,3 +1,14 @@
+## 0.2.9
+
+- Added native two-option button rows to `AppleLiquidSheetContent` via
+  `AppleLiquidSheetRow.segmented`, with separate rounded buttons and local
+  SwiftUI sheet state.
+- Added per-row `AppleLiquidSheetSegmentedStyle` customization for colors,
+  dimensions, typography, spacing, borders, text scaling, and press feedback.
+- Added configurable segmented-row selection transitions that animate each
+  button's selected state, including duration, curve, spring damping, selected
+  shadow styling, and an option to disable the animation.
+
 ## 0.2.8
 
 - Added native slider rows to `AppleLiquidSheetContent` via

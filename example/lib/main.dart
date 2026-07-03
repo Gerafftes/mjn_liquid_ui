@@ -167,6 +167,27 @@ class _DemoShellState extends State<DemoShell> {
         AppleLiquidSheetSection(
           title: 'Presentation',
           rows: <AppleLiquidSheetRow>[
+            const AppleLiquidSheetRow.segmented(
+              title: 'Layout',
+              firstOption: 'List',
+              secondOption: 'Grid',
+              selectedOption: 'List',
+              systemImage: 'rectangle.grid.1x2',
+              style: AppleLiquidSheetSegmentedStyle(
+                selectedBackgroundColor: Color(0x2634C759),
+                selectedTextColor: Color(0xFF34C759),
+                selectedBorderColor: Color(0x9934C759),
+                selectedShadowColor: Color(0x0AFFFFFF),
+                buttonHeight: 48,
+                cornerRadius: 16,
+                selectedShadowRadius: 8,
+                selectedShadowOffsetY: 2,
+                buttonFontWeight: AppleLiquidSheetSegmentedFontWeight.bold,
+                selectionAnimationCurve:
+                    AppleLiquidSheetSegmentedAnimationCurve.easeInOut,
+                selectionAnimationDuration: 0.15,
+              ),
+            ),
             AppleLiquidSheetRow.toggle(
               title: 'Background zoom',
               value: templateSheetBackgroundZoom,
@@ -748,6 +769,8 @@ class _TemplateSheetFallback extends StatelessWidget {
       AppleLiquidSheetRowType.value => row.value ?? '',
       AppleLiquidSheetRowType.toggle => row.boolValue == true ? 'On' : 'Off',
       AppleLiquidSheetRowType.picker =>
+        row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
+      AppleLiquidSheetRowType.segmented =>
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
       AppleLiquidSheetRowType.slider => _sliderValueFor(row),
       AppleLiquidSheetRowType.navigation => 'Details',
