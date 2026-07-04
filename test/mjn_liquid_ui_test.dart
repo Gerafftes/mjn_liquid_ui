@@ -42,6 +42,18 @@ void main() {
     const AppleLiquidSheetContent content = AppleLiquidSheetContent(
       title: 'Project',
       doneSemanticLabel: 'Close sheet',
+      leadingAction: AppleLiquidSheetToolbarAction(
+        systemImage: 'xmark',
+        semanticLabel: 'Cancel',
+        foregroundColor: Color(0xFFFF453A),
+      ),
+      trailingAction: AppleLiquidSheetToolbarAction(
+        title: 'Confirm',
+        systemImage: 'checkmark',
+        semanticLabel: 'Confirm changes',
+        foregroundColor: Color(0xFFFFFFFF),
+        backgroundColor: Color(0xFF0A84FF),
+      ),
       detents: AppleLiquidSheetDetents(initialHeight: 420, expandedHeight: 640),
       sections: <AppleLiquidSheetSection>[
         AppleLiquidSheetSection(
@@ -141,6 +153,18 @@ void main() {
     expect(content.toMap(), <String, Object?>{
       'title': 'Project',
       'doneSemanticLabel': 'Close sheet',
+      'leadingAction': <String, Object?>{
+        'systemImage': 'xmark',
+        'semanticLabel': 'Cancel',
+        'foregroundColor': 0xFFFF453A,
+      },
+      'trailingAction': <String, Object?>{
+        'title': 'Confirm',
+        'systemImage': 'checkmark',
+        'semanticLabel': 'Confirm changes',
+        'foregroundColor': 0xFFFFFFFF,
+        'backgroundColor': 0xFF0A84FF,
+      },
       'detents': <String, Object?>{
         'initialHeight': 420.0,
         'expandedHeight': 640.0,
@@ -251,6 +275,18 @@ void main() {
         },
       ],
     });
+  });
+
+  test('sheet toolbar actions require visible content', () {
+    expect(() => AppleLiquidSheetToolbarAction(), throwsAssertionError);
+    expect(
+      () => AppleLiquidSheetToolbarAction(title: ''),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetToolbarAction(systemImage: ''),
+      throwsAssertionError,
+    );
   });
 
   test('segmented sheet rows require non-empty distinct options', () {

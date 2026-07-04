@@ -1,6 +1,51 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+/// Native toolbar button configuration for [AppleLiquidSheetContent].
+class AppleLiquidSheetToolbarAction {
+  /// Creates a toolbar action rendered as native text, SF Symbol, or both.
+  const AppleLiquidSheetToolbarAction({
+    this.title,
+    this.systemImage,
+    this.semanticLabel,
+    this.foregroundColor,
+    this.backgroundColor,
+  }) : assert(
+         title != null || systemImage != null,
+         'Provide either title or systemImage.',
+       ),
+       assert(title == null || title != ''),
+       assert(systemImage == null || systemImage != ''),
+       assert(semanticLabel == null || semanticLabel != '');
+
+  /// Optional visible button title.
+  final String? title;
+
+  /// Optional SF Symbol name for an icon button or label button.
+  final String? systemImage;
+
+  /// Optional accessibility label. Defaults to [title] on iOS when omitted.
+  final String? semanticLabel;
+
+  /// Optional text and icon color.
+  final Color? foregroundColor;
+
+  /// Optional rounded background fill for the toolbar button.
+  final Color? backgroundColor;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (title != null) 'title': title,
+      if (systemImage != null) 'systemImage': systemImage,
+      if (semanticLabel != null) 'semanticLabel': semanticLabel,
+      if (foregroundColor != null)
+        'foregroundColor': foregroundColor!.toARGB32(),
+      if (backgroundColor != null)
+        'backgroundColor': backgroundColor!.toARGB32(),
+    };
+  }
+}
+
 /// Declarative content rendered inside a native iOS Liquid Glass sheet.
 ///
 /// The content is rendered by SwiftUI as a native `NavigationStack` and `Form`.
@@ -12,6 +57,8 @@ class AppleLiquidSheetContent {
   const AppleLiquidSheetContent({
     this.title = 'Settings',
     this.doneSemanticLabel = 'Done',
+    this.leadingAction,
+    this.trailingAction,
     this.detents,
     required this.sections,
   });
@@ -134,8 +181,18 @@ class AppleLiquidSheetContent {
   /// Native navigation title used by the sheet.
   final String title;
 
-  /// Accessibility label for the checkmark dismiss button.
+  /// Accessibility label for the default checkmark dismiss button.
+  ///
+  /// This is only used when [trailingAction] is null.
   final String doneSemanticLabel;
+
+  /// Optional leading toolbar button, usually used for Cancel or Close.
+  final AppleLiquidSheetToolbarAction? leadingAction;
+
+  /// Optional trailing toolbar button, usually used for Confirm or Save.
+  ///
+  /// When null, iOS shows the default checkmark button.
+  final AppleLiquidSheetToolbarAction? trailingAction;
 
   /// Optional per-page sheet detent configuration.
   ///
@@ -150,6 +207,8 @@ class AppleLiquidSheetContent {
     return <String, Object?>{
       'title': title,
       'doneSemanticLabel': doneSemanticLabel,
+      if (leadingAction != null) 'leadingAction': leadingAction!.toMap(),
+      if (trailingAction != null) 'trailingAction': trailingAction!.toMap(),
       if (detents != null) 'detents': detents!.toMap(),
       'sections': sections
           .map((AppleLiquidSheetSection section) => section.toMap())

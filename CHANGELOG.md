@@ -1,3 +1,10 @@
+## 0.2.10
+
+- Added configurable native sheet toolbar actions, including optional leading
+  cancel/close buttons and customizable trailing confirm buttons.
+- Added icon-only toolbar actions plus foreground and background colors for
+  native sheet toolbar buttons.
+
 ## 0.2.9
 
 - Added native two-option button rows to `AppleLiquidSheetContent` via
