@@ -198,6 +198,8 @@ private struct AppleLiquidSheetConfiguration {
 private struct AppleLiquidSheetContentConfiguration {
   let title: String
   let doneAccessibilityLabel: String
+  let leadingAction: AppleLiquidSheetToolbarActionConfiguration?
+  let trailingAction: AppleLiquidSheetToolbarActionConfiguration
   let detents: AppleLiquidSheetDetentConfiguration
   let sections: [AppleLiquidSheetSectionConfiguration]
 
@@ -215,6 +217,12 @@ private struct AppleLiquidSheetContentConfiguration {
       dictionary["doneSemanticLabel"],
       defaultValue: "Done"
     )
+    let leadingAction = AppleLiquidSheetToolbarActionConfiguration(
+      value: dictionary["leadingAction"]
+    )
+    let trailingAction = AppleLiquidSheetToolbarActionConfiguration(
+      value: dictionary["trailingAction"]
+    ) ?? .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     let detents = AppleLiquidSheetDetentConfiguration(
       value: dictionary["detents"]
     )
@@ -230,6 +238,8 @@ private struct AppleLiquidSheetContentConfiguration {
     self.init(
       title: title,
       doneAccessibilityLabel: doneAccessibilityLabel,
+      leadingAction: leadingAction,
+      trailingAction: trailingAction,
       detents: detents,
       sections: sections.isEmpty ? Self.defaultContent.sections : sections
     )
@@ -238,11 +248,17 @@ private struct AppleLiquidSheetContentConfiguration {
   private init(
     title: String,
     doneAccessibilityLabel: String,
+    leadingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
+    trailingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     detents: AppleLiquidSheetDetentConfiguration = .automatic,
     sections: [AppleLiquidSheetSectionConfiguration]
   ) {
     self.title = title
     self.doneAccessibilityLabel = doneAccessibilityLabel
+    self.leadingAction = leadingAction
+    self.trailingAction =
+      trailingAction ??
+      .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     self.detents = detents
     self.sections = sections
   }
@@ -515,6 +531,83 @@ private struct AppleLiquidSheetContentConfiguration {
       ),
     ]
   )
+}
+
+private struct AppleLiquidSheetToolbarActionConfiguration {
+  let title: String?
+  let systemImage: String?
+  let accessibilityLabel: String
+  let foregroundARGB: Int?
+  let backgroundARGB: Int?
+
+  init?(value: Any?) {
+    guard let dictionary = value as? [String: Any] else {
+      return nil
+    }
+
+    let title = Self.nonEmptyString(dictionary["title"])
+    let systemImage = Self.nonEmptyString(dictionary["systemImage"])
+
+    guard title != nil || systemImage != nil else {
+      return nil
+    }
+
+    self.title = title
+    self.systemImage = systemImage
+    self.accessibilityLabel =
+      Self.nonEmptyString(dictionary["semanticLabel"]) ??
+      title ??
+      systemImage ??
+      "Action"
+    self.foregroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["foregroundColor"]
+    )
+    self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["backgroundColor"]
+    )
+  }
+
+  private init(
+    title: String?,
+    systemImage: String?,
+    accessibilityLabel: String,
+    foregroundARGB: Int? = nil,
+    backgroundARGB: Int? = nil
+  ) {
+    self.title = title
+    self.systemImage = systemImage
+    self.accessibilityLabel = accessibilityLabel
+    self.foregroundARGB = foregroundARGB
+    self.backgroundARGB = backgroundARGB
+  }
+
+  static func defaultConfirmation(
+    accessibilityLabel: String
+  ) -> AppleLiquidSheetToolbarActionConfiguration {
+    AppleLiquidSheetToolbarActionConfiguration(
+      title: nil,
+      systemImage: "checkmark",
+      accessibilityLabel: accessibilityLabel
+    )
+  }
+
+  var foregroundColor: Color? {
+    Color(appleLiquidARGB: foregroundARGB)
+  }
+
+  var backgroundColor: Color? {
+    Color(appleLiquidARGB: backgroundARGB)
+  }
+
+  private static func nonEmptyString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
 }
 
 private struct AppleLiquidSheetDetentHeights {
@@ -1934,10 +2027,10 @@ private struct AppleLiquidSettingsSheetView: View {
     NavigationStack {
       AppleLiquidSheetFormScreen(
         content: configuration.content,
-        showsDoneButton: true,
+        showsToolbarActions: true,
         onPreferredDetentHeightsChange: setPreferredDetentHeights,
         onControlInteractionChanged: onControlInteractionChanged,
-        onDone: {
+        onToolbarAction: {
           dismiss()
         }
       )
@@ -2004,12 +2097,61 @@ private struct AppleLiquidSettingsSheetView: View {
 }
 
 @available(iOS 16.0, *)
+private struct AppleLiquidSheetToolbarButton: View {
+  let action: AppleLiquidSheetToolbarActionConfiguration
+  let onTap: () -> Void
+
+  @ViewBuilder
+  var body: some View {
+    if let backgroundColor = action.backgroundColor {
+      Button(action: onTap) {
+        label
+          .foregroundStyle(resolvedForegroundColor)
+      }
+      .buttonStyle(.borderedProminent)
+      .buttonBorderShape(.capsule)
+      .tint(backgroundColor)
+      .accessibilityLabel(Text(action.accessibilityLabel))
+    } else {
+      Button(action: onTap) {
+        label
+          .foregroundStyle(resolvedForegroundColor)
+      }
+      .accessibilityLabel(Text(action.accessibilityLabel))
+    }
+  }
+
+  @ViewBuilder
+  private var label: some View {
+    if let title = action.title, let systemImage = action.systemImage {
+      Label(title, systemImage: systemImage)
+    } else if let title = action.title {
+      Text(title)
+    } else if let systemImage = action.systemImage {
+      Image(systemName: systemImage)
+    }
+  }
+
+  private var resolvedForegroundColor: Color {
+    if let foregroundColor = action.foregroundColor {
+      return foregroundColor
+    }
+
+    if action.backgroundColor != nil {
+      return .white
+    }
+
+    return .accentColor
+  }
+}
+
+@available(iOS 16.0, *)
 private struct AppleLiquidSheetFormScreen: View {
   let content: AppleLiquidSheetContentConfiguration
-  let showsDoneButton: Bool
+  let showsToolbarActions: Bool
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onControlInteractionChanged: (Bool) -> Void
-  let onDone: (() -> Void)?
+  let onToolbarAction: (() -> Void)?
 
   var body: some View {
     Form {
@@ -2031,14 +2173,25 @@ private struct AppleLiquidSheetFormScreen: View {
     }
     .navigationTitle(content.title)
     .toolbar {
-      if showsDoneButton {
-        ToolbarItem(placement: .confirmationAction) {
-          Button {
-            onDone?()
-          } label: {
-            Image(systemName: "checkmark")
+      if showsToolbarActions {
+        if let leadingAction = content.leadingAction {
+          ToolbarItem(placement: .cancellationAction) {
+            AppleLiquidSheetToolbarButton(
+              action: leadingAction,
+              onTap: {
+                onToolbarAction?()
+              }
+            )
           }
-          .accessibilityLabel(content.doneAccessibilityLabel)
+        }
+
+        ToolbarItem(placement: .confirmationAction) {
+          AppleLiquidSheetToolbarButton(
+            action: content.trailingAction,
+            onTap: {
+              onToolbarAction?()
+            }
+          )
         }
       }
     }
@@ -2161,10 +2314,10 @@ private struct AppleLiquidSheetRowView: View {
         NavigationLink {
           AppleLiquidSheetFormScreen(
             content: content,
-            showsDoneButton: false,
+            showsToolbarActions: false,
             onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
             onControlInteractionChanged: onControlInteractionChanged,
-            onDone: nil
+            onToolbarAction: nil
           )
         } label: {
           AppleLiquidSheetRowLabel(row: row)

@@ -116,6 +116,18 @@ class _DemoShellState extends State<DemoShell> {
     return AppleLiquidSheetContent(
       title: 'Sheet Demo',
       doneSemanticLabel: 'Close sheet',
+      leadingAction: const AppleLiquidSheetToolbarAction(
+        systemImage: 'xmark',
+        semanticLabel: 'Dismiss sheet',
+        foregroundColor: Color(0xFFFF9F0A),
+      ),
+      trailingAction: const AppleLiquidSheetToolbarAction(
+        title: 'Apply',
+        systemImage: 'checkmark',
+        semanticLabel: 'Apply changes',
+        foregroundColor: Color(0xFFFFFFFF),
+        backgroundColor: Color(0xFF34C759),
+      ),
       detents: const AppleLiquidSheetDetents(
         initialHeight: 430,
         expandedHeight: 660,
@@ -717,6 +729,10 @@ class _TemplateSheetFallback extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final AppleLiquidSheetToolbarAction? leadingAction = content.leadingAction;
+    final AppleLiquidSheetToolbarAction? trailingAction =
+        content.trailingAction;
+
     return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -725,22 +741,31 @@ class _TemplateSheetFallback extends StatelessWidget {
           children: <Widget>[
             Row(
               children: <Widget>[
-                IconButton(
-                  tooltip: 'Cancel',
-                  icon: const Icon(Icons.close_rounded),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                if (leadingAction != null)
+                  _TemplateSheetFallbackToolbarButton(
+                    action: leadingAction,
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                else
+                  const SizedBox(width: 48),
                 const Spacer(),
                 Text(
                   content.title,
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const Spacer(),
-                IconButton.filled(
-                  tooltip: content.doneSemanticLabel,
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.check_rounded),
-                ),
+                if (trailingAction != null)
+                  _TemplateSheetFallbackToolbarButton(
+                    action: trailingAction,
+                    isFilled: true,
+                    onPressed: () => Navigator.of(context).pop(),
+                  )
+                else
+                  IconButton.filled(
+                    tooltip: content.doneSemanticLabel,
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.check_rounded),
+                  ),
               ],
             ),
             const SizedBox(height: 16),
@@ -788,6 +813,84 @@ class _TemplateSheetFallback extends StatelessWidget {
     }
 
     return value.toStringAsFixed(2).replaceAll(RegExp(r'\.00$'), '');
+  }
+}
+
+class _TemplateSheetFallbackToolbarButton extends StatelessWidget {
+  const _TemplateSheetFallbackToolbarButton({
+    required this.action,
+    required this.onPressed,
+    this.isFilled = false,
+  });
+
+  final AppleLiquidSheetToolbarAction action;
+  final VoidCallback onPressed;
+  final bool isFilled;
+
+  @override
+  Widget build(BuildContext context) {
+    final String tooltip =
+        action.semanticLabel ?? action.title ?? action.systemImage ?? 'Action';
+    final Color? foregroundColor = action.foregroundColor;
+    final Color? backgroundColor = action.backgroundColor;
+    final Widget child = _label(foregroundColor);
+
+    if (isFilled || backgroundColor != null) {
+      return FilledButton(
+        style: FilledButton.styleFrom(
+          backgroundColor: backgroundColor,
+          foregroundColor: foregroundColor,
+        ),
+        onPressed: onPressed,
+        child: child,
+      );
+    }
+
+    if (action.title != null) {
+      return TextButton(
+        style: TextButton.styleFrom(foregroundColor: foregroundColor),
+        onPressed: onPressed,
+        child: child,
+      );
+    }
+
+    return IconButton(
+      tooltip: tooltip,
+      color: foregroundColor,
+      onPressed: onPressed,
+      icon: child,
+    );
+  }
+
+  Widget _label(Color? foregroundColor) {
+    final String? title = action.title;
+    final String? systemImage = action.systemImage;
+
+    if (title != null && systemImage != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(_iconFor(systemImage), size: 18, color: foregroundColor),
+          const SizedBox(width: 6),
+          Text(title),
+        ],
+      );
+    }
+
+    if (title != null) {
+      return Text(title);
+    }
+
+    return Icon(_iconFor(systemImage), color: foregroundColor);
+  }
+
+  IconData _iconFor(String? systemImage) {
+    return switch (systemImage) {
+      'checkmark' => Icons.check_rounded,
+      'xmark' => Icons.close_rounded,
+      'xmark.circle' => Icons.cancel_rounded,
+      _ => Icons.circle_outlined,
+    };
   }
 }
 

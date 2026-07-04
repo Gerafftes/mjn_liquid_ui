@@ -42,6 +42,7 @@ void main() {
     expect(find.text('mjn_liquid_ui'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+    expect(find.text('Apply'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.close_rounded));
     await tester.pump();

@@ -89,7 +89,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.9
+  mjn_liquid_ui: ^0.2.10
 ```
 
 Then import the package:
@@ -251,8 +251,8 @@ buttons or other tappable Flutter children.
 
 `AppleLiquidSheet` presents a native iOS sheet from Flutter. The sheet renders a
 Liquid Glass SwiftUI `NavigationStack` with `Form` content, a content-sized
-detent, optional background zoom on the presenting page, and a checkmark toolbar
-action to dismiss.
+detent, optional background zoom on the presenting page, and configurable
+toolbar actions to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
 supports sections plus text, value, toggle, picker, segmented, slider,
@@ -263,6 +263,7 @@ text-field state stays local to the native sheet while it is presented. Omit
 | API | Purpose |
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, and sections |
+| `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol |
 | `AppleLiquidSheetSection` | Optional section header plus native form rows |
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
@@ -298,6 +299,18 @@ const AppleLiquidSheetContent(
 final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   title: 'Project',
   doneSemanticLabel: 'Close sheet',
+  leadingAction: AppleLiquidSheetToolbarAction(
+    systemImage: 'xmark',
+    semanticLabel: 'Dismiss sheet',
+    foregroundColor: Color(0xFFFF9F0A),
+  ),
+  trailingAction: AppleLiquidSheetToolbarAction(
+    title: 'Apply',
+    systemImage: 'checkmark',
+    semanticLabel: 'Apply changes',
+    foregroundColor: Color(0xFFFFFFFF),
+    backgroundColor: Color(0xFF34C759),
+  ),
   detents: AppleLiquidSheetDetents(
     initialHeight: 420,
     expandedHeight: 640,
