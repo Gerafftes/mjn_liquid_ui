@@ -6,6 +6,10 @@ import 'package:flutter/services.dart';
 
 import 'apple_liquid_platform_view.dart';
 
+/// Builds a value label for [AppleLiquidSlider].
+typedef AppleLiquidSliderValueLabelBuilder =
+    Widget Function(BuildContext context, double value);
+
 /// A Liquid Glass styled slider that uses a native iOS control when available.
 class AppleLiquidSlider extends StatefulWidget {
   /// Creates a slider for selecting a numeric value between [min] and [max].
@@ -18,9 +22,19 @@ class AppleLiquidSlider extends StatefulWidget {
     this.step,
     this.height = 64,
     this.tintColor,
+    this.valueLabel,
+    this.valueLabelBuilder,
+    this.valueLabelSpacing = 12,
+    this.valueLabelMinWidth = 44,
   }) : assert(min < max),
        assert(step == null || step > 0),
-       assert(step == null || step <= max - min);
+       assert(step == null || step <= max - min),
+       assert(
+         valueLabel == null || valueLabelBuilder == null,
+         'Provide either valueLabel or valueLabelBuilder, not both.',
+       ),
+       assert(valueLabelSpacing >= 0),
+       assert(valueLabelMinWidth >= 0);
 
   /// The current slider value.
   final double value;
@@ -42,6 +56,22 @@ class AppleLiquidSlider extends StatefulWidget {
 
   /// Optional accent color for the selected track and thumb.
   final Color? tintColor;
+
+  /// Optional widget displayed to the right of the slider track.
+  ///
+  /// Use this for static labels or labels formatted by the parent widget.
+  final Widget? valueLabel;
+
+  /// Optional builder for a value label displayed to the right of the slider.
+  ///
+  /// The value passed to the builder is clamped to [min] and [max].
+  final AppleLiquidSliderValueLabelBuilder? valueLabelBuilder;
+
+  /// Horizontal spacing between the slider track and [valueLabel].
+  final double valueLabelSpacing;
+
+  /// Minimum width reserved for [valueLabel].
+  final double valueLabelMinWidth;
 
   @override
   State<AppleLiquidSlider> createState() => _AppleLiquidSliderState();
@@ -81,7 +111,16 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
   Widget build(BuildContext context) {
     final double value = widget.value.clamp(widget.min, widget.max);
     final int? divisions = _divisionsForStep();
+    final Widget slider = _buildSliderControl(context, value, divisions);
 
+    return _buildWithValueLabel(context, value, slider);
+  }
+
+  Widget _buildSliderControl(
+    BuildContext context,
+    double value,
+    int? divisions,
+  ) {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         height: widget.height,
@@ -112,6 +151,30 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
         thumbColor: widget.tintColor,
         onChanged: widget.onChanged,
       ),
+    );
+  }
+
+  Widget _buildWithValueLabel(
+    BuildContext context,
+    double value,
+    Widget slider,
+  ) {
+    final Widget? valueLabel =
+        widget.valueLabel ?? widget.valueLabelBuilder?.call(context, value);
+    if (valueLabel == null) {
+      return slider;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Expanded(child: slider),
+        SizedBox(width: widget.valueLabelSpacing),
+        ConstrainedBox(
+          constraints: BoxConstraints(minWidth: widget.valueLabelMinWidth),
+          child: Align(alignment: Alignment.centerRight, child: valueLabel),
+        ),
+      ],
     );
   }
 

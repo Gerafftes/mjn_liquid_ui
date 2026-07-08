@@ -558,6 +558,20 @@ enum AppleLiquidSheetRowType {
   final String platformValue;
 }
 
+/// Placement for the value text rendered by [AppleLiquidSheetRow.slider].
+enum AppleLiquidSheetSliderValuePlacement {
+  /// Shows the value at the trailing edge of the title row above the slider.
+  topTrailing('topTrailing'),
+
+  /// Shows the value to the right of the slider track.
+  besideTrack('besideTrack');
+
+  const AppleLiquidSheetSliderValuePlacement(this.platformValue);
+
+  /// Value sent over the platform channel.
+  final String platformValue;
+}
+
 /// A row rendered inside a native iOS Liquid Glass sheet form.
 class AppleLiquidSheetRow {
   const AppleLiquidSheetRow._({
@@ -575,6 +589,8 @@ class AppleLiquidSheetRow {
     this.max,
     this.step,
     this.tintColor,
+    this.sliderValuePlacement =
+        AppleLiquidSheetSliderValuePlacement.topTrailing,
     this.content,
     this.systemImage,
     this.segmentedStyle,
@@ -689,6 +705,8 @@ class AppleLiquidSheetRow {
     double max = 1,
     double? step,
     Color? tintColor,
+    AppleLiquidSheetSliderValuePlacement valuePlacement =
+        AppleLiquidSheetSliderValuePlacement.topTrailing,
     String? subtitle,
     String? systemImage,
   }) : this._(
@@ -700,6 +718,7 @@ class AppleLiquidSheetRow {
          max: max,
          step: step,
          tintColor: tintColor,
+         sliderValuePlacement: valuePlacement,
          systemImage: systemImage,
        );
 
@@ -782,6 +801,9 @@ class AppleLiquidSheetRow {
   /// Optional accent color for the slider track and thumb.
   final Color? tintColor;
 
+  /// Placement for the slider value text.
+  final AppleLiquidSheetSliderValuePlacement sliderValuePlacement;
+
   /// Nested content for [AppleLiquidSheetRow.navigation].
   final AppleLiquidSheetContent? content;
 
@@ -805,6 +827,10 @@ class AppleLiquidSheetRow {
       if (max != null) 'max': max,
       if (step != null) 'step': step,
       if (tintColor != null) 'tintColor': tintColor!.toARGB32(),
+      if (type == AppleLiquidSheetRowType.slider &&
+          sliderValuePlacement !=
+              AppleLiquidSheetSliderValuePlacement.topTrailing)
+        'sliderValuePlacement': sliderValuePlacement.platformValue,
       if (content != null) 'content': content!.toMap(),
       if (systemImage != null) 'systemImage': systemImage,
       if (segmentedStyle != null) 'segmentedStyle': segmentedStyle!.toMap(),
