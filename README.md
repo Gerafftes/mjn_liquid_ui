@@ -21,6 +21,7 @@ structure.
 - Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
   sheet, customizable Dart-provided form content, content-sized detents,
   optional background color, and background zoom.
+- Optional, configurable Flutter background interaction guard for native sheets.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
 - Flutter fallbacks for unsupported platforms to avoid crashes during development.
@@ -36,6 +37,7 @@ structure.
 | `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
 | `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
+| `AppleLiquidSheetBackgroundInteractionGuard` | Optional Flutter background interaction guard while a native sheet is active | `AppleLiquidSheetController` |
 
 ## Icon support
 
@@ -89,7 +91,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.10
+  mjn_liquid_ui: ^0.2.11
 ```
 
 Then import the package:
@@ -448,15 +450,40 @@ final bool didShow = await sheetController.showSheet();
 await sheetController.dismiss();
 ```
 
+Wrap Flutter content behind the native sheet with
+`AppleLiquidSheetBackgroundInteractionGuard` when the app wants the plugin to
+manage background interaction while the sheet is active:
+
+```dart
+AppleLiquidSheetBackgroundInteractionGuard(
+  controller: sheetController,
+  absorbPointers: true,
+  lockScrolling: true,
+  lockedScrollPhysics: const NeverScrollableScrollPhysics(),
+  child: const YourPageContent(),
+)
+```
+
+The guard is optional and configurable. Set `absorbPointers` or `lockScrolling`
+to `false` to keep those behaviors under app control, provide a custom
+`lockedScrollPhysics`, or use `builder` to react to the active sheet state with
+app-specific UI.
+
+Pass `scrollContext` from inside the presenting scrollable when calling
+`showSheet` to stop active fling momentum before the native sheet opens:
+
+```dart
+await sheetController.showSheet(scrollContext: context);
+```
+
 `backgroundZoomScale` controls how far the presenting view scales back while
 the sheet is open. Set `sheetColor` to force a specific sheet background color;
 leave it null to use the native Liquid Glass/system presentation background.
 The method returns `true` after a native iOS sheet was shown and dismissed. It
 returns `false` on unsupported platforms so apps can present their own Flutter
 fallback.
-While a native sheet is active, touches are blocked from reaching the Flutter
-content behind it. Repeated show calls return `true` without opening another
-sheet so fallback code does not stack a second presentation.
+Repeated show calls return `true` without opening another sheet so fallback code
+does not stack a second presentation.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 

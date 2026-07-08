@@ -439,6 +439,189 @@ void main() {
     }
   });
 
+  testWidgets(
+    'AppleLiquidSheetBackgroundInteractionGuard blocks background while showing',
+    (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      final AppleLiquidSheetController controller =
+          AppleLiquidSheetController();
+      final Completer<bool> showCompleter = Completer<bool>();
+      int tapCount = 0;
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+            if (call.method == 'showTemplateSheet') {
+              return showCompleter.future;
+            }
+
+            return null;
+          });
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppleLiquidSheetBackgroundInteractionGuard(
+              controller: controller,
+              child: TextButton(
+                onPressed: () {
+                  tapCount += 1;
+                },
+                child: const Text('Background action'),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Background action'));
+        expect(tapCount, 1);
+
+        final Future<bool> showFuture = controller.showSheet();
+        await tester.pump();
+
+        await tester.tap(find.text('Background action'), warnIfMissed: false);
+        expect(tapCount, 1);
+
+        showCompleter.complete(true);
+        expect(await showFuture, isTrue);
+        await tester.pump();
+
+        await tester.tap(find.text('Background action'));
+        expect(tapCount, 2);
+      } finally {
+        controller.dispose();
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(sheetChannel, null);
+      }
+    },
+  );
+
+  testWidgets(
+    'AppleLiquidSheetBackgroundInteractionGuard preserves scroll offset',
+    (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      final AppleLiquidSheetController controller =
+          AppleLiquidSheetController();
+      final Completer<bool> showCompleter = Completer<bool>();
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+            if (call.method == 'showTemplateSheet') {
+              return showCompleter.future;
+            }
+
+            return null;
+          });
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppleLiquidSheetBackgroundInteractionGuard(
+              controller: controller,
+              child: ListView.builder(
+                itemCount: 80,
+                itemExtent: 48,
+                itemBuilder: (BuildContext context, int index) {
+                  return Text('Row $index');
+                },
+              ),
+            ),
+          ),
+        );
+
+        await tester.drag(find.byType(ListView), const Offset(0, -360));
+        await tester.pumpAndSettle();
+
+        final ScrollableState scrollable = tester.state<ScrollableState>(
+          find.byType(Scrollable),
+        );
+        final double offsetBeforeSheet = scrollable.position.pixels;
+        expect(offsetBeforeSheet, greaterThan(0));
+
+        final Future<bool> showFuture = controller.showSheet();
+        await tester.pump();
+
+        expect(scrollable.position.pixels, offsetBeforeSheet);
+
+        showCompleter.complete(true);
+        expect(await showFuture, isTrue);
+        await tester.pump();
+
+        expect(scrollable.position.pixels, offsetBeforeSheet);
+      } finally {
+        controller.dispose();
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(sheetChannel, null);
+      }
+    },
+  );
+
+  testWidgets(
+    'AppleLiquidSheetBackgroundInteractionGuard exposes customization hooks',
+    (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      final AppleLiquidSheetController controller =
+          AppleLiquidSheetController();
+      final Completer<bool> showCompleter = Completer<bool>();
+      bool? isBlockedFromBuilder;
+      int tapCount = 0;
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+            if (call.method == 'showTemplateSheet') {
+              return showCompleter.future;
+            }
+
+            return null;
+          });
+
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppleLiquidSheetBackgroundInteractionGuard(
+              controller: controller,
+              absorbPointers: false,
+              lockScrolling: false,
+              builder: (BuildContext context, bool isBlocked, Widget? child) {
+                isBlockedFromBuilder = isBlocked;
+                return child!;
+              },
+              child: TextButton(
+                onPressed: () {
+                  tapCount += 1;
+                },
+                child: const Text('Custom background action'),
+              ),
+            ),
+          ),
+        );
+
+        expect(isBlockedFromBuilder, isFalse);
+
+        final Future<bool> showFuture = controller.showSheet();
+        await tester.pump();
+        expect(isBlockedFromBuilder, isTrue);
+
+        await tester.tap(find.text('Custom background action'));
+        expect(tapCount, 1);
+
+        showCompleter.complete(true);
+        expect(await showFuture, isTrue);
+        await tester.pump();
+        expect(isBlockedFromBuilder, isFalse);
+      } finally {
+        controller.dispose();
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(sheetChannel, null);
+      }
+    },
+  );
+
   test('AppleLiquidSheet ignores duplicate native show requests', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 
@@ -468,6 +651,67 @@ void main() {
       showCompleter.complete(true);
       expect(await showFuture, isTrue);
     } finally {
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, null);
+    }
+  });
+
+  testWidgets('AppleLiquidSheet stops active scroll before native show', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final ScrollController scrollController = ScrollController();
+    late BuildContext scrollContext;
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+          if (call.method == 'showTemplateSheet') {
+            return true;
+          }
+
+          return null;
+        });
+
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: ListView(
+            controller: scrollController,
+            children: <Widget>[
+              Builder(
+                builder: (BuildContext context) {
+                  scrollContext = context;
+                  return const SizedBox(height: 2000);
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(scrollController.position.maxScrollExtent, greaterThan(0));
+
+      final Future<void> scrollAnimation = scrollController.animateTo(
+        600,
+        duration: const Duration(seconds: 1),
+        curve: Curves.linear,
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(scrollController.offset, greaterThan(0));
+
+      expect(
+        await AppleLiquidSheet.showSheet(scrollContext: scrollContext),
+        isTrue,
+      );
+      final double stoppedOffset = scrollController.offset;
+
+      await scrollAnimation;
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(scrollController.offset, stoppedOffset);
+    } finally {
+      scrollController.dispose();
       debugDefaultTargetPlatformOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(sheetChannel, null);

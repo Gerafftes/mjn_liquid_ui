@@ -39,7 +39,6 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
     arguments args: Any?,
     messenger: FlutterBinaryMessenger
   ) {
-    let creationStart = Date()
     containerView = UIView(frame: frame)
     switchControl = UISwitch(frame: .zero)
     channel = FlutterMethodChannel(
@@ -80,14 +79,6 @@ final class AppleLiquidSwitchPlatformView: NSObject, FlutterPlatformView {
 
     apply(configuration: AppleLiquidSwitchConfiguration(arguments: args))
     channel.setMethodCallHandler(handle)
-
-    #if DEBUG
-      let elapsedMilliseconds = Date().timeIntervalSince(creationStart) * 1000
-      print(
-        "[mjn_liquid_ui] UISwitch platform view \(viewId) created in "
-          + "\(String(format: "%.2f", elapsedMilliseconds))ms"
-      )
-    #endif
   }
 
   deinit {
