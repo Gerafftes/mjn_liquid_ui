@@ -21,6 +21,8 @@ structure.
 - Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
   sheet, customizable Dart-provided form content, content-sized detents,
   optional background color, and background zoom.
+- Native iOS bottom toasts with Liquid Glass chrome, SF Symbols, and optional
+  action callbacks.
 - Optional, configurable Flutter background interaction guard for native sheets.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
@@ -32,12 +34,13 @@ structure.
 | --- | --- | --- |
 | `AppleLiquidTabBar` | Native iOS Liquid Glass tab bar with a dedicated search-role item, tint support, and badges | - |
 | `AppleLiquidSwitch` | Native Liquid Glass toggle switch with animated state changes | - |
-| `AppleLiquidSlider` | Native Liquid Glass slider with min/max range and optional step support | - |
+| `AppleLiquidSlider` | Native Liquid Glass slider with min/max range, optional step support, and optional trailing value labels | - |
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
 | `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
 | `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
 | `AppleLiquidSheetBackgroundInteractionGuard` | Optional Flutter background interaction guard while a native sheet is active | `AppleLiquidSheetController` |
+| `AppleLiquidToast` | Static API for native iOS Liquid Glass bottom toasts | - |
 
 ## Icon support
 
@@ -68,9 +71,13 @@ structure.
 | --- | --- |
 | ![Liquid Slider](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png) | ![Liquid Surface](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png) |
 
-| Liquid Sheet | Search Role Tab |
+| Liquid Sheet | Liquid Toast |
 | --- | --- |
-| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Search Role Tab](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
+| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Liquid Toast](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_toast.png) |
+
+| Search Role Tab |
+| --- |
+| ![Search Role Tab](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
 
 ## Platform support
 
@@ -91,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.11
+  mjn_liquid_ui: ^0.2.12
 ```
 
 Then import the package:
@@ -204,13 +211,18 @@ AppleLiquidSlider(
   max: 1,
   step: 0.1,
   tintColor: const Color(0xFF8B5CF6),
+  valueLabelBuilder: (BuildContext context, double value) {
+    return Text('${(value * 100).round()}%');
+  },
   onChanged: (double value) {
     setState(() => amount = value);
   },
 )
 ```
 
-Omit `step` for a continuous slider.
+Omit `step` for a continuous slider. Use `valueLabel` or
+`valueLabelBuilder` to render a value to the right of the slider track; without
+one, the standalone slider keeps the previous slider-only layout.
 
 ### SF Symbols
 
@@ -249,6 +261,31 @@ Use `deformable: true` for interactive squash and stretch feedback. Use
 `AppleLiquidStretchGestureMode.gestureDetector` when the surface contains
 buttons or other tappable Flutter children.
 
+### Native toast
+
+```dart
+await AppleLiquidToast.show(
+  title: 'Added to Cart',
+  systemImage: 'cart.fill',
+  action: AppleLiquidToastAction(
+    title: 'Undo',
+    tintColor: const Color(0xFFFF9500),
+    dismissesToast: false,
+    onPressed: () {
+      AppleLiquidToast.show(
+        title: 'Removed From Cart',
+        systemImage: 'checkmark.circle.fill',
+      );
+    },
+  ),
+);
+```
+
+`AppleLiquidToast.show` returns `false` when no native iOS overlay can be
+attached, including unsupported platforms. Native toasts require iOS 16 or
+newer; iOS 26 uses the system Liquid Glass effect, while older supported iOS
+versions use a native rounded fallback.
+
 ### Native sheet
 
 `AppleLiquidSheet` presents a native iOS sheet from Flutter. The sheet renders a
@@ -260,7 +297,9 @@ Pass `AppleLiquidSheetContent` to customize the native form. The content model
 supports sections plus text, value, toggle, picker, segmented, slider,
 text-field, and nested navigation rows. Toggle, picker, segmented, slider, and
 text-field state stays local to the native sheet while it is presented. Omit
-`step` on `AppleLiquidSheetRow.slider` for a continuous slider.
+`step` on `AppleLiquidSheetRow.slider` for a continuous slider. Set
+`valuePlacement` to `AppleLiquidSheetSliderValuePlacement.besideTrack` to show
+the value beside the slider track instead of above it.
 
 | API | Purpose |
 | --- | --- |
@@ -273,7 +312,7 @@ text-field state stays local to the native sheet while it is presented. Omit
 | `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
 | `AppleLiquidSheetRow.segmented` | Two separate, equal-width native buttons with local selection state |
 | `AppleLiquidSheetSegmentedStyle` | Per-row colors, dimensions, typography, spacing, borders, shadows, press feedback, and selection transitions |
-| `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, and tint |
+| `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, and value placement |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
 | `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page |
 
@@ -345,6 +384,7 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           title: 'Intensity',
           value: 0.72,
           tintColor: Color(0xFF0A84FF),
+          valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
         ),
         AppleLiquidSheetRow.navigation(
           title: 'Details',

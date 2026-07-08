@@ -7,9 +7,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+Future<void> _sendPlatformMethodCall(
+  MethodChannel channel,
+  String method, [
+  Object? arguments,
+]) async {
+  final ByteData message = const StandardMethodCodec().encodeMethodCall(
+    MethodCall(method, arguments),
+  );
+
+  await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .handlePlatformMessage(channel.name, message, (_) {});
+}
+
 void main() {
   const MethodChannel symbolChannel = MethodChannel('mjn_liquid_ui/symbols');
   const MethodChannel sheetChannel = MethodChannel('mjn_liquid_ui/sheets');
+  const MethodChannel toastChannel = MethodChannel('mjn_liquid_ui/toasts');
   final Uint8List transparentPng = base64Decode(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
   );
@@ -118,6 +132,7 @@ void main() {
               min: 0,
               max: 1,
               tintColor: Color(0xFF0A84FF),
+              valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
               systemImage: 'slider.horizontal.3',
             ),
             AppleLiquidSheetRow.slider(
@@ -238,6 +253,7 @@ void main() {
               'min': 0.0,
               'max': 1.0,
               'tintColor': 0xFF0A84FF,
+              'sliderValuePlacement': 'besideTrack',
               'systemImage': 'slider.horizontal.3',
             },
             <String, Object?>{
@@ -657,6 +673,129 @@ void main() {
     }
   });
 
+  test('AppleLiquidToast returns false outside iOS', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          return true;
+        });
+
+    try {
+      expect(await AppleLiquidToast.show(title: 'Saved'), isFalse);
+      expect(await AppleLiquidToast.dismiss(), isFalse);
+      expect(calls, isEmpty);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast sends native show payload on iOS', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Added to Cart',
+          duration: const Duration(milliseconds: 1500),
+          placementOffset: -44,
+          transitionOffset: 120,
+          systemImage: 'cart.fill',
+          action: AppleLiquidToastAction(
+            title: 'Undo',
+            tintColor: const Color(0xFFFF9500),
+            dismissesToast: false,
+            onPressed: () {},
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(calls, hasLength(1));
+      expect(calls.single.method, 'show');
+
+      final Map<Object?, Object?> arguments =
+          calls.single.arguments as Map<Object?, Object?>;
+      expect(arguments, containsPair('title', 'Added to Cart'));
+      expect(arguments, containsPair('duration', 1.5));
+      expect(arguments, containsPair('placementOffset', -44.0));
+      expect(arguments, containsPair('transitionOffset', 120.0));
+      expect(arguments, containsPair('systemImage', 'cart.fill'));
+      expect(arguments, containsPair('actionTitle', 'Undo'));
+      expect(arguments, containsPair('actionTintColor', 0xFFFF9500));
+      expect(arguments, containsPair('dismissesOnAction', false));
+      expect(arguments['actionId'], isA<String>());
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast routes native action callbacks', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    String? actionId;
+    int actionTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionId = arguments['actionId'] as String?;
+          }
+
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Added to Cart',
+          action: AppleLiquidToastAction(
+            title: 'Undo',
+            dismissesToast: false,
+            onPressed: () {
+              actionTapCount += 1;
+            },
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(actionId, isNotNull);
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+
+      expect(actionTapCount, 1);
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToastAction requires visible content', () {
+    expect(() => AppleLiquidToastAction(title: ''), throwsAssertionError);
+  });
+
   testWidgets('AppleLiquidSheet stops active scroll before native show', (
     WidgetTester tester,
   ) async {
@@ -914,6 +1053,49 @@ void main() {
     } finally {
       debugDefaultTargetPlatformOverride = null;
     }
+  });
+
+  testWidgets('AppleLiquidSlider can render a trailing value label', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: AppleLiquidSlider(
+              value: 1.25,
+              min: 0,
+              max: 1,
+              valueLabelBuilder: (BuildContext context, double value) {
+                return Text('${(value * 100).round()}%');
+              },
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.text('100%'), findsOneWidget);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  test('AppleLiquidSlider accepts one value label source', () {
+    expect(
+      () => AppleLiquidSlider(
+        value: 0.5,
+        valueLabel: const Text('50%'),
+        valueLabelBuilder: (BuildContext context, double value) {
+          return const Text('50%');
+        },
+        onChanged: (_) {},
+      ),
+      throwsAssertionError,
+    );
   });
 
   testWidgets('AppleLiquidStretch keeps wrapped content interactive', (

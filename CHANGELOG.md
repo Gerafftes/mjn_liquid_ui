@@ -1,3 +1,14 @@
+## 0.2.12
+
+- Added `AppleLiquidSheetSliderValuePlacement.besideTrack` so native sheet
+  slider values can be displayed to the right of the slider track.
+- Added optional `valueLabel` and `valueLabelBuilder` support to
+  `AppleLiquidSlider` for standalone slider value labels.
+- Added `AppleLiquidToast` for native iOS bottom toasts with SF Symbols and
+  optional action callbacks.
+- Refreshed pub.dev and README screenshots, including a new Liquid Glass toast
+  screenshot.
+
 ## 0.2.11
 
 - Reworked native iOS sheet presentation to use a direct system page sheet

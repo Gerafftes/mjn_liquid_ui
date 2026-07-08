@@ -29,5 +29,8 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
     AppleLiquidSheetPresenter.register(
       messenger: registrar.messenger()
     )
+    AppleLiquidToastPresenter.register(
+      messenger: registrar.messenger()
+    )
   }
 }

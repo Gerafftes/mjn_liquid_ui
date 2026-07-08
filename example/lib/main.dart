@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
@@ -218,6 +219,7 @@ class _DemoShellState extends State<DemoShell> {
               title: 'Corner feel',
               value: 0.7,
               tintColor: Color(0xFF0A84FF),
+              valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
               systemImage: 'slider.horizontal.3',
             ),
             const AppleLiquidSheetRow.textField(
@@ -454,8 +456,57 @@ class _TabbarDemoPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          AppleLiquidSurface(
+            height: 132,
+            child: Row(
+              children: <Widget>[
+                const AppleLiquidSymbol(
+                  'cart.fill',
+                  size: 34,
+                  color: Color(0xFF34C759),
+                  fallbackIcon: Icons.shopping_cart_rounded,
+                  semanticLabel: 'Cart',
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: _SurfaceText(
+                    title: 'Glass toast',
+                    body: 'Native bottom toast with an optional action.',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: _showCartToast,
+                  child: const Text('Show'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
           const AppleLiquidSurface(height: 500, child: _SymbolGrid()),
         ],
+      ),
+    );
+  }
+
+  void _showCartToast() {
+    unawaited(
+      AppleLiquidToast.show(
+        title: 'Added to Cart',
+        systemImage: 'cart.fill',
+        action: AppleLiquidToastAction(
+          title: 'Undo',
+          tintColor: const Color(0xFFFF9500),
+          dismissesToast: false,
+          onPressed: () {
+            unawaited(
+              AppleLiquidToast.show(
+                title: 'Removed From Cart',
+                systemImage: 'checkmark.circle.fill',
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1122,25 +1173,18 @@ class _SliderExample extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(
-              child: Text(
-                title,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ),
-            Text(
-              '${(value * 100).round()}%',
-              style: Theme.of(context).textTheme.labelLarge,
-            ),
-          ],
-        ),
+        Text(title, style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 6),
         AppleLiquidSlider(
           value: value,
           step: step,
           tintColor: tintColor,
+          valueLabelBuilder: (BuildContext context, double value) {
+            return Text(
+              '${(value * 100).round()}%',
+              style: Theme.of(context).textTheme.labelLarge,
+            );
+          },
           onChanged: onChanged,
         ),
       ],

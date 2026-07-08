@@ -711,6 +711,11 @@ private enum AppleLiquidSheetRowKind: String {
   case textField
 }
 
+private enum AppleLiquidSheetSliderValuePlacement: String {
+  case topTrailing
+  case besideTrack
+}
+
 private enum AppleLiquidSheetSegmentedAnimationCurve: String {
   case linear
   case easeIn
@@ -1068,6 +1073,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let sliderMin: Double
   let sliderMax: Double
   let sliderStep: Double?
+  let sliderValuePlacement: AppleLiquidSheetSliderValuePlacement
   let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
@@ -1127,6 +1133,12 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
+    self.sliderValuePlacement = AppleLiquidSheetSliderValuePlacement(
+      rawValue: Self.string(
+        dictionary["sliderValuePlacement"],
+        defaultValue: AppleLiquidSheetSliderValuePlacement.topTrailing.rawValue
+      )
+    ) ?? .topTrailing
     self.sliderValue = Self.normalizedSliderValue(
       Self.optionalDouble(dictionary["sliderValue"]) ??
         Self.optionalDouble(dictionary["value"]) ??
@@ -1158,6 +1170,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     sliderMin: Double = 0,
     sliderMax: Double = 1,
     sliderStep: Double? = nil,
+    sliderValuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
     tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil,
@@ -1175,6 +1188,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
+    self.sliderValuePlacement = sliderValuePlacement
     self.sliderValue = Self.normalizedSliderValue(
       sliderValue,
       min: sliderMin,
@@ -1285,6 +1299,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     max: Double = 1,
     step: Double? = nil,
     tintColor: Int? = nil,
+    valuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
     subtitle: String? = nil,
     systemImage: String? = nil
   ) -> AppleLiquidSheetRowConfiguration {
@@ -1300,6 +1315,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       sliderMin: min,
       sliderMax: resolvedMax,
       sliderStep: resolvedStep,
+      sliderValuePlacement: valuePlacement,
       tintColor: tintColor,
       systemImage: systemImage
     )
@@ -2242,25 +2258,7 @@ private struct AppleLiquidSheetRowView: View {
       .padding(.vertical, row.segmentedStyle.verticalPadding)
 
     case .slider:
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .firstTextBaseline, spacing: 12) {
-          AppleLiquidSheetRowLabel(row: row)
-
-          Spacer(minLength: 12)
-
-          Text(row.formattedSliderValue(sliderValue))
-            .font(.footnote)
-            .foregroundStyle(.secondary)
-            .monospacedDigit()
-        }
-
-        AppleLiquidSheetSliderControl(
-          row: row,
-          value: $sliderValue,
-          onInteractionChanged: onControlInteractionChanged
-        )
-      }
-      .padding(.vertical, 4)
+      sliderRow
 
     case .navigation:
       if let content = row.content {
@@ -2284,6 +2282,62 @@ private struct AppleLiquidSheetRowView: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+
+  @ViewBuilder
+  private var sliderRow: some View {
+    switch row.sliderValuePlacement {
+    case .topTrailing:
+      sliderRowWithTopTrailingValue
+    case .besideTrack:
+      sliderRowWithTrackTrailingValue
+    }
+  }
+
+  private var sliderRowWithTopTrailingValue: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      HStack(alignment: .firstTextBaseline, spacing: 12) {
+        AppleLiquidSheetRowLabel(row: row)
+
+        Spacer(minLength: 12)
+
+        sliderValueLabel
+      }
+
+      sliderControl
+    }
+    .padding(.vertical, 4)
+  }
+
+  private var sliderRowWithTrackTrailingValue: some View {
+    VStack(alignment: .leading, spacing: 8) {
+      AppleLiquidSheetRowLabel(row: row)
+
+      HStack(alignment: .center, spacing: 12) {
+        sliderControl
+
+        sliderValueLabel
+          .frame(minWidth: 44, alignment: .trailing)
+      }
+    }
+    .padding(.vertical, 4)
+  }
+
+  private var sliderControl: some View {
+    AppleLiquidSheetSliderControl(
+      row: row,
+      value: $sliderValue,
+      onInteractionChanged: onControlInteractionChanged
+    )
+  }
+
+  private var sliderValueLabel: some View {
+    Text(row.formattedSliderValue(sliderValue))
+      .font(.footnote)
+      .foregroundStyle(.secondary)
+      .monospacedDigit()
+      .lineLimit(1)
+      .fixedSize(horizontal: true, vertical: false)
   }
 
   private func selectSegmentedOption(_ option: String) {
