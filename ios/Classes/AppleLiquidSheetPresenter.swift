@@ -6,18 +6,12 @@ import UIKit
 enum AppleLiquidSheetPresenter {
   @available(iOS 16.0, *)
   private static var activeSession: AppleLiquidSheetSession?
-  #if DEBUG
-  private static var debugChannel: FlutterMethodChannel?
-  #endif
 
   static func register(messenger: FlutterBinaryMessenger) {
     let channel = FlutterMethodChannel(
       name: AppleLiquidTabbarConstants.sheetChannelName,
       binaryMessenger: messenger
     )
-    #if DEBUG
-    debugChannel = channel
-    #endif
 
     channel.setMethodCallHandler { call, result in
       switch call.method {
@@ -33,13 +27,6 @@ enum AppleLiquidSheetPresenter {
     }
   }
 
-  #if DEBUG
-  static func debugLog(_ message: String) {
-    NSLog(message)
-    debugChannel?.invokeMethod("debugLog", arguments: message)
-  }
-  #endif
-
   private static func showTemplateSheet(
     arguments: Any?,
     result: @escaping FlutterResult
@@ -49,9 +36,14 @@ enum AppleLiquidSheetPresenter {
       return
     }
 
-    guard activeSession == nil else {
-      result(true)
-      return
+    if let existingSession = activeSession {
+      guard existingSession.isStale else {
+        result(true)
+        return
+      }
+
+      existingSession.discardStaleState()
+      activeSession = nil
     }
 
     guard let presenter = topViewController(from: activeRootViewController()),
@@ -1528,38 +1520,23 @@ private extension UIColor {
   }
 }
 
-private final class AppleLiquidBackgroundInteractionBlockerView: UIView {
-  override init(frame: CGRect) {
-    super.init(frame: frame)
-
-    backgroundColor = .clear
-    isUserInteractionEnabled = true
-    isAccessibilityElement = false
-  }
-
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
-
-  override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
-    bounds.contains(point) ? self : nil
-  }
-}
-
 @available(iOS 16.0, *)
-private final class AppleLiquidSheetSession {
+private final class AppleLiquidSheetSession: NSObject,
+  UIAdaptivePresentationControllerDelegate,
+  UISheetPresentationControllerDelegate
+{
   private let zoomedCornerRadius: CGFloat = 44
   private let configuration: AppleLiquidSheetConfiguration
-  private let presentationState = AppleLiquidSheetPresentationState()
   private weak var presentingView: UIView?
   private var hostController: UIViewController?
-  private var backgroundInteractionBlocker: UIView?
   private let result: FlutterResult
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
   private let originalCornerRadius: CGFloat
   private let originalMasksToBounds: Bool
+  private let originalUserInteractionEnabled: Bool
   private var didApplyZoom = false
+  private var didDisablePresentingViewInteraction = false
   private var didRestoreZoom = false
   private var didFinish = false
   private var restingSheetMinY: CGFloat?
@@ -1584,25 +1561,38 @@ private final class AppleLiquidSheetSession {
     self.originalTransform = presentingView?.transform ?? .identity
     self.originalCornerRadius = presentingView?.layer.cornerRadius ?? 0
     self.originalMasksToBounds = presentingView?.layer.masksToBounds ?? false
+    self.originalUserInteractionEnabled =
+      presentingView?.isUserInteractionEnabled ?? true
+    super.init()
     registerKeyboardNotifications()
   }
 
   deinit {
     keyboardTransitionWorkItem?.cancel()
     NotificationCenter.default.removeObserver(self)
-    removeBackgroundInteractionBlocker()
+    restorePresentingViewInteraction()
+  }
+
+  var isStale: Bool {
+    !didFinish && hostController?.viewIfLoaded?.window == nil
+  }
+
+  func discardStaleState() {
+    guard !didFinish else {
+      return
+    }
+
+    didFinish = true
+    restorePresentingViewInteraction()
   }
 
   func present(from presenter: UIViewController) -> Bool {
-    guard let window = presenter.viewIfLoaded?.window else {
+    guard presenter.viewIfLoaded?.window != nil else {
       return false
     }
 
-    installBackgroundInteractionBlocker(in: window)
-
-    let hostView = AppleLiquidSheetPresentationHost(
+    let hostView = AppleLiquidSettingsSheetView(
       configuration: configuration,
-      presentationState: presentationState,
       onFrameChange: { [weak self] sheetFrame, windowBounds in
         self?.updateBackgroundZoom(
           sheetFrame: sheetFrame,
@@ -1612,49 +1602,79 @@ private final class AppleLiquidSheetSession {
       onControlInteractionChanged: { [weak self] isInteracting in
         self?.setControlInteractionActive(isInteracting)
       },
-      onDismiss: { [weak self] in
-        self?.completeDismissal()
+      onDismissRequest: { [weak self] in
+        self?.dismissFromControl()
       }
     )
 
     let hostController = UIHostingController(rootView: hostView)
     hostController.view.backgroundColor = .clear
-    hostController.modalPresentationStyle = .overFullScreen
-    hostController.modalTransitionStyle = .crossDissolve
+    hostController.modalPresentationStyle = .pageSheet
+    hostController.presentationController?.delegate = self
+    configureSheetPresentationController(for: hostController)
     self.hostController = hostController
 
-    presenter.present(hostController, animated: false) { [weak self] in
-      guard let self, !self.didFinish else {
-        return
-      }
-
-      self.applyBackgroundZoom()
-      self.presentationState.present()
-    }
+    disablePresentingViewInteraction()
+    presenter.present(hostController, animated: true)
+    applyBackgroundZoom()
 
     return true
   }
 
-  private func installBackgroundInteractionBlocker(in window: UIWindow) {
-    removeBackgroundInteractionBlocker()
+  private func configureSheetPresentationController(
+    for hostController: UIViewController
+  ) {
+    guard let sheetPresentationController =
+      hostController.sheetPresentationController
+    else {
+      return
+    }
 
-    let blocker = AppleLiquidBackgroundInteractionBlockerView()
-    blocker.translatesAutoresizingMaskIntoConstraints = false
-    window.addSubview(blocker)
+    let detentHeights = configuration.content.preferredDetentHeights
+    let primaryIdentifier = UISheetPresentationController.Detent.Identifier(
+      "appleLiquidPrimary"
+    )
+    let expandedIdentifier = UISheetPresentationController.Detent.Identifier(
+      "appleLiquidExpanded"
+    )
+    var detents: [UISheetPresentationController.Detent] = [
+      .custom(identifier: primaryIdentifier) { _ in
+        detentHeights.primary
+      }
+    ]
 
-    NSLayoutConstraint.activate([
-      blocker.leadingAnchor.constraint(equalTo: window.leadingAnchor),
-      blocker.trailingAnchor.constraint(equalTo: window.trailingAnchor),
-      blocker.topAnchor.constraint(equalTo: window.topAnchor),
-      blocker.bottomAnchor.constraint(equalTo: window.bottomAnchor),
-    ])
+    if let expandedHeight = detentHeights.expanded {
+      detents.append(
+        .custom(identifier: expandedIdentifier) { _ in
+          expandedHeight
+        }
+      )
+    }
 
-    backgroundInteractionBlocker = blocker
+    sheetPresentationController.delegate = self
+    sheetPresentationController.detents = detents
+    sheetPresentationController.selectedDetentIdentifier = primaryIdentifier
+    sheetPresentationController.largestUndimmedDetentIdentifier = nil
+    sheetPresentationController.prefersGrabberVisible = true
+    sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = true
   }
 
-  private func removeBackgroundInteractionBlocker() {
-    backgroundInteractionBlocker?.removeFromSuperview()
-    backgroundInteractionBlocker = nil
+  private func disablePresentingViewInteraction() {
+    guard let presentingView, !didDisablePresentingViewInteraction else {
+      return
+    }
+
+    didDisablePresentingViewInteraction = true
+    presentingView.isUserInteractionEnabled = false
+  }
+
+  private func restorePresentingViewInteraction() {
+    guard didDisablePresentingViewInteraction, let presentingView else {
+      return
+    }
+
+    didDisablePresentingViewInteraction = false
+    presentingView.isUserInteractionEnabled = originalUserInteractionEnabled
   }
 
   func dismissFromControl(onDismissed: (() -> Void)? = nil) {
@@ -1674,11 +1694,25 @@ private final class AppleLiquidSheetSession {
     isDismissing = true
     beginStationaryDismissAnimation()
 
-    if presentationState.isPresented {
-      presentationState.dismiss()
+    if let hostController, hostController.presentingViewController != nil {
+      hostController.dismiss(animated: true) { [weak self] in
+        self?.completeDismissal()
+      }
     } else {
       completeDismissal()
     }
+  }
+
+  func presentationControllerWillDismiss(
+    _ presentationController: UIPresentationController
+  ) {
+    beginStationaryDismissAnimation()
+  }
+
+  func presentationControllerDidDismiss(
+    _ presentationController: UIPresentationController
+  ) {
+    completeDismissal()
   }
 
   private func applyBackgroundZoom() {
@@ -1699,7 +1733,8 @@ private final class AppleLiquidSheetSession {
         presentingView.layer.cornerRadius = self.zoomedCornerRadius
         presentingView.layer.cornerCurve = .continuous
         presentingView.layer.masksToBounds = true
-      }
+      },
+      completion: nil
     )
   }
 
@@ -1788,7 +1823,8 @@ private final class AppleLiquidSheetSession {
         presentingView.transform = self.originalTransform
         presentingView.layer.cornerRadius = self.originalCornerRadius
         presentingView.layer.masksToBounds = self.originalMasksToBounds
-      }
+      },
+      completion: nil
     )
   }
 
@@ -1845,13 +1881,11 @@ private final class AppleLiquidSheetSession {
     isKeyboardVisible = true
     lockKeyboardLayoutUpdates(using: notification)
     resetKeyboardAffectedZoomState()
-    logZoomState(event: "keyboardWillShow")
   }
 
   @objc private func keyboardWillHide(_ notification: Notification) {
     isKeyboardVisible = false
     lockKeyboardLayoutUpdates(using: notification)
-    logZoomState(event: "keyboardWillHide")
   }
 
   @objc private func keyboardDidHide(_ notification: Notification) {
@@ -1860,7 +1894,6 @@ private final class AppleLiquidSheetSession {
     keyboardTransitionWorkItem = nil
     isKeyboardTransitioning = false
     resetKeyboardAffectedZoomState()
-    logZoomState(event: "keyboardDidHide")
   }
 
   private func lockKeyboardLayoutUpdates(using notification: Notification) {
@@ -1905,97 +1938,17 @@ private final class AppleLiquidSheetSession {
         return
       }
 
+      self.restorePresentingViewInteraction()
       self.result(true)
       self.onFinish()
       callbacks.forEach { $0() }
-      self.removeBackgroundInteractionBlocker()
+      self.hostController?.presentationController?.delegate = nil
       self.hostController = nil
     }
 
-    if let hostController, hostController.presentingViewController != nil {
-      hostController.dismiss(animated: false, completion: finished)
-    } else {
-      finished()
-    }
+    finished()
   }
 
-  #if DEBUG
-  private func logZoomState(event: String) {
-    AppleLiquidSheetPresenter.debugLog(
-      "[mjn_liquid_ui][sheet-zoom] " +
-        "event=\(event) " +
-        "keyboardVisible=\(isKeyboardVisible) " +
-        "keyboardTransitioning=\(isKeyboardTransitioning) " +
-        "progress=\(format(dismissProgress))"
-    )
-  }
-
-  private func format(_ value: CGFloat) -> String {
-    String(format: "%.2f", value)
-  }
-  #else
-  private func logZoomState(event: String) {}
-  #endif
-}
-
-@available(iOS 16.0, *)
-private final class AppleLiquidSheetPresentationState: ObservableObject {
-  @Published var isPresented = false
-
-  func present() {
-    guard !isPresented else {
-      return
-    }
-
-    isPresented = true
-  }
-
-  func dismiss() {
-    guard isPresented else {
-      return
-    }
-
-    isPresented = false
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidSheetPresentationHost: View {
-  let configuration: AppleLiquidSheetConfiguration
-  @ObservedObject var presentationState: AppleLiquidSheetPresentationState
-  let onFrameChange: (CGRect, CGRect) -> Void
-  let onControlInteractionChanged: (Bool) -> Void
-  let onDismiss: () -> Void
-
-  var body: some View {
-    AppleLiquidSheetTouchBlocker()
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
-      .ignoresSafeArea()
-      .sheet(
-        isPresented: $presentationState.isPresented,
-        onDismiss: onDismiss
-      ) {
-        AppleLiquidSettingsSheetView(
-          configuration: configuration,
-          onFrameChange: onFrameChange,
-          onControlInteractionChanged: onControlInteractionChanged
-        )
-      }
-  }
-}
-
-@available(iOS 16.0, *)
-private struct AppleLiquidSheetTouchBlocker: UIViewRepresentable {
-  func makeUIView(context: Context) -> UIView {
-    let view = UIView()
-    view.backgroundColor = .clear
-    view.isUserInteractionEnabled = true
-    return view
-  }
-
-  func updateUIView(_ uiView: UIView, context: Context) {
-    uiView.isUserInteractionEnabled = true
-  }
 }
 
 @available(iOS 16.0, *)
@@ -2003,7 +1956,7 @@ private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
   let onFrameChange: (CGRect, CGRect) -> Void
   let onControlInteractionChanged: (Bool) -> Void
-  @Environment(\.dismiss) private var dismiss
+  let onDismissRequest: () -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
   @State private var expandedDetentHeight: CGFloat?
@@ -2011,11 +1964,13 @@ private struct AppleLiquidSettingsSheetView: View {
   init(
     configuration: AppleLiquidSheetConfiguration,
     onFrameChange: @escaping (CGRect, CGRect) -> Void,
-    onControlInteractionChanged: @escaping (Bool) -> Void
+    onControlInteractionChanged: @escaping (Bool) -> Void,
+    onDismissRequest: @escaping () -> Void
   ) {
     self.configuration = configuration
     self.onFrameChange = onFrameChange
     self.onControlInteractionChanged = onControlInteractionChanged
+    self.onDismissRequest = onDismissRequest
 
     let detentHeights = configuration.content.preferredDetentHeights
     self._selectedDetent = State(initialValue: .height(detentHeights.primary))
@@ -2030,9 +1985,7 @@ private struct AppleLiquidSettingsSheetView: View {
         showsToolbarActions: true,
         onPreferredDetentHeightsChange: setPreferredDetentHeights,
         onControlInteractionChanged: onControlInteractionChanged,
-        onToolbarAction: {
-          dismiss()
-        }
+        onToolbarAction: onDismissRequest
       )
     }
     .appleLiquidSheetBackground(

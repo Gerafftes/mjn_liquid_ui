@@ -49,16 +49,19 @@ class _DemoShellState extends State<DemoShell> {
 
   @override
   Widget build(BuildContext context) {
-    return _DemoScaffold(
-      currentIndex: currentIndex,
-      onChanged: (int index) {
-        setState(() => currentIndex = index);
-      },
-      page: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 180),
-        child: KeyedSubtree(
-          key: ValueKey<int>(currentIndex),
-          child: _pageFor(currentIndex),
+    return AppleLiquidSheetBackgroundInteractionGuard(
+      controller: templateSheetController,
+      child: _DemoScaffold(
+        currentIndex: currentIndex,
+        onChanged: (int index) {
+          setState(() => currentIndex = index);
+        },
+        page: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 180),
+          child: KeyedSubtree(
+            key: ValueKey<int>(currentIndex),
+            child: _pageFor(currentIndex),
+          ),
         ),
       ),
     );
@@ -234,17 +237,25 @@ class _DemoShellState extends State<DemoShell> {
     );
   }
 
-  Future<void> _showTemplateSheet() async {
+  Future<void> _showTemplateSheet(BuildContext scrollContext) async {
     if (templateSheetController.isShowing || templateSheetController.isShown) {
       return;
     }
 
     final AppleLiquidSheetContent sheetContent = _sheetContent;
+
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted || !scrollContext.mounted) {
+      return;
+    }
+
     final bool didShowNativeSheet = await templateSheetController.showSheet(
       backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
       sheetColor: templateSheetColor,
       content: sheetContent,
+      scrollContext: scrollContext,
     );
+
     if (didShowNativeSheet || !mounted) {
       return;
     }
@@ -367,7 +378,7 @@ class _TabbarDemoPage extends StatelessWidget {
   final Color? sheetColor;
   final ValueChanged<bool> onSheetBackgroundZoomChanged;
   final ValueChanged<Color?> onSheetColorChanged;
-  final VoidCallback onShowTemplateSheet;
+  final ValueChanged<BuildContext> onShowTemplateSheet;
 
   @override
   Widget build(BuildContext context) {
@@ -419,9 +430,13 @@ class _TabbarDemoPage extends StatelessWidget {
                     const SizedBox(width: 16),
                     const Expanded(child: _SheetControlHeaderText()),
                     const SizedBox(width: 12),
-                    FilledButton(
-                      onPressed: onShowTemplateSheet,
-                      child: const Text('Open'),
+                    Builder(
+                      builder: (BuildContext context) {
+                        return FilledButton(
+                          onPressed: () => onShowTemplateSheet(context),
+                          child: const Text('Open'),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -957,55 +972,29 @@ class _SettingsFallbackRow extends StatelessWidget {
   }
 }
 
-class _SwitchDemoPage extends StatefulWidget {
+class _SwitchDemoPage extends StatelessWidget {
   const _SwitchDemoPage({required this.values, required this.onChanged});
 
   final List<bool> values;
   final void Function(int index, bool value) onChanged;
 
   @override
-  State<_SwitchDemoPage> createState() => _SwitchDemoPageState();
-}
-
-class _SwitchDemoPageState extends State<_SwitchDemoPage> {
-  late final Stopwatch _loadStopwatch;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _loadStopwatch = Stopwatch()..start();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-
-      _loadStopwatch.stop();
-      debugPrint(
-        '[mjn_liquid_ui_example] Switch page first frame with '
-        '${widget.values.length} switches in '
-        '${_loadStopwatch.elapsedMicroseconds / 1000}ms',
-      );
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
     return _DemoPageScaffold(
       title: 'Switch',
       subtitle:
-          'Five native UIKit UISwitch controls embedded through UiKitView. Open the debug console to compare load logs.',
+          'Five native UIKit UISwitch controls embedded through UiKitView.',
       child: AppleLiquidSurface(
         height: 360,
         child: Column(
           children: <Widget>[
-            for (int index = 0; index < widget.values.length; index += 1)
+            for (int index = 0; index < values.length; index += 1)
               _SwitchSampleRow(
                 label: 'Native switch ${index + 1}',
-                value: widget.values[index],
+                value: values[index],
                 tintColor: _switchTintColors[index],
                 onChanged: (bool value) {
-                  widget.onChanged(index, value);
+                  onChanged(index, value);
                 },
               ),
           ],

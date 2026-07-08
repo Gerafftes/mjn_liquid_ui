@@ -1,3 +1,15 @@
+## 0.2.11
+
+- Reworked native iOS sheet presentation to use a direct system page sheet
+  while preserving the custom medium and expanded detents.
+- Added `AppleLiquidSheetBackgroundInteractionGuard` for configurable Flutter
+  background interaction locking while a native sheet is active.
+- Added `scrollContext` support for stopping active background scroll momentum
+  before presenting a native sheet.
+- Fixed background scroll passthrough and scroll-position resets while opening
+  native sheets.
+- Removed sheet and switch debug logging from normal debug runs.
+
 ## 0.2.10
 
 - Added configurable native sheet toolbar actions, including optional leading

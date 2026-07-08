@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 /// Native toolbar button configuration for [AppleLiquidSheetContent].
 class AppleLiquidSheetToolbarAction {
@@ -905,6 +906,7 @@ class AppleLiquidSheetController extends ChangeNotifier {
     double? backgroundZoomScale,
     Color? sheetColor,
     AppleLiquidSheetContent? content,
+    BuildContext? scrollContext,
   }) async {
     if (_activeShow != null) {
       return true;
@@ -930,6 +932,7 @@ class AppleLiquidSheetController extends ChangeNotifier {
       backgroundZoomScale: effectiveBackgroundZoomScale,
       sheetColor: effectiveSheetColor,
       content: effectiveContent,
+      scrollContext: scrollContext,
     );
 
     _updateState(activeShow: showFuture, isShown: true);
@@ -951,12 +954,14 @@ class AppleLiquidSheetController extends ChangeNotifier {
     double? backgroundZoomScale,
     Color? sheetColor,
     AppleLiquidSheetContent? content,
+    BuildContext? scrollContext,
   }) {
     return showSheet(
       heightFraction: heightFraction,
       backgroundZoomScale: backgroundZoomScale,
       sheetColor: sheetColor,
       content: content,
+      scrollContext: scrollContext,
     );
   }
 
@@ -1008,12 +1013,89 @@ class AppleLiquidSheetController extends ChangeNotifier {
   }
 }
 
+/// Builds a background subtree for [AppleLiquidSheetBackgroundInteractionGuard].
+typedef AppleLiquidSheetBackgroundInteractionBuilder =
+    Widget Function(BuildContext context, bool isBlocked, Widget? child);
+
+/// Blocks or customizes Flutter background interaction while a sheet is active.
+///
+/// The guard listens to an [AppleLiquidSheetController]. By default it absorbs
+/// pointer events and applies [lockedScrollPhysics] to descendant scrollables
+/// while the controller is showing a native sheet.
+class AppleLiquidSheetBackgroundInteractionGuard extends StatelessWidget {
+  /// Creates a guard for Flutter content behind a native Liquid sheet.
+  const AppleLiquidSheetBackgroundInteractionGuard({
+    super.key,
+    required this.controller,
+    this.child,
+    this.builder,
+    this.enabled = true,
+    this.absorbPointers = true,
+    this.lockScrolling = true,
+    this.lockedScrollPhysics = const NeverScrollableScrollPhysics(),
+  }) : assert(
+         child != null || builder != null,
+         'Provide either child or builder.',
+       );
+
+  /// Controller whose sheet state drives the background interaction lock.
+  final AppleLiquidSheetController controller;
+
+  /// Optional child passed through to [builder] or guarded directly.
+  final Widget? child;
+
+  /// Optional builder for apps that need custom locked/unlocked rendering.
+  final AppleLiquidSheetBackgroundInteractionBuilder? builder;
+
+  /// Whether the guard should react to the controller state.
+  final bool enabled;
+
+  /// Whether pointer events should be absorbed while the sheet is active.
+  final bool absorbPointers;
+
+  /// Whether descendant scrollables should receive [lockedScrollPhysics].
+  ///
+  /// Scrollables with their own explicit physics keep their local setting.
+  final bool lockScrolling;
+
+  /// Scroll physics applied to descendants while [lockScrolling] is true.
+  final ScrollPhysics lockedScrollPhysics;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller,
+      child: child,
+      builder: (BuildContext context, Widget? child) {
+        final bool isBlocked =
+            enabled && (controller.isShowing || controller.isShown);
+        Widget result = builder?.call(context, isBlocked, child) ?? child!;
+
+        if (lockScrolling) {
+          final ScrollBehavior baseBehavior = ScrollConfiguration.of(context);
+          result = ScrollConfiguration(
+            behavior: isBlocked
+                ? baseBehavior.copyWith(physics: lockedScrollPhysics)
+                : baseBehavior.copyWith(),
+            child: result,
+          );
+        }
+
+        if (absorbPointers) {
+          result = AbsorbPointer(absorbing: isBlocked, child: result);
+        }
+
+        return result;
+      },
+    );
+  }
+}
+
 /// Presents native iOS Liquid Glass sheets.
 class AppleLiquidSheet {
   const AppleLiquidSheet._();
 
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/sheets');
-  static bool _debugLogHandlerAttached = false;
   static Future<bool>? _activeShow;
 
   /// Shows a native sheet on iOS.
@@ -1026,6 +1108,8 @@ class AppleLiquidSheet {
   /// sheet. When null, a built-in settings example is shown.
   ///
   /// [heightFraction] is retained for compatibility with earlier sheet demos.
+  /// Pass [scrollContext] from inside the presenting scrollable content to stop
+  /// active fling momentum before the native sheet is shown.
   ///
   /// Returns false on unsupported platforms so callers can provide a fallback.
   /// Repeated calls while a native presentation is already active return true
@@ -1036,6 +1120,7 @@ class AppleLiquidSheet {
     double backgroundZoomScale = 1,
     Color? sheetColor,
     AppleLiquidSheetContent? content,
+    BuildContext? scrollContext,
   }) async {
     assert(heightFraction >= 0.25 && heightFraction <= 1);
     assert(backgroundZoomScale >= 0.85 && backgroundZoomScale <= 1);
@@ -1048,7 +1133,9 @@ class AppleLiquidSheet {
       return true;
     }
 
-    _attachDebugLogHandler();
+    final ScrollHoldController? backgroundScrollHold = _holdActiveScroll(
+      scrollContext,
+    );
 
     final Future<bool> showFuture = _channel
         .invokeMethod<bool>('showTemplateSheet', <String, Object?>{
@@ -1064,6 +1151,7 @@ class AppleLiquidSheet {
     try {
       return await showFuture;
     } finally {
+      backgroundScrollHold?.cancel();
       if (identical(_activeShow, showFuture)) {
         _activeShow = null;
       }
@@ -1078,12 +1166,14 @@ class AppleLiquidSheet {
     double backgroundZoomScale = 1,
     Color? sheetColor,
     AppleLiquidSheetContent? content,
+    BuildContext? scrollContext,
   }) {
     return showSheet(
       heightFraction: heightFraction,
       backgroundZoomScale: backgroundZoomScale,
       sheetColor: sheetColor,
       content: content,
+      scrollContext: scrollContext,
     );
   }
 
@@ -1095,8 +1185,6 @@ class AppleLiquidSheet {
       return false;
     }
 
-    _attachDebugLogHandler();
-
     return await _channel.invokeMethod<bool>('dismissTemplateSheet') ?? false;
   }
 
@@ -1104,19 +1192,21 @@ class AppleLiquidSheet {
     return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
   }
 
-  static void _attachDebugLogHandler() {
-    assert(() {
-      if (_debugLogHandlerAttached) {
-        return true;
-      }
+  static ScrollHoldController? _holdActiveScroll(BuildContext? context) {
+    if (context == null) {
+      return null;
+    }
 
-      _debugLogHandlerAttached = true;
-      _channel.setMethodCallHandler((MethodCall call) async {
-        if (call.method == 'debugLog') {
-          debugPrint('${call.arguments}');
-        }
-      });
-      return true;
-    }());
+    final ScrollableState? scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null) {
+      return null;
+    }
+
+    final ScrollPosition position = scrollable.position;
+    if (!position.hasPixels) {
+      return null;
+    }
+
+    return position.hold(() {});
   }
 }
