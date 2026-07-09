@@ -1,3 +1,9 @@
+## 0.2.13
+
+- Fixed pub.dev and README screenshot assets so component screenshots are
+  smaller and show distinct Liquid Tab Bar, Switch, Slider, Surface, Sheet,
+  Toast, and Search states.
+
 ## 0.2.12
 
 - Added `AppleLiquidSheetSliderValuePlacement.besideTrack` so native sheet
