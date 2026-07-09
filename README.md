@@ -65,19 +65,19 @@ structure.
 
 | Liquid Tab Bar | Liquid Switch |
 | --- | --- |
-| ![Liquid Tab Bar](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_tabbar.png) | ![Liquid Switch](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_switch.png) |
+| <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_tabbar.png" alt="Liquid Tab Bar" width="260"> | <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_switch.png" alt="Liquid Switch" width="260"> |
 
 | Liquid Slider | Liquid Surface |
 | --- | --- |
-| ![Liquid Slider](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png) | ![Liquid Surface](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png) |
+| <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_slider.png" alt="Liquid Slider" width="260"> | <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_surface.png" alt="Liquid Surface" width="260"> |
 
 | Liquid Sheet | Liquid Toast |
 | --- | --- |
-| ![Liquid Sheet](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png) | ![Liquid Toast](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_toast.png) |
+| <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_sheet.png" alt="Liquid Sheet" width="260"> | <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_toast.png" alt="Liquid Toast" width="260"> |
 
 | Search Role Tab |
 | --- |
-| ![Search Role Tab](https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png) |
+| <img src="https://raw.githubusercontent.com/Gerafftes/mjn_liquid_ui/main/screenshots/liquid_search.png" alt="Search Role Tab" width="360"> |
 
 ## Platform support
 
@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.12
+  mjn_liquid_ui: ^0.2.13
 ```
 
 Then import the package:
