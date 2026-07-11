@@ -126,6 +126,14 @@ void main() {
                 selectionSpringDamping: 0.72,
               ),
             ),
+            AppleLiquidSheetRow.button(
+              title: 'Show on map',
+              systemImage: 'map',
+              tintColor: Color(0xFF0A84FF),
+              semanticLabel: 'Open map',
+              dismissesSheet: true,
+              enabled: false,
+            ),
             AppleLiquidSheetRow.slider(
               title: 'Intensity',
               value: 0.75,
@@ -139,6 +147,7 @@ void main() {
               title: 'Stepped amount',
               value: 0.5,
               step: 0.25,
+              valueSuffix: 'kg',
             ),
             AppleLiquidSheetRow.navigation(
               title: 'Details',
@@ -247,6 +256,15 @@ void main() {
               },
             },
             <String, Object?>{
+              'type': 'button',
+              'title': 'Show on map',
+              'tintColor': 0xFF0A84FF,
+              'systemImage': 'map',
+              'buttonSemanticLabel': 'Open map',
+              'buttonDismissesSheet': true,
+              'buttonEnabled': false,
+            },
+            <String, Object?>{
               'type': 'slider',
               'title': 'Intensity',
               'sliderValue': 0.75,
@@ -263,6 +281,7 @@ void main() {
               'min': 0.0,
               'max': 1.0,
               'step': 0.25,
+              'valueSuffix': 'kg',
             },
             <String, Object?>{
               'type': 'navigation',
@@ -291,6 +310,139 @@ void main() {
         },
       ],
     });
+  });
+
+  test('sheet button styles serialize every native appearance option', () {
+    expect(
+      const AppleLiquidSheetButtonStyle().toMap()['rowHorizontalInset'],
+      16.0,
+    );
+
+    const AppleLiquidSheetButtonStyle style = AppleLiquidSheetButtonStyle(
+      backgroundColor: Color(0x22007AFF),
+      foregroundColor: Color(0xFFFFFFFF),
+      borderColor: Color(0xFF007AFF),
+      subtitleColor: Color(0xFF8E8E93),
+      buttonHeight: 52,
+      cornerRadius: 16,
+      borderWidth: 2,
+      backgroundOpacity: 0.12,
+      horizontalPadding: 18,
+      iconSpacing: 10,
+      labelSpacing: 3,
+      rowHorizontalInset: 4,
+      rowVerticalInset: 7,
+      titleFontSize: 17,
+      subtitleFontSize: 12,
+      iconSize: 18,
+      titleFontWeight: AppleLiquidSheetSegmentedFontWeight.bold,
+      subtitleFontWeight: AppleLiquidSheetSegmentedFontWeight.medium,
+      alignment: AppleLiquidSheetButtonAlignment.leading,
+      minimumTextScaleFactor: 0.7,
+      pressedScale: 0.96,
+      pressedOpacity: 0.8,
+      disabledOpacity: 0.4,
+      pressAnimationDuration: 0.16,
+      showsFormBackground: true,
+      showsSeparator: true,
+    );
+
+    expect(style.toMap(), <String, Object?>{
+      'backgroundColor': 0x22007AFF,
+      'foregroundColor': 0xFFFFFFFF,
+      'borderColor': 0xFF007AFF,
+      'subtitleColor': 0xFF8E8E93,
+      'buttonHeight': 52.0,
+      'cornerRadius': 16.0,
+      'borderWidth': 2.0,
+      'backgroundOpacity': 0.12,
+      'horizontalPadding': 18.0,
+      'iconSpacing': 10.0,
+      'labelSpacing': 3.0,
+      'rowHorizontalInset': 4.0,
+      'rowVerticalInset': 7.0,
+      'titleFontSize': 17.0,
+      'subtitleFontSize': 12.0,
+      'iconSize': 18.0,
+      'titleFontWeight': 'bold',
+      'subtitleFontWeight': 'medium',
+      'alignment': 'leading',
+      'minimumTextScaleFactor': 0.7,
+      'pressedScale': 0.96,
+      'pressedOpacity': 0.8,
+      'disabledOpacity': 0.4,
+      'pressAnimationDuration': 0.16,
+      'showsFormBackground': true,
+      'showsSeparator': true,
+    });
+  });
+
+  test('sheet buttons route native presses to Dart callbacks', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final Completer<bool> showCompleter = Completer<bool>();
+    String? actionId;
+    int pressCount = 0;
+    final AppleLiquidSheetContent content = AppleLiquidSheetContent(
+      sections: <AppleLiquidSheetSection>[
+        AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.button(
+              title: 'Show on map',
+              onPressed: () {
+                pressCount += 1;
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+          if (call.method == 'showTemplateSheet') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            final Map<Object?, Object?> nativeContent =
+                arguments['content'] as Map<Object?, Object?>;
+            final List<Object?> sections =
+                nativeContent['sections'] as List<Object?>;
+            final Map<Object?, Object?> section =
+                sections.single as Map<Object?, Object?>;
+            final List<Object?> rows = section['rows'] as List<Object?>;
+            final Map<Object?, Object?> row =
+                rows.single as Map<Object?, Object?>;
+            actionId = row['buttonActionId'] as String?;
+            return showCompleter.future;
+          }
+
+          return null;
+        });
+
+    try {
+      final Future<bool> showFuture = AppleLiquidSheet.showSheet(
+        content: content,
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(actionId, isNotNull);
+      await _sendPlatformMethodCall(
+        sheetChannel,
+        'buttonPressed',
+        <String, Object?>{'actionId': actionId},
+      );
+      expect(pressCount, 1);
+
+      showCompleter.complete(true);
+      expect(await showFuture, isTrue);
+    } finally {
+      if (!showCompleter.isCompleted) {
+        showCompleter.complete(false);
+      }
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, null);
+    }
   });
 
   test('sheet toolbar actions require visible content', () {

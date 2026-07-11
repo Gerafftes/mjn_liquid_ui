@@ -13,6 +13,8 @@ ios/.symlinks/
 example/.dart_tool/
 example/.flutter-plugins-dependencies
 example/build/
+example/.metadata
+example/macos/
 example/ios/Pods/
 example/ios/.symlinks/
 example/pubspec.lock

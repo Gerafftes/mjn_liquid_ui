@@ -294,12 +294,13 @@ detent, optional background zoom on the presenting page, and configurable
 toolbar actions to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
-supports sections plus text, value, toggle, picker, segmented, slider,
+supports sections plus text, value, button, toggle, picker, segmented, slider,
 text-field, and nested navigation rows. Toggle, picker, segmented, slider, and
 text-field state stays local to the native sheet while it is presented. Omit
 `step` on `AppleLiquidSheetRow.slider` for a continuous slider. Set
 `valuePlacement` to `AppleLiquidSheetSliderValuePlacement.besideTrack` to show
-the value beside the slider track instead of above it.
+the value beside the slider track instead of above it. Pass `valueSuffix` to
+append a unit to the rendered value.
 
 | API | Purpose |
 | --- | --- |
@@ -312,6 +313,8 @@ the value beside the slider track instead of above it.
 | `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
 | `AppleLiquidSheetRow.segmented` | Two separate, equal-width native buttons with local selection state |
 | `AppleLiquidSheetSegmentedStyle` | Per-row colors, dimensions, typography, spacing, borders, shadows, press feedback, and selection transitions |
+| `AppleLiquidSheetRow.button` | Full-width native action button with a Dart callback, optional sheet dismissal, accessibility label, and configurable enabled state |
+| `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, and value placement |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
 | `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page |
@@ -337,6 +340,10 @@ const AppleLiquidSheetContent(
 ```
 
 ```dart
+void openMap() {
+  // App-specific navigation or state update.
+}
+
 final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   title: 'Project',
   doneSemanticLabel: 'Close sheet',
@@ -380,9 +387,22 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           secondOption: 'Grid',
           selectedOption: 'List',
         ),
+        AppleLiquidSheetRow.button(
+          title: 'Show on map',
+          systemImage: 'map',
+          tintColor: Color(0xFF007AFF),
+          semanticLabel: 'Open map view',
+          dismissesSheet: true,
+          style: const AppleLiquidSheetButtonStyle(
+            rowVerticalInset: 8,
+            cornerRadius: 12,
+          ),
+          onPressed: openMap,
+        ),
         AppleLiquidSheetRow.slider(
           title: 'Intensity',
           value: 0.72,
+          valueSuffix: 'x',
           tintColor: Color(0xFF0A84FF),
           valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
         ),
@@ -417,6 +437,14 @@ final bool didShow = await AppleLiquidSheet.showSheet(
   content: content,
 );
 ```
+
+Sheet buttons do not contain app-specific behavior. `onPressed` is registered
+for the active presentation and invoked in Dart when the native SwiftUI button
+is tapped. `dismissesSheet` controls whether iOS closes the sheet after the
+callback. Omit `style` for the blue outlined default, or pass
+`AppleLiquidSheetButtonStyle` to configure colors, sizing, typography,
+alignment, row insets, the form background and separator, disabled appearance,
+and press feedback.
 
 `AppleLiquidSheetRow.segmented` requires exactly two distinct, non-empty
 options. It renders them as separate, equal-width rounded buttons. Keep both
