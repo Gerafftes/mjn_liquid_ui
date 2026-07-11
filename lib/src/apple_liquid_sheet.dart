@@ -50,9 +50,9 @@ class AppleLiquidSheetToolbarAction {
 /// Declarative content rendered inside a native iOS Liquid Glass sheet.
 ///
 /// The content is rendered by SwiftUI as a native `NavigationStack` and `Form`.
-/// Interactive rows such as toggles, pickers, segmented controls, sliders, and
-/// text fields keep their state locally inside the native sheet for the
-/// duration of the presentation.
+/// Interactive rows such as buttons, toggles, pickers, segmented controls,
+/// sliders, and text fields keep their state locally inside the native sheet
+/// for the duration of the presentation.
 class AppleLiquidSheetContent {
   /// Creates native sheet content from form sections.
   const AppleLiquidSheetContent({
@@ -205,6 +205,12 @@ class AppleLiquidSheetContent {
   final List<AppleLiquidSheetSection> sections;
 
   Map<String, Object?> toMap() {
+    return _toMap();
+  }
+
+  Map<String, Object?> _toMap([
+    _AppleLiquidSheetButtonActionRegistry? actionRegistry,
+  ]) {
     return <String, Object?>{
       'title': title,
       'doneSemanticLabel': doneSemanticLabel,
@@ -212,7 +218,9 @@ class AppleLiquidSheetContent {
       if (trailingAction != null) 'trailingAction': trailingAction!.toMap(),
       if (detents != null) 'detents': detents!.toMap(),
       'sections': sections
-          .map((AppleLiquidSheetSection section) => section.toMap())
+          .map(
+            (AppleLiquidSheetSection section) => section._toMap(actionRegistry),
+          )
           .toList(),
     };
   }
@@ -260,9 +268,17 @@ class AppleLiquidSheetSection {
   final List<AppleLiquidSheetRow> rows;
 
   Map<String, Object?> toMap() {
+    return _toMap();
+  }
+
+  Map<String, Object?> _toMap([
+    _AppleLiquidSheetButtonActionRegistry? actionRegistry,
+  ]) {
     return <String, Object?>{
       if (title != null) 'title': title,
-      'rows': rows.map((AppleLiquidSheetRow row) => row.toMap()).toList(),
+      'rows': rows
+          .map((AppleLiquidSheetRow row) => row._toMap(actionRegistry))
+          .toList(),
     };
   }
 }
@@ -526,6 +542,186 @@ class AppleLiquidSheetSegmentedStyle {
   }
 }
 
+/// Horizontal label alignment for [AppleLiquidSheetButtonStyle].
+enum AppleLiquidSheetButtonAlignment {
+  /// Aligns the icon and text to the leading edge.
+  leading('leading'),
+
+  /// Centers the icon and text.
+  center('center'),
+
+  /// Aligns the icon and text to the trailing edge.
+  trailing('trailing');
+
+  const AppleLiquidSheetButtonAlignment(this.platformValue);
+
+  /// Value sent to the native SwiftUI implementation.
+  final String platformValue;
+}
+
+/// Visual configuration for [AppleLiquidSheetRow.button].
+class AppleLiquidSheetButtonStyle {
+  /// Creates a native full-width button style.
+  const AppleLiquidSheetButtonStyle({
+    this.backgroundColor,
+    this.foregroundColor,
+    this.borderColor,
+    this.subtitleColor,
+    this.buttonHeight = 48,
+    this.cornerRadius = 12,
+    this.borderWidth = 1,
+    this.backgroundOpacity = 0.08,
+    this.horizontalPadding = 16,
+    this.iconSpacing = 8,
+    this.labelSpacing = 2,
+    this.rowHorizontalInset = 16,
+    this.rowVerticalInset = 6,
+    this.titleFontSize,
+    this.subtitleFontSize,
+    this.iconSize,
+    this.titleFontWeight = AppleLiquidSheetSegmentedFontWeight.semibold,
+    this.subtitleFontWeight = AppleLiquidSheetSegmentedFontWeight.regular,
+    this.alignment = AppleLiquidSheetButtonAlignment.center,
+    this.minimumTextScaleFactor = 0.75,
+    this.pressedScale = 0.97,
+    this.pressedOpacity = 0.86,
+    this.disabledOpacity = 0.45,
+    this.pressAnimationDuration = 0.14,
+    this.showsFormBackground = false,
+    this.showsSeparator = false,
+  }) : assert(buttonHeight > 0),
+       assert(cornerRadius >= 0),
+       assert(borderWidth >= 0),
+       assert(backgroundOpacity >= 0 && backgroundOpacity <= 1),
+       assert(horizontalPadding >= 0),
+       assert(iconSpacing >= 0),
+       assert(labelSpacing >= 0),
+       assert(rowHorizontalInset >= 0),
+       assert(rowVerticalInset >= 0),
+       assert(titleFontSize == null || titleFontSize > 0),
+       assert(subtitleFontSize == null || subtitleFontSize > 0),
+       assert(iconSize == null || iconSize > 0),
+       assert(minimumTextScaleFactor > 0 && minimumTextScaleFactor <= 1),
+       assert(pressedScale > 0 && pressedScale <= 1),
+       assert(pressedOpacity > 0 && pressedOpacity <= 1),
+       assert(disabledOpacity > 0 && disabledOpacity <= 1),
+       assert(pressAnimationDuration >= 0);
+
+  /// Explicit button fill. Null derives a translucent fill from `tintColor`.
+  final Color? backgroundColor;
+
+  /// Button title and icon color. Null uses the native primary color.
+  final Color? foregroundColor;
+
+  /// Button stroke color. Null uses the row's `tintColor`.
+  final Color? borderColor;
+
+  /// Subtitle color. Null uses the native secondary color.
+  final Color? subtitleColor;
+
+  /// Minimum button height in native iOS points.
+  final double buttonHeight;
+
+  /// Button corner radius in native iOS points.
+  final double cornerRadius;
+
+  /// Button stroke width in native iOS points.
+  final double borderWidth;
+
+  /// Opacity used for the tint-derived background fill.
+  final double backgroundOpacity;
+
+  /// Horizontal padding around the button label.
+  final double horizontalPadding;
+
+  /// Space between the SF Symbol and text.
+  final double iconSpacing;
+
+  /// Space between title and subtitle.
+  final double labelSpacing;
+
+  /// Horizontal inset applied to the surrounding SwiftUI form row.
+  final double rowHorizontalInset;
+
+  /// Vertical inset applied to the surrounding SwiftUI form row.
+  final double rowVerticalInset;
+
+  /// Optional title font size. Null keeps native Dynamic Type sizing.
+  final double? titleFontSize;
+
+  /// Optional subtitle font size. Null keeps native Dynamic Type sizing.
+  final double? subtitleFontSize;
+
+  /// Optional SF Symbol size. Null keeps native Dynamic Type sizing.
+  final double? iconSize;
+
+  /// Button title font weight.
+  final AppleLiquidSheetSegmentedFontWeight titleFontWeight;
+
+  /// Button subtitle font weight.
+  final AppleLiquidSheetSegmentedFontWeight subtitleFontWeight;
+
+  /// Horizontal alignment of the complete label.
+  final AppleLiquidSheetButtonAlignment alignment;
+
+  /// Smallest scale allowed for long labels.
+  final double minimumTextScaleFactor;
+
+  /// Scale applied while the button is pressed.
+  final double pressedScale;
+
+  /// Opacity applied while the button is pressed.
+  final double pressedOpacity;
+
+  /// Opacity applied while the button is disabled.
+  final double disabledOpacity;
+
+  /// Press feedback animation duration in seconds.
+  final double pressAnimationDuration;
+
+  /// Whether the surrounding native form row keeps its default background.
+  final bool showsFormBackground;
+
+  /// Whether the surrounding native form row displays a separator.
+  final bool showsSeparator;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      if (backgroundColor != null)
+        'backgroundColor': backgroundColor!.toARGB32(),
+      if (foregroundColor != null)
+        'foregroundColor': foregroundColor!.toARGB32(),
+      if (borderColor != null) 'borderColor': borderColor!.toARGB32(),
+      if (subtitleColor != null) 'subtitleColor': subtitleColor!.toARGB32(),
+      'buttonHeight': buttonHeight,
+      'cornerRadius': cornerRadius,
+      'borderWidth': borderWidth,
+      'backgroundOpacity': backgroundOpacity,
+      'horizontalPadding': horizontalPadding,
+      'iconSpacing': iconSpacing,
+      'labelSpacing': labelSpacing,
+      'rowHorizontalInset': rowHorizontalInset,
+      'rowVerticalInset': rowVerticalInset,
+      if (titleFontSize != null) 'titleFontSize': titleFontSize,
+      if (subtitleFontSize != null) 'subtitleFontSize': subtitleFontSize,
+      if (iconSize != null) 'iconSize': iconSize,
+      'titleFontWeight': titleFontWeight.platformValue,
+      'subtitleFontWeight': subtitleFontWeight.platformValue,
+      'alignment': alignment.platformValue,
+      'minimumTextScaleFactor': minimumTextScaleFactor,
+      'pressedScale': pressedScale,
+      'pressedOpacity': pressedOpacity,
+      'disabledOpacity': disabledOpacity,
+      'pressAnimationDuration': pressAnimationDuration,
+      'showsFormBackground': showsFormBackground,
+      'showsSeparator': showsSeparator,
+    };
+  }
+}
+
+/// Callback invoked when a native sheet button is pressed.
+typedef AppleLiquidSheetButtonCallback = void Function();
+
 /// Native row types supported by [AppleLiquidSheetRow].
 enum AppleLiquidSheetRowType {
   /// Plain title/subtitle row.
@@ -542,6 +738,9 @@ enum AppleLiquidSheetRowType {
 
   /// Native two-option button group with local state.
   segmented('segmented'),
+
+  /// Native full-width outlined button.
+  button('button'),
 
   /// Native SwiftUI slider with local state.
   slider('slider'),
@@ -585,6 +784,7 @@ class AppleLiquidSheetRow {
     String? secondSegmentOption,
     this.selectedOption,
     this.sliderValue,
+    this.valueSuffix,
     this.min,
     this.max,
     this.step,
@@ -594,6 +794,11 @@ class AppleLiquidSheetRow {
     this.content,
     this.systemImage,
     this.segmentedStyle,
+    this.buttonStyle,
+    this.buttonSemanticLabel,
+    this.buttonDismissesSheet = false,
+    this.buttonEnabled = true,
+    this.onButtonPressed,
   }) : _options = options,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
@@ -697,6 +902,33 @@ class AppleLiquidSheetRow {
          segmentedStyle: style,
        );
 
+  /// Creates a native full-width outlined button row.
+  ///
+  /// [onPressed] is invoked in Dart through the sheet method channel. Use
+  /// [style] to configure the complete native appearance and form-row layout.
+  const AppleLiquidSheetRow.button({
+    required String title,
+    Color? tintColor,
+    String? subtitle,
+    String? systemImage,
+    String? semanticLabel,
+    bool dismissesSheet = false,
+    bool enabled = true,
+    AppleLiquidSheetButtonStyle? style,
+    AppleLiquidSheetButtonCallback? onPressed,
+  }) : this._(
+         type: AppleLiquidSheetRowType.button,
+         title: title,
+         subtitle: subtitle,
+         tintColor: tintColor,
+         systemImage: systemImage,
+         buttonSemanticLabel: semanticLabel,
+         buttonDismissesSheet: dismissesSheet,
+         buttonEnabled: enabled,
+         buttonStyle: style,
+         onButtonPressed: onPressed,
+       );
+
   /// Creates a native slider row.
   const AppleLiquidSheetRow.slider({
     required String title,
@@ -704,6 +936,7 @@ class AppleLiquidSheetRow {
     double min = 0,
     double max = 1,
     double? step,
+    String? valueSuffix,
     Color? tintColor,
     AppleLiquidSheetSliderValuePlacement valuePlacement =
         AppleLiquidSheetSliderValuePlacement.topTrailing,
@@ -717,6 +950,7 @@ class AppleLiquidSheetRow {
          min: min,
          max: max,
          step: step,
+         valueSuffix: valueSuffix,
          tintColor: tintColor,
          sliderValuePlacement: valuePlacement,
          systemImage: systemImage,
@@ -789,6 +1023,9 @@ class AppleLiquidSheetRow {
   /// Initial slider value for [AppleLiquidSheetRow.slider].
   final double? sliderValue;
 
+  /// Optional suffix appended to the rendered slider value.
+  final String? valueSuffix;
+
   /// Smallest selectable slider value.
   final double? min;
 
@@ -798,7 +1035,7 @@ class AppleLiquidSheetRow {
   /// Optional fixed slider increment.
   final double? step;
 
-  /// Optional accent color for the slider track and thumb.
+  /// Optional accent color for slider tracks and button rows.
   final Color? tintColor;
 
   /// Placement for the slider value text.
@@ -813,7 +1050,32 @@ class AppleLiquidSheetRow {
   /// Visual style for [AppleLiquidSheetRow.segmented].
   final AppleLiquidSheetSegmentedStyle? segmentedStyle;
 
+  /// Visual style for [AppleLiquidSheetRow.button].
+  final AppleLiquidSheetButtonStyle? buttonStyle;
+
+  /// Optional accessibility label for [AppleLiquidSheetRow.button].
+  final String? buttonSemanticLabel;
+
+  /// Whether a button press dismisses the native sheet.
+  final bool buttonDismissesSheet;
+
+  /// Whether the native button accepts interaction.
+  final bool buttonEnabled;
+
+  /// Optional Dart callback invoked for [AppleLiquidSheetRow.button].
+  final AppleLiquidSheetButtonCallback? onButtonPressed;
+
   Map<String, Object?> toMap() {
+    return _toMap();
+  }
+
+  Map<String, Object?> _toMap([
+    _AppleLiquidSheetButtonActionRegistry? actionRegistry,
+  ]) {
+    final String? buttonActionId = type == AppleLiquidSheetRowType.button
+        ? actionRegistry?.register(onButtonPressed)
+        : null;
+
     return <String, Object?>{
       'type': type.platformValue,
       'title': title,
@@ -823,6 +1085,7 @@ class AppleLiquidSheetRow {
       if (options.isNotEmpty) 'options': options,
       if (selectedOption != null) 'selectedOption': selectedOption,
       if (sliderValue != null) 'sliderValue': sliderValue,
+      if (valueSuffix != null) 'valueSuffix': valueSuffix,
       if (min != null) 'min': min,
       if (max != null) 'max': max,
       if (step != null) 'step': step,
@@ -831,10 +1094,37 @@ class AppleLiquidSheetRow {
           sliderValuePlacement !=
               AppleLiquidSheetSliderValuePlacement.topTrailing)
         'sliderValuePlacement': sliderValuePlacement.platformValue,
-      if (content != null) 'content': content!.toMap(),
+      if (content != null) 'content': content!._toMap(actionRegistry),
       if (systemImage != null) 'systemImage': systemImage,
       if (segmentedStyle != null) 'segmentedStyle': segmentedStyle!.toMap(),
+      if (buttonStyle != null) 'buttonStyle': buttonStyle!.toMap(),
+      if (buttonSemanticLabel != null)
+        'buttonSemanticLabel': buttonSemanticLabel,
+      if (buttonDismissesSheet) 'buttonDismissesSheet': true,
+      if (!buttonEnabled) 'buttonEnabled': false,
+      if (buttonActionId != null) 'buttonActionId': buttonActionId,
     };
+  }
+}
+
+class _AppleLiquidSheetButtonActionRegistry {
+  final Set<String> _actionIds = <String>{};
+
+  String? register(AppleLiquidSheetButtonCallback? callback) {
+    if (callback == null) {
+      return null;
+    }
+
+    final String actionId = AppleLiquidSheet._registerButtonAction(callback);
+    _actionIds.add(actionId);
+    return actionId;
+  }
+
+  void dispose() {
+    for (final String actionId in _actionIds) {
+      AppleLiquidSheet._removeButtonAction(actionId);
+    }
+    _actionIds.clear();
   }
 }
 
@@ -1122,7 +1412,11 @@ class AppleLiquidSheet {
   const AppleLiquidSheet._();
 
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/sheets');
+  static final Map<String, AppleLiquidSheetButtonCallback> _buttonActions =
+      <String, AppleLiquidSheetButtonCallback>{};
   static Future<bool>? _activeShow;
+  static bool _handlerAttached = false;
+  static int _nextButtonActionId = 0;
 
   /// Shows a native sheet on iOS.
   ///
@@ -1159,16 +1453,21 @@ class AppleLiquidSheet {
       return true;
     }
 
+    _ensureHandlerAttached();
+
     final ScrollHoldController? backgroundScrollHold = _holdActiveScroll(
       scrollContext,
     );
+    final _AppleLiquidSheetButtonActionRegistry actionRegistry =
+        _AppleLiquidSheetButtonActionRegistry();
+    final Map<String, Object?>? contentMap = content?._toMap(actionRegistry);
 
     final Future<bool> showFuture = _channel
         .invokeMethod<bool>('showTemplateSheet', <String, Object?>{
           'heightFraction': heightFraction,
           'backgroundZoomScale': backgroundZoomScale,
           'sheetColor': sheetColor?.toARGB32(),
-          if (content != null) 'content': content.toMap(),
+          if (contentMap != null) 'content': contentMap,
         })
         .then((bool? didShow) => didShow ?? false);
 
@@ -1177,6 +1476,7 @@ class AppleLiquidSheet {
     try {
       return await showFuture;
     } finally {
+      actionRegistry.dispose();
       backgroundScrollHold?.cancel();
       if (identical(_activeShow, showFuture)) {
         _activeShow = null;
@@ -1216,6 +1516,39 @@ class AppleLiquidSheet {
 
   static bool get _supportsNativeSheets {
     return !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
+  }
+
+  static void _ensureHandlerAttached() {
+    if (_handlerAttached) {
+      return;
+    }
+
+    _channel.setMethodCallHandler(_handleMethodCall);
+    _handlerAttached = true;
+  }
+
+  static Future<void> _handleMethodCall(MethodCall call) async {
+    switch (call.method) {
+      case 'buttonPressed':
+        final Object? arguments = call.arguments;
+        if (arguments is Map && arguments['actionId'] is String) {
+          _buttonActions[arguments['actionId'] as String]?.call();
+          return;
+        }
+        throw MissingPluginException('Invalid sheet buttonPressed payload.');
+      default:
+        throw MissingPluginException('No handler for ${call.method}.');
+    }
+  }
+
+  static String _registerButtonAction(AppleLiquidSheetButtonCallback callback) {
+    final String actionId = 'sheet_button_${_nextButtonActionId++}';
+    _buttonActions[actionId] = callback;
+    return actionId;
+  }
+
+  static void _removeButtonAction(String actionId) {
+    _buttonActions.remove(actionId);
   }
 
   static ScrollHoldController? _holdActiveScroll(BuildContext? context) {

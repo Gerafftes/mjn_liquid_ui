@@ -222,6 +222,30 @@ class _DemoShellState extends State<DemoShell> {
               valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
               systemImage: 'slider.horizontal.3',
             ),
+            const AppleLiquidSheetRow.slider(
+              title: 'Distance',
+              value: 5,
+              min: 0,
+              max: 10,
+              step: 1,
+              valueSuffix: 'km',
+              tintColor: Color(0xFF007AFF),
+              valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              systemImage: 'location.fill',
+            ),
+            AppleLiquidSheetRow.button(
+              title: 'Show on map',
+              tintColor: Color(0xFF007AFF),
+              systemImage: 'map.fill',
+              semanticLabel: 'Open map view',
+              dismissesSheet: true,
+              style: const AppleLiquidSheetButtonStyle(
+                rowVerticalInset: 8,
+                cornerRadius: 12,
+                pressedScale: 0.97,
+              ),
+              onPressed: _showMapAction,
+            ),
             const AppleLiquidSheetRow.textField(
               title: 'Label',
               value: 'Liquid Glass',
@@ -274,6 +298,18 @@ class _DemoShellState extends State<DemoShell> {
       builder: (BuildContext context) =>
           _TemplateSheetFallback(content: sheetContent),
     );
+  }
+
+  void _showMapAction() {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Map action triggered from native iOS')),
+      );
   }
 }
 
@@ -863,6 +899,7 @@ class _TemplateSheetFallback extends StatelessWidget {
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
       AppleLiquidSheetRowType.segmented =>
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
+      AppleLiquidSheetRowType.button => row.subtitle ?? '',
       AppleLiquidSheetRowType.slider => _sliderValueFor(row),
       AppleLiquidSheetRowType.navigation => 'Details',
       AppleLiquidSheetRowType.textField => row.value ?? '',

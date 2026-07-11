@@ -1,3 +1,14 @@
+## 0.2.14
+
+- Added `AppleLiquidSheetRow.button` for native full-width action buttons with
+  SF Symbols, accent tinting, and system press feedback.
+- Added optional slider value suffixes for native sheet rows.
+- Added Dart callbacks and optional sheet dismissal for native sheet buttons.
+- Added `AppleLiquidSheetButtonStyle` for configurable colors, dimensions,
+  typography, alignment, form-row layout, and press feedback.
+- Rendered outlined sheet buttons as transparent standalone form groups with
+  safe horizontal insets to avoid stacked containers and clipped edges.
+
 ## 0.2.13
 
 - Fixed pub.dev and README screenshot assets so component screenshots are
