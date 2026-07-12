@@ -16,7 +16,11 @@ enum AppleLiquidSheetPresenter {
     channel.setMethodCallHandler { call, result in
       switch call.method {
       case "showTemplateSheet":
-        showTemplateSheet(arguments: call.arguments, result: result)
+        showTemplateSheet(
+          arguments: call.arguments,
+          channel: channel,
+          result: result
+        )
 
       case "dismissTemplateSheet":
         dismissTemplateSheet(result: result)
@@ -29,6 +33,7 @@ enum AppleLiquidSheetPresenter {
 
   private static func showTemplateSheet(
     arguments: Any?,
+    channel: FlutterMethodChannel,
     result: @escaping FlutterResult
   ) {
     guard #available(iOS 16.0, *) else {
@@ -58,6 +63,21 @@ enum AppleLiquidSheetPresenter {
       configuration: configuration,
       presentingView: presenter.view,
       result: result,
+      onButtonAction: { actionId in
+        channel.invokeMethod(
+          "buttonPressed",
+          arguments: ["actionId": actionId]
+        )
+      },
+      onMultiSelectionAction: { actionId, selectedOptions in
+        channel.invokeMethod(
+          "multiSelectionChanged",
+          arguments: [
+            "actionId": actionId,
+            "selectedOptions": selectedOptions
+          ]
+        )
+      },
       onFinish: {
         activeSession = nil
       }
@@ -193,6 +213,7 @@ private struct AppleLiquidSheetContentConfiguration {
   let leadingAction: AppleLiquidSheetToolbarActionConfiguration?
   let trailingAction: AppleLiquidSheetToolbarActionConfiguration
   let detents: AppleLiquidSheetDetentConfiguration
+  let showsSectionBackgrounds: Bool
   let sections: [AppleLiquidSheetSectionConfiguration]
 
   init(value: Any?, fallbackTitle: String = "Settings") {
@@ -218,6 +239,10 @@ private struct AppleLiquidSheetContentConfiguration {
     let detents = AppleLiquidSheetDetentConfiguration(
       value: dictionary["detents"]
     )
+    let showsSectionBackgrounds = Self.bool(
+      dictionary["showsSectionBackgrounds"],
+      defaultValue: true
+    )
     let sections = (dictionary["sections"] as? [Any] ?? [])
       .enumerated()
       .compactMap { index, value in
@@ -233,6 +258,7 @@ private struct AppleLiquidSheetContentConfiguration {
       leadingAction: leadingAction,
       trailingAction: trailingAction,
       detents: detents,
+      showsSectionBackgrounds: showsSectionBackgrounds,
       sections: sections.isEmpty ? Self.defaultContent.sections : sections
     )
   }
@@ -243,6 +269,7 @@ private struct AppleLiquidSheetContentConfiguration {
     leadingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     trailingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     detents: AppleLiquidSheetDetentConfiguration = .automatic,
+    showsSectionBackgrounds: Bool = true,
     sections: [AppleLiquidSheetSectionConfiguration]
   ) {
     self.title = title
@@ -252,6 +279,7 @@ private struct AppleLiquidSheetContentConfiguration {
       trailingAction ??
       .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     self.detents = detents
+    self.showsSectionBackgrounds = showsSectionBackgrounds
     self.sections = sections
   }
 
@@ -268,12 +296,25 @@ private struct AppleLiquidSheetContentConfiguration {
     return string
   }
 
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
+  }
+
   var estimatedDetentHeight: CGFloat {
     let navigationChromeHeight: CGFloat = 92
-    let sectionHeaderHeight = sections.reduce(CGFloat.zero) { partial, section in
-      partial + (section.title == nil ? 12 : 34)
+    let formGroups = sections.flatMap(\.formGroups)
+    let sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
+      partial + (group.title == nil ? 12 : 34)
     }
-    let sectionSpacing = CGFloat(max(sections.count - 1, 0)) * 12
+    let sectionSpacing = CGFloat(max(formGroups.count - 1, 0)) * 12
     let rowHeight = sections.reduce(CGFloat.zero) { partial, section in
       partial + section.estimatedHeight
     }
@@ -698,6 +739,44 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
       partial + row.estimatedHeight
     }
   }
+
+  var formGroups: [AppleLiquidSheetFormGroup] {
+    var groups: [AppleLiquidSheetFormGroup] = []
+    var standardRows: [AppleLiquidSheetRowConfiguration] = []
+
+    func appendGroup(rows: [AppleLiquidSheetRowConfiguration]) {
+      guard !rows.isEmpty else {
+        return
+      }
+
+      groups.append(
+        AppleLiquidSheetFormGroup(
+          id: "\(id)-group-\(groups.count)",
+          title: groups.isEmpty ? title : nil,
+          rows: rows
+        )
+      )
+    }
+
+    for row in rows {
+      if row.kind == .button {
+        appendGroup(rows: standardRows)
+        standardRows.removeAll(keepingCapacity: true)
+        appendGroup(rows: [row])
+      } else {
+        standardRows.append(row)
+      }
+    }
+
+    appendGroup(rows: standardRows)
+    return groups
+  }
+}
+
+private struct AppleLiquidSheetFormGroup: Identifiable {
+  let id: String
+  let title: String?
+  let rows: [AppleLiquidSheetRowConfiguration]
 }
 
 private enum AppleLiquidSheetRowKind: String {
@@ -705,7 +784,9 @@ private enum AppleLiquidSheetRowKind: String {
   case value
   case toggle
   case picker
+  case multiPicker
   case segmented
+  case button
   case slider
   case navigation
   case textField
@@ -1060,6 +1141,286 @@ private struct AppleLiquidSheetSegmentedStyleConfiguration {
   }
 }
 
+private enum AppleLiquidSheetButtonAlignment: String {
+  case leading
+  case center
+  case trailing
+}
+
+private struct AppleLiquidSheetButtonStyleConfiguration {
+  let backgroundARGB: Int?
+  let foregroundARGB: Int?
+  let borderARGB: Int?
+  let subtitleARGB: Int?
+  let buttonHeight: CGFloat
+  let cornerRadius: CGFloat
+  let borderWidth: CGFloat
+  let backgroundOpacity: Double
+  let horizontalPadding: CGFloat
+  let iconSpacing: CGFloat
+  let labelSpacing: CGFloat
+  let rowHorizontalInset: CGFloat
+  let rowVerticalInset: CGFloat
+  let titleFontSize: CGFloat?
+  let subtitleFontSize: CGFloat?
+  let iconSize: CGFloat?
+  let titleFontWeight: Font.Weight
+  let subtitleFontWeight: Font.Weight
+  let alignment: AppleLiquidSheetButtonAlignment
+  let minimumTextScaleFactor: CGFloat
+  let pressedScale: CGFloat
+  let pressedOpacity: Double
+  let disabledOpacity: Double
+  let pressAnimationDuration: Double
+  let showsFormBackground: Bool
+  let showsSeparator: Bool
+
+  init(value: Any?) {
+    let dictionary = value as? [String: Any] ?? [:]
+    self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["backgroundColor"]
+    )
+    self.foregroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["foregroundColor"]
+    )
+    self.borderARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["borderColor"]
+    )
+    self.subtitleARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["subtitleColor"]
+    )
+    self.buttonHeight = Self.clampedCGFloat(
+      dictionary["buttonHeight"],
+      defaultValue: 48,
+      minValue: 28,
+      maxValue: 160
+    )
+    self.cornerRadius = Self.clampedCGFloat(
+      dictionary["cornerRadius"],
+      defaultValue: 12,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.borderWidth = Self.clampedCGFloat(
+      dictionary["borderWidth"],
+      defaultValue: 1,
+      minValue: 0,
+      maxValue: 12
+    )
+    self.backgroundOpacity = Self.clampedDouble(
+      dictionary["backgroundOpacity"],
+      defaultValue: 0.08,
+      minValue: 0,
+      maxValue: 1
+    )
+    self.horizontalPadding = Self.clampedCGFloat(
+      dictionary["horizontalPadding"],
+      defaultValue: 16,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.iconSpacing = Self.clampedCGFloat(
+      dictionary["iconSpacing"],
+      defaultValue: 8,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.labelSpacing = Self.clampedCGFloat(
+      dictionary["labelSpacing"],
+      defaultValue: 2,
+      minValue: 0,
+      maxValue: 32
+    )
+    self.rowHorizontalInset = Self.clampedCGFloat(
+      dictionary["rowHorizontalInset"],
+      defaultValue: 16,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.rowVerticalInset = Self.clampedCGFloat(
+      dictionary["rowVerticalInset"],
+      defaultValue: 6,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.titleFontSize = Self.optionalClampedCGFloat(
+      dictionary["titleFontSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.subtitleFontSize = Self.optionalClampedCGFloat(
+      dictionary["subtitleFontSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.iconSize = Self.optionalClampedCGFloat(
+      dictionary["iconSize"],
+      minValue: 8,
+      maxValue: 72
+    )
+    self.titleFontWeight = Self.fontWeight(
+      dictionary["titleFontWeight"],
+      defaultValue: .semibold
+    )
+    self.subtitleFontWeight = Self.fontWeight(
+      dictionary["subtitleFontWeight"],
+      defaultValue: .regular
+    )
+    self.alignment = AppleLiquidSheetButtonAlignment(
+      rawValue: dictionary["alignment"] as? String ?? ""
+    ) ?? .center
+    self.minimumTextScaleFactor = Self.clampedCGFloat(
+      dictionary["minimumTextScaleFactor"],
+      defaultValue: 0.75,
+      minValue: 0.1,
+      maxValue: 1
+    )
+    self.pressedScale = Self.clampedCGFloat(
+      dictionary["pressedScale"],
+      defaultValue: 0.97,
+      minValue: 0.8,
+      maxValue: 1
+    )
+    self.pressedOpacity = Self.clampedDouble(
+      dictionary["pressedOpacity"],
+      defaultValue: 0.86,
+      minValue: 0.1,
+      maxValue: 1
+    )
+    self.disabledOpacity = Self.clampedDouble(
+      dictionary["disabledOpacity"],
+      defaultValue: 0.45,
+      minValue: 0.1,
+      maxValue: 1
+    )
+    self.pressAnimationDuration = Self.clampedDouble(
+      dictionary["pressAnimationDuration"],
+      defaultValue: 0.14,
+      minValue: 0,
+      maxValue: 1
+    )
+    self.showsFormBackground = Self.bool(
+      dictionary["showsFormBackground"],
+      defaultValue: false
+    )
+    self.showsSeparator = Self.bool(
+      dictionary["showsSeparator"],
+      defaultValue: false
+    )
+  }
+
+  var titleFont: Font {
+    resolvedFont(
+      size: titleFontSize,
+      defaultFont: .body,
+      weight: titleFontWeight
+    )
+  }
+
+  var subtitleFont: Font {
+    resolvedFont(
+      size: subtitleFontSize,
+      defaultFont: .footnote,
+      weight: subtitleFontWeight
+    )
+  }
+
+  var frameAlignment: Alignment {
+    switch alignment {
+    case .leading:
+      return .leading
+    case .center:
+      return .center
+    case .trailing:
+      return .trailing
+    }
+  }
+
+  var estimatedHeight: CGFloat {
+    buttonHeight + rowVerticalInset * 2
+  }
+
+  private func resolvedFont(
+    size: CGFloat?,
+    defaultFont: Font,
+    weight: Font.Weight
+  ) -> Font {
+    if let size {
+      return .system(size: size, weight: weight)
+    }
+
+    return defaultFont.weight(weight)
+  }
+
+  private static func fontWeight(
+    _ value: Any?,
+    defaultValue: Font.Weight
+  ) -> Font.Weight {
+    AppleLiquidSymbolWeight.fontWeight(value as? String) ?? defaultValue
+  }
+
+  private static func optionalClampedCGFloat(
+    _ value: Any?,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat? {
+    guard let value = double(value) else {
+      return nil
+    }
+
+    return CGFloat(min(max(value, minValue), maxValue))
+  }
+
+  private static func clampedCGFloat(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat {
+    CGFloat(
+      clampedDouble(
+        value,
+        defaultValue: defaultValue,
+        minValue: minValue,
+        maxValue: maxValue
+      )
+    )
+  }
+
+  private static func clampedDouble(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> Double {
+    min(max(double(value) ?? defaultValue, minValue), maxValue)
+  }
+
+  private static func double(_ value: Any?) -> Double? {
+    if let value = value as? Double {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.doubleValue
+    }
+
+    return nil
+  }
+
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
+  }
+}
+
 private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let id: String
   let kind: AppleLiquidSheetRowKind
@@ -1069,7 +1430,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let boolValue: Bool
   let options: [String]
   let selectedOption: String?
+  let selectedOptions: [String]
   let sliderValue: Double
+  let valueSuffix: String?
   let sliderMin: Double
   let sliderMax: Double
   let sliderStep: Double?
@@ -1078,6 +1441,12 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
   let segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration
+  let buttonStyle: AppleLiquidSheetButtonStyleConfiguration
+  let buttonActionId: String?
+  let multiSelectionActionId: String?
+  let buttonAccessibilityLabel: String
+  let buttonDismissesSheet: Bool
+  let buttonEnabled: Bool
 
   init?(value: Any?, id: String) {
     guard let dictionary = value as? [String: Any] else {
@@ -1098,7 +1467,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       max: sliderMax
     )
 
-    if kind == .picker && options.isEmpty {
+    if (kind == .picker || kind == .multiPicker) && options.isEmpty {
       return nil
     }
 
@@ -1130,6 +1499,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = Self.bool(dictionary["boolValue"], defaultValue: false)
     self.options = options
     self.selectedOption = Self.optionalString(dictionary["selectedOption"])
+    self.selectedOptions = Self.stringArray(dictionary["selectedOptions"])
+      .filter(options.contains)
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
@@ -1147,6 +1518,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       max: sliderMax,
       step: sliderStep
     )
+    self.valueSuffix = Self.optionalString(dictionary["valueSuffix"])
     self.tintColor = AppleLiquidTabbarConfiguration.intValue(
       dictionary["tintColor"]
     )
@@ -1154,6 +1526,25 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.systemImage = Self.optionalString(dictionary["systemImage"])
     self.segmentedStyle = AppleLiquidSheetSegmentedStyleConfiguration(
       value: dictionary["segmentedStyle"]
+    )
+    self.buttonStyle = AppleLiquidSheetButtonStyleConfiguration(
+      value: dictionary["buttonStyle"]
+    )
+    self.buttonActionId = Self.optionalString(dictionary["buttonActionId"])
+    self.multiSelectionActionId = Self.optionalString(
+      dictionary["multiSelectionActionId"]
+    )
+    self.buttonAccessibilityLabel = Self.string(
+      dictionary["buttonSemanticLabel"],
+      defaultValue: title
+    )
+    self.buttonDismissesSheet = Self.bool(
+      dictionary["buttonDismissesSheet"],
+      defaultValue: false
+    )
+    self.buttonEnabled = Self.bool(
+      dictionary["buttonEnabled"],
+      defaultValue: true
     )
   }
 
@@ -1166,7 +1557,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     boolValue: Bool = false,
     options: [String] = [],
     selectedOption: String? = nil,
+    selectedOptions: [String] = [],
     sliderValue: Double = 0,
+    valueSuffix: String? = nil,
     sliderMin: Double = 0,
     sliderMax: Double = 1,
     sliderStep: Double? = nil,
@@ -1175,7 +1568,14 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil,
     segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration =
-      AppleLiquidSheetSegmentedStyleConfiguration(value: nil)
+      AppleLiquidSheetSegmentedStyleConfiguration(value: nil),
+    buttonStyle: AppleLiquidSheetButtonStyleConfiguration =
+      AppleLiquidSheetButtonStyleConfiguration(value: nil),
+    buttonActionId: String? = nil,
+    multiSelectionActionId: String? = nil,
+    buttonAccessibilityLabel: String? = nil,
+    buttonDismissesSheet: Bool = false,
+    buttonEnabled: Bool = true
   ) {
     self.id = id
     self.kind = kind
@@ -1185,6 +1585,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = boolValue
     self.options = options
     self.selectedOption = selectedOption
+    self.selectedOptions = selectedOptions
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
@@ -1195,10 +1596,17 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       max: sliderMax,
       step: sliderStep
     )
+    self.valueSuffix = valueSuffix
     self.tintColor = tintColor
     self.content = content
     self.systemImage = systemImage
     self.segmentedStyle = segmentedStyle
+    self.buttonStyle = buttonStyle
+    self.buttonActionId = buttonActionId
+    self.multiSelectionActionId = multiSelectionActionId
+    self.buttonAccessibilityLabel = buttonAccessibilityLabel ?? title
+    self.buttonDismissesSheet = buttonDismissesSheet
+    self.buttonEnabled = buttonEnabled
   }
 
   static func text(
@@ -1298,6 +1706,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     min: Double = 0,
     max: Double = 1,
     step: Double? = nil,
+    valueSuffix: String? = nil,
     tintColor: Int? = nil,
     valuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
     subtitle: String? = nil,
@@ -1312,6 +1721,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       title: title,
       subtitle: subtitle,
       sliderValue: value,
+      valueSuffix: valueSuffix,
       sliderMin: min,
       sliderMax: resolvedMax,
       sliderStep: resolvedStep,
@@ -1373,10 +1783,12 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = subtitle == nil ? 48 : 66
     case .toggle:
       baseHeight = subtitle == nil ? 50 : 68
-    case .picker:
+    case .picker, .multiPicker:
       baseHeight = subtitle == nil ? 50 : 68
     case .segmented:
       baseHeight = segmentedStyle.estimatedHeight(hasSubtitle: subtitle != nil)
+    case .button:
+      baseHeight = buttonStyle.estimatedHeight
     case .slider:
       baseHeight = subtitle == nil ? 76 : 94
     case .navigation:
@@ -1490,13 +1902,20 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
 
   func formattedSliderValue(_ value: Double) -> String {
     let normalizedValue = normalizedSliderValue(value)
+    let formattedValue: String
 
     if sliderMin == 0 && sliderMax == 1 {
-      return "\(Int((normalizedValue * 100).rounded()))%"
+      formattedValue = "\(Int((normalizedValue * 100).rounded()))%"
+    } else {
+      formattedValue = String(format: "%.2f", normalizedValue)
+        .replacingOccurrences(of: ".00", with: "")
     }
 
-    return String(format: "%.2f", normalizedValue)
-      .replacingOccurrences(of: ".00", with: "")
+    guard let valueSuffix else {
+      return formattedValue
+    }
+
+    return "\(formattedValue) \(valueSuffix)"
   }
 }
 
@@ -1546,6 +1965,8 @@ private final class AppleLiquidSheetSession: NSObject,
   private weak var presentingView: UIView?
   private var hostController: UIViewController?
   private let result: FlutterResult
+  private let onButtonAction: (String) -> Void
+  private let onMultiSelectionAction: (String, [String]) -> Void
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
   private let originalCornerRadius: CGFloat
@@ -1568,11 +1989,15 @@ private final class AppleLiquidSheetSession: NSObject,
     configuration: AppleLiquidSheetConfiguration,
     presentingView: UIView?,
     result: @escaping FlutterResult,
+    onButtonAction: @escaping (String) -> Void,
+    onMultiSelectionAction: @escaping (String, [String]) -> Void,
     onFinish: @escaping () -> Void
   ) {
     self.configuration = configuration
     self.presentingView = presentingView
     self.result = result
+    self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self.onFinish = onFinish
     self.originalTransform = presentingView?.transform ?? .identity
     self.originalCornerRadius = presentingView?.layer.cornerRadius ?? 0
@@ -1617,6 +2042,23 @@ private final class AppleLiquidSheetSession: NSObject,
       },
       onControlInteractionChanged: { [weak self] isInteracting in
         self?.setControlInteractionActive(isInteracting)
+      },
+      onButtonAction: { [weak self] row in
+        guard let self, let actionId = row.buttonActionId else {
+          return
+        }
+
+        self.onButtonAction(actionId)
+        if row.buttonDismissesSheet {
+          self.dismissFromControl()
+        }
+      },
+      onMultiSelectionAction: { [weak self] row, selectedOptions in
+        guard let self, let actionId = row.multiSelectionActionId else {
+          return
+        }
+
+        self.onMultiSelectionAction(actionId, selectedOptions)
       },
       onDismissRequest: { [weak self] in
         self?.dismissFromControl()
@@ -1972,6 +2414,8 @@ private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
   let onFrameChange: (CGRect, CGRect) -> Void
   let onControlInteractionChanged: (Bool) -> Void
+  let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onDismissRequest: () -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
@@ -1981,11 +2425,18 @@ private struct AppleLiquidSettingsSheetView: View {
     configuration: AppleLiquidSheetConfiguration,
     onFrameChange: @escaping (CGRect, CGRect) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
+    onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void,
+    onMultiSelectionAction: @escaping (
+      AppleLiquidSheetRowConfiguration,
+      [String]
+    ) -> Void,
     onDismissRequest: @escaping () -> Void
   ) {
     self.configuration = configuration
     self.onFrameChange = onFrameChange
     self.onControlInteractionChanged = onControlInteractionChanged
+    self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self.onDismissRequest = onDismissRequest
 
     let detentHeights = configuration.content.preferredDetentHeights
@@ -2001,6 +2452,8 @@ private struct AppleLiquidSettingsSheetView: View {
         showsToolbarActions: true,
         onPreferredDetentHeightsChange: setPreferredDetentHeights,
         onControlInteractionChanged: onControlInteractionChanged,
+        onButtonAction: onButtonAction,
+        onMultiSelectionAction: onMultiSelectionAction,
         onToolbarAction: onDismissRequest
       )
     }
@@ -2120,22 +2573,31 @@ private struct AppleLiquidSheetFormScreen: View {
   let showsToolbarActions: Bool
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onControlInteractionChanged: (Bool) -> Void
+  let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onToolbarAction: (() -> Void)?
 
   var body: some View {
     Form {
       ForEach(content.sections) { section in
-        Section {
-          ForEach(section.rows) { row in
-            AppleLiquidSheetRowView(
-              row: row,
-              onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
-              onControlInteractionChanged: onControlInteractionChanged
-            )
-          }
-        } header: {
-          if let title = section.title {
-            Text(title)
+        ForEach(section.formGroups) { group in
+          Section {
+            ForEach(group.rows) { row in
+              AppleLiquidSheetRowView(
+                row: row,
+                onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+                onControlInteractionChanged: onControlInteractionChanged,
+                onButtonAction: onButtonAction,
+                onMultiSelectionAction: onMultiSelectionAction
+              )
+              .appleLiquidFormRowBackground(
+                isVisible: content.showsSectionBackgrounds
+              )
+            }
+          } header: {
+            if let title = group.title {
+              Text(title)
+            }
           }
         }
       }
@@ -2181,8 +2643,11 @@ private struct AppleLiquidSheetRowView: View {
   let row: AppleLiquidSheetRowConfiguration
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onControlInteractionChanged: (Bool) -> Void
+  let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   @State private var toggleValue: Bool
   @State private var pickerSelection: String
+  @State private var multiPickerSelection: Set<String>
   @State private var sliderValue: Double
   @State private var textValue: String
 
@@ -2191,13 +2656,21 @@ private struct AppleLiquidSheetRowView: View {
     onPreferredDetentHeightsChange: @escaping (
       AppleLiquidSheetDetentHeights
     ) -> Void,
-    onControlInteractionChanged: @escaping (Bool) -> Void
+    onControlInteractionChanged: @escaping (Bool) -> Void,
+    onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void
+    , onMultiSelectionAction: @escaping (
+      AppleLiquidSheetRowConfiguration,
+      [String]
+    ) -> Void
   ) {
     self.row = row
     self.onPreferredDetentHeightsChange = onPreferredDetentHeightsChange
     self.onControlInteractionChanged = onControlInteractionChanged
+    self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self._toggleValue = State(initialValue: row.boolValue)
     self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
+    self._multiPickerSelection = State(initialValue: Set(row.selectedOptions))
     self._sliderValue = State(initialValue: row.sliderValue)
     self._textValue = State(initialValue: row.value ?? "")
   }
@@ -2232,6 +2705,40 @@ private struct AppleLiquidSheetRowView: View {
       .scrollContentBackground(formBackgroundVisibility)
       .appleLiquidNavigationContainerBackground()
 
+    case .multiPicker:
+      NavigationLink {
+        List {
+          ForEach(row.options, id: \.self) { option in
+            Button {
+              toggleMultiPickerOption(option)
+            } label: {
+              HStack {
+                Text(option)
+                  .foregroundStyle(.primary)
+                Spacer()
+                if multiPickerSelection.contains(option) {
+                  Image(systemName: "checkmark")
+                    .foregroundStyle(.tint)
+                }
+              }
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+          }
+        }
+        .navigationTitle(row.title)
+        .scrollContentBackground(formBackgroundVisibility)
+        .appleLiquidNavigationContainerBackground()
+      } label: {
+        HStack {
+          AppleLiquidSheetRowLabel(row: row)
+          Spacer()
+          Text(multiPickerSummary)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+      }
+
     case .segmented:
       VStack(alignment: .leading, spacing: row.segmentedStyle.contentSpacing) {
         AppleLiquidSheetRowLabel(
@@ -2257,6 +2764,26 @@ private struct AppleLiquidSheetRowView: View {
       }
       .padding(.vertical, row.segmentedStyle.verticalPadding)
 
+    case .button:
+      AppleLiquidSheetActionButton(
+        row: row,
+        onTap: {
+          onButtonAction(row)
+        }
+      )
+      .listRowInsets(
+        EdgeInsets(
+          top: row.buttonStyle.rowVerticalInset,
+          leading: row.buttonStyle.rowHorizontalInset,
+          bottom: row.buttonStyle.rowVerticalInset,
+          trailing: row.buttonStyle.rowHorizontalInset
+        )
+      )
+      .listRowSeparator(row.buttonStyle.showsSeparator ? .visible : .hidden)
+      .appleLiquidFormRowBackground(
+        isVisible: row.buttonStyle.showsFormBackground
+      )
+
     case .slider:
       sliderRow
 
@@ -2268,6 +2795,8 @@ private struct AppleLiquidSheetRowView: View {
             showsToolbarActions: false,
             onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
             onControlInteractionChanged: onControlInteractionChanged,
+            onButtonAction: onButtonAction,
+            onMultiSelectionAction: onMultiSelectionAction,
             onToolbarAction: nil
           )
         } label: {
@@ -2352,6 +2881,37 @@ private struct AppleLiquidSheetRowView: View {
     } else {
       pickerSelection = option
     }
+  }
+
+  private var multiPickerSummary: String {
+    if multiPickerSelection.isEmpty || multiPickerSelection.contains("Alle") {
+      return "Alle"
+    }
+
+    if multiPickerSelection.count == 1 {
+      return multiPickerSelection.first ?? "Alle"
+    }
+
+    return "\(multiPickerSelection.count) ausgewählt"
+  }
+
+  private func toggleMultiPickerOption(_ option: String) {
+    if option == "Alle" {
+      multiPickerSelection = ["Alle"]
+    } else {
+      multiPickerSelection.remove("Alle")
+      if multiPickerSelection.contains(option) {
+        multiPickerSelection.remove(option)
+      } else {
+        multiPickerSelection.insert(option)
+      }
+      if multiPickerSelection.isEmpty {
+        multiPickerSelection = ["Alle"]
+      }
+    }
+
+    let orderedSelection = row.options.filter(multiPickerSelection.contains)
+    onMultiSelectionAction(row, orderedSelection)
   }
 }
 
@@ -2457,6 +3017,113 @@ private struct AppleLiquidSheetSegmentOptionButton: View {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetSegmentOptionButtonStyle: ButtonStyle {
   let style: AppleLiquidSheetSegmentedStyleConfiguration
+
+  func makeBody(configuration: Configuration) -> some View {
+    configuration.label
+      .scaleEffect(configuration.isPressed ? style.pressedScale : 1)
+      .opacity(configuration.isPressed ? style.pressedOpacity : 1)
+      .animation(
+        .easeOut(duration: style.pressAnimationDuration),
+        value: configuration.isPressed
+      )
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetActionButton: View {
+  let row: AppleLiquidSheetRowConfiguration
+  let onTap: () -> Void
+
+  var body: some View {
+    Button(action: onTap) {
+      HStack(spacing: style.iconSpacing) {
+        if let systemImage = row.systemImage {
+          Image(systemName: systemImage)
+            .font(iconFont)
+        }
+
+        VStack(alignment: .leading, spacing: style.labelSpacing) {
+          Text(row.title)
+            .font(style.titleFont)
+            .lineLimit(1)
+            .minimumScaleFactor(style.minimumTextScaleFactor)
+
+          if let subtitle = row.subtitle {
+            Text(subtitle)
+              .font(style.subtitleFont)
+              .foregroundStyle(subtitleColor)
+              .lineLimit(1)
+              .minimumScaleFactor(style.minimumTextScaleFactor)
+          }
+        }
+      }
+      .frame(
+        maxWidth: .infinity,
+        minHeight: style.buttonHeight,
+        alignment: style.frameAlignment
+      )
+      .padding(.horizontal, style.horizontalPadding)
+      .foregroundStyle(foregroundColor)
+      .background(
+        RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+          .fill(backgroundColor)
+      )
+      .overlay(
+        RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+          .stroke(borderColor, lineWidth: style.borderWidth)
+      )
+      .contentShape(
+        RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
+      )
+    }
+    .buttonStyle(AppleLiquidSheetActionButtonStyle(style: style))
+    .disabled(!isButtonEnabled)
+    .opacity(isButtonEnabled ? 1 : style.disabledOpacity)
+    .accessibilityLabel(row.buttonAccessibilityLabel)
+  }
+
+  private var style: AppleLiquidSheetButtonStyleConfiguration {
+    row.buttonStyle
+  }
+
+  private var isButtonEnabled: Bool {
+    row.buttonEnabled && row.buttonActionId != nil
+  }
+
+  private var tintColor: Color {
+    Color(appleLiquidARGB: row.tintColor) ??
+      Color(red: 0, green: 122 / 255, blue: 1)
+  }
+
+  private var backgroundColor: Color {
+    Color(appleLiquidARGB: style.backgroundARGB) ??
+      tintColor.opacity(style.backgroundOpacity)
+  }
+
+  private var foregroundColor: Color {
+    Color(appleLiquidARGB: style.foregroundARGB) ?? .primary
+  }
+
+  private var borderColor: Color {
+    Color(appleLiquidARGB: style.borderARGB) ?? tintColor
+  }
+
+  private var subtitleColor: Color {
+    Color(appleLiquidARGB: style.subtitleARGB) ?? .secondary
+  }
+
+  private var iconFont: Font {
+    if let iconSize = style.iconSize {
+      return .system(size: iconSize, weight: style.titleFontWeight)
+    }
+
+    return style.titleFont
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetActionButtonStyle: ButtonStyle {
+  let style: AppleLiquidSheetButtonStyleConfiguration
 
   func makeBody(configuration: Configuration) -> some View {
     configuration.label
@@ -2732,6 +3399,15 @@ private extension View {
       containerBackground(.clear, for: .navigation)
     } else {
       self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidFormRowBackground(isVisible: Bool) -> some View {
+    if isVisible {
+      self
+    } else {
+      listRowBackground(Color.clear)
     }
   }
 }
