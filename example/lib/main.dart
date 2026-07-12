@@ -38,6 +38,7 @@ class _DemoShellState extends State<DemoShell> {
   double steppedSliderValue = 0.6;
   double coarseSliderValue = 0.5;
   bool templateSheetBackgroundZoom = true;
+  bool templateSheetSectionBackgrounds = false;
   Color? templateSheetColor;
   final AppleLiquidSheetController templateSheetController =
       AppleLiquidSheetController();
@@ -98,9 +99,13 @@ class _DemoShellState extends State<DemoShell> {
       default:
         return _TabbarDemoPage(
           sheetBackgroundZoom: templateSheetBackgroundZoom,
+          sheetSectionBackgrounds: templateSheetSectionBackgrounds,
           sheetColor: templateSheetColor,
           onSheetBackgroundZoomChanged: (bool value) {
             setState(() => templateSheetBackgroundZoom = value);
+          },
+          onSheetSectionBackgroundsChanged: (bool value) {
+            setState(() => templateSheetSectionBackgrounds = value);
           },
           onSheetColorChanged: (Color? value) {
             setState(() => templateSheetColor = value);
@@ -136,6 +141,7 @@ class _DemoShellState extends State<DemoShell> {
         initialHeight: 430,
         expandedHeight: 660,
       ),
+      showsSectionBackgrounds: templateSheetSectionBackgrounds,
       sections: <AppleLiquidSheetSection>[
         const AppleLiquidSheetSection(
           title: 'Package',
@@ -406,15 +412,19 @@ class _DemoPageScaffold extends StatelessWidget {
 class _TabbarDemoPage extends StatelessWidget {
   const _TabbarDemoPage({
     required this.sheetBackgroundZoom,
+    required this.sheetSectionBackgrounds,
     required this.sheetColor,
     required this.onSheetBackgroundZoomChanged,
+    required this.onSheetSectionBackgroundsChanged,
     required this.onSheetColorChanged,
     required this.onShowTemplateSheet,
   });
 
   final bool sheetBackgroundZoom;
+  final bool sheetSectionBackgrounds;
   final Color? sheetColor;
   final ValueChanged<bool> onSheetBackgroundZoomChanged;
+  final ValueChanged<bool> onSheetSectionBackgroundsChanged;
   final ValueChanged<Color?> onSheetColorChanged;
   final ValueChanged<BuildContext> onShowTemplateSheet;
 
@@ -452,7 +462,7 @@ class _TabbarDemoPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           AppleLiquidSurface(
-            height: 300,
+            height: 350,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: <Widget>[
@@ -483,6 +493,11 @@ class _TabbarDemoPage extends StatelessWidget {
                   label: 'Background zoom',
                   value: sheetBackgroundZoom,
                   onChanged: onSheetBackgroundZoomChanged,
+                ),
+                _SheetToggleRow(
+                  label: 'Section backgrounds',
+                  value: sheetSectionBackgrounds,
+                  onChanged: onSheetSectionBackgroundsChanged,
                 ),
                 _SheetColorRow(
                   value: sheetColor,
@@ -897,6 +912,8 @@ class _TemplateSheetFallback extends StatelessWidget {
       AppleLiquidSheetRowType.toggle => row.boolValue == true ? 'On' : 'Off',
       AppleLiquidSheetRowType.picker =>
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
+      AppleLiquidSheetRowType.multiPicker =>
+        row.selectedOptions.isEmpty ? 'All' : row.selectedOptions.join(', '),
       AppleLiquidSheetRowType.segmented =>
         row.selectedOption ?? (row.options.isEmpty ? '' : row.options.first),
       AppleLiquidSheetRowType.button => row.subtitle ?? '',

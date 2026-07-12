@@ -61,6 +61,7 @@ class AppleLiquidSheetContent {
     this.leadingAction,
     this.trailingAction,
     this.detents,
+    this.showsSectionBackgrounds = true,
     required this.sections,
   });
 
@@ -201,6 +202,11 @@ class AppleLiquidSheetContent {
   /// detents from the active form content.
   final AppleLiquidSheetDetents? detents;
 
+  /// Whether native SwiftUI form sections keep their default backgrounds.
+  ///
+  /// Set this to false to render the rows without the rounded section boxes.
+  final bool showsSectionBackgrounds;
+
   /// Form sections rendered in order.
   final List<AppleLiquidSheetSection> sections;
 
@@ -217,6 +223,7 @@ class AppleLiquidSheetContent {
       if (leadingAction != null) 'leadingAction': leadingAction!.toMap(),
       if (trailingAction != null) 'trailingAction': trailingAction!.toMap(),
       if (detents != null) 'detents': detents!.toMap(),
+      if (!showsSectionBackgrounds) 'showsSectionBackgrounds': false,
       'sections': sections
           .map(
             (AppleLiquidSheetSection section) => section._toMap(actionRegistry),
@@ -722,6 +729,10 @@ class AppleLiquidSheetButtonStyle {
 /// Callback invoked when a native sheet button is pressed.
 typedef AppleLiquidSheetButtonCallback = void Function();
 
+/// Callback invoked when a native multi-picker selection changes.
+typedef AppleLiquidSheetMultiSelectionCallback =
+    void Function(List<String> selectedOptions);
+
 /// Native row types supported by [AppleLiquidSheetRow].
 enum AppleLiquidSheetRowType {
   /// Plain title/subtitle row.
@@ -735,6 +746,9 @@ enum AppleLiquidSheetRowType {
 
   /// Native SwiftUI navigation-link picker with local state.
   picker('picker'),
+
+  /// Native navigation-link picker that allows multiple selections.
+  multiPicker('multiPicker'),
 
   /// Native two-option button group with local state.
   segmented('segmented'),
@@ -783,6 +797,7 @@ class AppleLiquidSheetRow {
     String? firstSegmentOption,
     String? secondSegmentOption,
     this.selectedOption,
+    List<String> selectedOptions = const <String>[],
     this.sliderValue,
     this.valueSuffix,
     this.min,
@@ -799,7 +814,9 @@ class AppleLiquidSheetRow {
     this.buttonDismissesSheet = false,
     this.buttonEnabled = true,
     this.onButtonPressed,
+    this.onMultiSelectionChanged,
   }) : _options = options,
+       _selectedOptions = selectedOptions,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
        assert(
@@ -880,6 +897,24 @@ class AppleLiquidSheetRow {
          options: options,
          selectedOption: selectedOption,
          systemImage: systemImage,
+       );
+
+  /// Creates a native picker row that allows multiple selected options.
+  const AppleLiquidSheetRow.multiPicker({
+    required String title,
+    required List<String> options,
+    List<String> selectedOptions = const <String>[],
+    String? subtitle,
+    String? systemImage,
+    AppleLiquidSheetMultiSelectionCallback? onSelectionChanged,
+  }) : this._(
+         type: AppleLiquidSheetRowType.multiPicker,
+         title: title,
+         subtitle: subtitle,
+         options: options,
+         selectedOptions: selectedOptions,
+         systemImage: systemImage,
+         onMultiSelectionChanged: onSelectionChanged,
        );
 
   /// Creates a native segmented row with two side-by-side options.
@@ -1001,6 +1036,7 @@ class AppleLiquidSheetRow {
   final bool? boolValue;
 
   final List<String> _options;
+  final List<String> _selectedOptions;
   final String? _firstSegmentOption;
   final String? _secondSegmentOption;
 
@@ -1019,6 +1055,10 @@ class AppleLiquidSheetRow {
   ///
   /// Defaults to the first option on iOS when null or not present in [options].
   final String? selectedOption;
+
+  /// Initial selections for [AppleLiquidSheetRow.multiPicker].
+  List<String> get selectedOptions =>
+      List<String>.unmodifiable(_selectedOptions.where(options.contains));
 
   /// Initial slider value for [AppleLiquidSheetRow.slider].
   final double? sliderValue;
@@ -1065,6 +1105,9 @@ class AppleLiquidSheetRow {
   /// Optional Dart callback invoked for [AppleLiquidSheetRow.button].
   final AppleLiquidSheetButtonCallback? onButtonPressed;
 
+  /// Called whenever the selection of a multi-picker changes.
+  final AppleLiquidSheetMultiSelectionCallback? onMultiSelectionChanged;
+
   Map<String, Object?> toMap() {
     return _toMap();
   }
@@ -1075,6 +1118,10 @@ class AppleLiquidSheetRow {
     final String? buttonActionId = type == AppleLiquidSheetRowType.button
         ? actionRegistry?.register(onButtonPressed)
         : null;
+    final String? multiSelectionActionId =
+        type == AppleLiquidSheetRowType.multiPicker
+        ? actionRegistry?.registerMultiSelection(onMultiSelectionChanged)
+        : null;
 
     return <String, Object?>{
       'type': type.platformValue,
@@ -1084,6 +1131,7 @@ class AppleLiquidSheetRow {
       if (boolValue != null) 'boolValue': boolValue,
       if (options.isNotEmpty) 'options': options,
       if (selectedOption != null) 'selectedOption': selectedOption,
+      if (selectedOptions.isNotEmpty) 'selectedOptions': selectedOptions,
       if (sliderValue != null) 'sliderValue': sliderValue,
       if (valueSuffix != null) 'valueSuffix': valueSuffix,
       if (min != null) 'min': min,
@@ -1103,12 +1151,15 @@ class AppleLiquidSheetRow {
       if (buttonDismissesSheet) 'buttonDismissesSheet': true,
       if (!buttonEnabled) 'buttonEnabled': false,
       if (buttonActionId != null) 'buttonActionId': buttonActionId,
+      if (multiSelectionActionId != null)
+        'multiSelectionActionId': multiSelectionActionId,
     };
   }
 }
 
 class _AppleLiquidSheetButtonActionRegistry {
   final Set<String> _actionIds = <String>{};
+  final Set<String> _multiSelectionActionIds = <String>{};
 
   String? register(AppleLiquidSheetButtonCallback? callback) {
     if (callback == null) {
@@ -1120,11 +1171,29 @@ class _AppleLiquidSheetButtonActionRegistry {
     return actionId;
   }
 
+  String? registerMultiSelection(
+    AppleLiquidSheetMultiSelectionCallback? callback,
+  ) {
+    if (callback == null) {
+      return null;
+    }
+
+    final String actionId = AppleLiquidSheet._registerMultiSelectionAction(
+      callback,
+    );
+    _multiSelectionActionIds.add(actionId);
+    return actionId;
+  }
+
   void dispose() {
     for (final String actionId in _actionIds) {
       AppleLiquidSheet._removeButtonAction(actionId);
     }
     _actionIds.clear();
+    for (final String actionId in _multiSelectionActionIds) {
+      AppleLiquidSheet._removeMultiSelectionAction(actionId);
+    }
+    _multiSelectionActionIds.clear();
   }
 }
 
@@ -1414,6 +1483,8 @@ class AppleLiquidSheet {
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/sheets');
   static final Map<String, AppleLiquidSheetButtonCallback> _buttonActions =
       <String, AppleLiquidSheetButtonCallback>{};
+  static final Map<String, AppleLiquidSheetMultiSelectionCallback>
+  _multiSelectionActions = <String, AppleLiquidSheetMultiSelectionCallback>{};
   static Future<bool>? _activeShow;
   static bool _handlerAttached = false;
   static int _nextButtonActionId = 0;
@@ -1536,6 +1607,23 @@ class AppleLiquidSheet {
           return;
         }
         throw MissingPluginException('Invalid sheet buttonPressed payload.');
+      case 'multiSelectionChanged':
+        final Object? arguments = call.arguments;
+        if (arguments is Map &&
+            arguments['actionId'] is String &&
+            arguments['selectedOptions'] is List) {
+          final List<String> selectedOptions =
+              (arguments['selectedOptions'] as List).whereType<String>().toList(
+                growable: false,
+              );
+          _multiSelectionActions[arguments['actionId'] as String]?.call(
+            selectedOptions,
+          );
+          return;
+        }
+        throw MissingPluginException(
+          'Invalid sheet multiSelectionChanged payload.',
+        );
       default:
         throw MissingPluginException('No handler for ${call.method}.');
     }
@@ -1549,6 +1637,18 @@ class AppleLiquidSheet {
 
   static void _removeButtonAction(String actionId) {
     _buttonActions.remove(actionId);
+  }
+
+  static String _registerMultiSelectionAction(
+    AppleLiquidSheetMultiSelectionCallback callback,
+  ) {
+    final String actionId = 'sheet_multi_selection_${_nextButtonActionId++}';
+    _multiSelectionActions[actionId] = callback;
+    return actionId;
+  }
+
+  static void _removeMultiSelectionAction(String actionId) {
+    _multiSelectionActions.remove(actionId);
   }
 
   static ScrollHoldController? _holdActiveScroll(BuildContext? context) {
