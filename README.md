@@ -307,7 +307,7 @@ append a unit to the rendered value.
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, and sections |
 | `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol |
-| `AppleLiquidSheetSection` | Optional section header plus native form rows |
+| `AppleLiquidSheetSection` | Optional section header, native form rows, and per-section background, border, and corner styling |
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
@@ -369,6 +369,10 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   sections: <AppleLiquidSheetSection>[
     AppleLiquidSheetSection(
       title: 'Overview',
+      showsBackground: true,
+      backgroundColor: Color(0xFF1A1A1A),
+      borderColor: Color(0xFF2C2C2E),
+      cornerRadius: 14,
       rows: <AppleLiquidSheetRow>[
         AppleLiquidSheetRow.value(
           title: 'Package',
@@ -560,7 +564,12 @@ presentation is active.
 
 Set `showsSectionBackgrounds: false` on an `AppleLiquidSheetContent` page to
 remove the rounded native SwiftUI section boxes while keeping the form rows and
-controls. The option can be configured independently for nested pages.
+controls. The option can be configured independently for nested pages. Each
+`AppleLiquidSheetSection` can inherit that setting or override it with
+`showsBackground`, `backgroundColor`, `borderColor`, and `cornerRadius`.
+These options work with every supported sheet row type. To style only one
+element, place that row in its own `AppleLiquidSheetSection`, as shown by the
+`Label` field in the example app.
 
 The iOS implementation opens at a SwiftUI content-sized sheet detent instead of
 expanding straight to `.large`. Pass `AppleLiquidSheetDetents` to any

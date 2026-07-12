@@ -1,3 +1,9 @@
+## 0.2.16
+
+- Added per-section native form background, border, visibility, and corner
+  styling through `AppleLiquidSheetSection`.
+- Fixed custom corner radii being clipped by the native SwiftUI form radius.
+
 ## 0.2.15
 
 - Added `AppleLiquidSheetContent.showsSectionBackgrounds` to optionally remove

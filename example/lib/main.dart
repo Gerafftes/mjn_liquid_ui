@@ -252,7 +252,15 @@ class _DemoShellState extends State<DemoShell> {
               ),
               onPressed: _showMapAction,
             ),
-            const AppleLiquidSheetRow.textField(
+          ],
+        ),
+        const AppleLiquidSheetSection(
+          showsBackground: true,
+          backgroundColor: Color(0x1A007AFF),
+          borderColor: Color(0x80007AFF),
+          cornerRadius: 15,
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.textField(
               title: 'Label',
               value: 'Liquid Glass',
             ),

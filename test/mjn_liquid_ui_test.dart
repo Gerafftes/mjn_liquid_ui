@@ -88,6 +88,10 @@ void main() {
       sections: <AppleLiquidSheetSection>[
         AppleLiquidSheetSection(
           title: 'Overview',
+          showsBackground: true,
+          backgroundColor: Color(0xFF1A1A1A),
+          borderColor: Color(0xFF2C2C2E),
+          cornerRadius: 14,
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.value(
               title: 'Name',
@@ -213,6 +217,10 @@ void main() {
       'sections': <Object?>[
         <String, Object?>{
           'title': 'Overview',
+          'showsBackground': true,
+          'backgroundColor': 0xFF1A1A1A,
+          'borderColor': 0xFF2C2C2E,
+          'cornerRadius': 14.0,
           'rows': <Object?>[
             <String, Object?>{
               'type': 'value',
@@ -470,6 +478,27 @@ void main() {
     );
     expect(
       () => AppleLiquidSheetToolbarAction(systemImage: ''),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet section corner radius stays within native bounds', () {
+    expect(
+      () => AppleLiquidSheetSection(
+        cornerRadius: -1,
+        rows: const <AppleLiquidSheetRow>[
+          AppleLiquidSheetRow.text(title: 'Row'),
+        ],
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSection(
+        cornerRadius: 81,
+        rows: const <AppleLiquidSheetRow>[
+          AppleLiquidSheetRow.text(title: 'Row'),
+        ],
+      ),
       throwsAssertionError,
     );
   });
