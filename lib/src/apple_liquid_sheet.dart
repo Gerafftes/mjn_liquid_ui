@@ -266,10 +266,35 @@ class AppleLiquidSheetDetents {
 /// A native SwiftUI `Form` section inside [AppleLiquidSheetContent].
 class AppleLiquidSheetSection {
   /// Creates a section with optional title and rows.
-  const AppleLiquidSheetSection({this.title, required this.rows});
+  const AppleLiquidSheetSection({
+    this.title,
+    this.showsBackground,
+    this.backgroundColor,
+    this.borderColor,
+    this.cornerRadius,
+    required this.rows,
+  }) : assert(
+         cornerRadius == null || (cornerRadius >= 0 && cornerRadius <= 80),
+       );
 
   /// Optional section header.
   final String? title;
+
+  /// Whether this section keeps a native form background.
+  ///
+  /// When null, the section inherits
+  /// [AppleLiquidSheetContent.showsSectionBackgrounds]. Set this to true or
+  /// false to override the page-level setting for this section.
+  final bool? showsBackground;
+
+  /// Optional custom background color for this section.
+  final Color? backgroundColor;
+
+  /// Optional 1-point border color around this section.
+  final Color? borderColor;
+
+  /// Optional custom corner radius in native iOS points.
+  final double? cornerRadius;
 
   /// Rows rendered in this section.
   final List<AppleLiquidSheetRow> rows;
@@ -283,6 +308,11 @@ class AppleLiquidSheetSection {
   ]) {
     return <String, Object?>{
       if (title != null) 'title': title,
+      if (showsBackground != null) 'showsBackground': showsBackground,
+      if (backgroundColor != null)
+        'backgroundColor': backgroundColor!.toARGB32(),
+      if (borderColor != null) 'borderColor': borderColor!.toARGB32(),
+      if (cornerRadius != null) 'cornerRadius': cornerRadius,
       'rows': rows
           .map((AppleLiquidSheetRow row) => row._toMap(actionRegistry))
           .toList(),

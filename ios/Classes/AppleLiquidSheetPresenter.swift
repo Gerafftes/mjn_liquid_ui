@@ -688,9 +688,85 @@ private struct AppleLiquidSheetDetentConfiguration {
   }
 }
 
+private struct AppleLiquidSheetSectionStyleConfiguration {
+  let showsBackground: Bool?
+  let backgroundARGB: Int?
+  let borderARGB: Int?
+  let cornerRadius: CGFloat?
+
+  init(value: [String: Any]) {
+    self.showsBackground = Self.optionalBool(value["showsBackground"])
+    self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      value["backgroundColor"]
+    )
+    self.borderARGB = AppleLiquidTabbarConfiguration.intValue(
+      value["borderColor"]
+    )
+    self.cornerRadius = Self.optionalClampedCGFloat(
+      value["cornerRadius"],
+      minValue: 0,
+      maxValue: 80
+    )
+  }
+
+  init(
+    showsBackground: Bool? = nil,
+    backgroundARGB: Int? = nil,
+    borderARGB: Int? = nil,
+    cornerRadius: CGFloat? = nil
+  ) {
+    self.showsBackground = showsBackground
+    self.backgroundARGB = backgroundARGB
+    self.borderARGB = borderARGB
+    self.cornerRadius = cornerRadius
+  }
+
+  var hasCustomAppearance: Bool {
+    backgroundARGB != nil || borderARGB != nil || cornerRadius != nil
+  }
+
+  func resolvesBackgroundVisibility(defaultValue: Bool) -> Bool {
+    showsBackground ?? defaultValue
+  }
+
+  private static func optionalBool(_ value: Any?) -> Bool? {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return nil
+  }
+
+  private static func optionalClampedCGFloat(
+    _ value: Any?,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat? {
+    let doubleValue: Double?
+    if let value = value as? Double {
+      doubleValue = value
+    } else if let value = value as? NSNumber {
+      doubleValue = value.doubleValue
+    } else {
+      doubleValue = nil
+    }
+
+    guard let doubleValue else {
+      return nil
+    }
+
+    return CGFloat(min(max(doubleValue, minValue), maxValue))
+  }
+}
+
 private struct AppleLiquidSheetSectionConfiguration: Identifiable {
   let id: String
   let title: String?
+  let style: AppleLiquidSheetSectionStyleConfiguration
   let rows: [AppleLiquidSheetRowConfiguration]
 
   init?(value: Any?, index: Int) {
@@ -714,13 +790,21 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
     self.init(
       id: "section-\(index)",
       title: Self.optionalNonEmptyString(dictionary["title"]),
+      style: AppleLiquidSheetSectionStyleConfiguration(value: dictionary),
       rows: rows
     )
   }
 
-  init(id: String, title: String?, rows: [AppleLiquidSheetRowConfiguration]) {
+  init(
+    id: String,
+    title: String?,
+    style: AppleLiquidSheetSectionStyleConfiguration =
+      AppleLiquidSheetSectionStyleConfiguration(),
+    rows: [AppleLiquidSheetRowConfiguration]
+  ) {
     self.id = id
     self.title = title
+    self.style = style
     self.rows = rows
   }
 
@@ -741,6 +825,17 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
   }
 
   var formGroups: [AppleLiquidSheetFormGroup] {
+    if style.hasCustomAppearance {
+      return [
+        AppleLiquidSheetFormGroup(
+          id: "\(id)-group-0",
+          title: title,
+          sectionStyle: style,
+          rows: rows
+        )
+      ]
+    }
+
     var groups: [AppleLiquidSheetFormGroup] = []
     var standardRows: [AppleLiquidSheetRowConfiguration] = []
 
@@ -753,6 +848,7 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
         AppleLiquidSheetFormGroup(
           id: "\(id)-group-\(groups.count)",
           title: groups.isEmpty ? title : nil,
+          sectionStyle: style,
           rows: rows
         )
       )
@@ -776,6 +872,7 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
 private struct AppleLiquidSheetFormGroup: Identifiable {
   let id: String
   let title: String?
+  let sectionStyle: AppleLiquidSheetSectionStyleConfiguration
   let rows: [AppleLiquidSheetRowConfiguration]
 }
 
@@ -2582,17 +2679,33 @@ private struct AppleLiquidSheetFormScreen: View {
       ForEach(content.sections) { section in
         ForEach(section.formGroups) { group in
           Section {
-            ForEach(group.rows) { row in
-              AppleLiquidSheetRowView(
-                row: row,
+            if group.sectionStyle.hasCustomAppearance &&
+              group.sectionStyle.resolvesBackgroundVisibility(
+                defaultValue: content.showsSectionBackgrounds
+              )
+            {
+              AppleLiquidSheetStyledFormGroup(
+                group: group,
                 onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
                 onControlInteractionChanged: onControlInteractionChanged,
                 onButtonAction: onButtonAction,
                 onMultiSelectionAction: onMultiSelectionAction
               )
-              .appleLiquidFormRowBackground(
-                isVisible: content.showsSectionBackgrounds
-              )
+            } else {
+              ForEach(group.rows) { row in
+                AppleLiquidSheetRowView(
+                  row: row,
+                  onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+                  onControlInteractionChanged: onControlInteractionChanged,
+                  onButtonAction: onButtonAction,
+                  onMultiSelectionAction: onMultiSelectionAction
+                )
+                .appleLiquidFormRowBackground(
+                  isVisible: group.sectionStyle.resolvesBackgroundVisibility(
+                    defaultValue: content.showsSectionBackgrounds
+                  )
+                )
+              }
             }
           } header: {
             if let title = group.title {
@@ -3349,6 +3462,60 @@ private struct AppleLiquidSheetRowLabel: View {
 }
 
 @available(iOS 16.0, *)
+private struct AppleLiquidSheetStyledFormGroup: View {
+  let group: AppleLiquidSheetFormGroup
+  let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onControlInteractionChanged: (Bool) -> Void
+  let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+
+  var body: some View {
+    VStack(spacing: 0) {
+      ForEach(group.rows) { row in
+        AppleLiquidSheetRowView(
+          row: row,
+          onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+          onControlInteractionChanged: onControlInteractionChanged,
+          onButtonAction: onButtonAction,
+          onMultiSelectionAction: onMultiSelectionAction
+        )
+        .frame(maxWidth: .infinity, minHeight: row.estimatedHeight)
+        .padding(.horizontal, 16)
+
+        if row.id != group.rows.last?.id {
+          Divider()
+            .padding(.leading, 16)
+        }
+      }
+    }
+    .background(resolvedBackgroundColor, in: sectionShape)
+    .clipShape(sectionShape)
+    .overlay {
+      if let borderColor = Color(appleLiquidARGB: group.sectionStyle.borderARGB) {
+        sectionShape.strokeBorder(borderColor, lineWidth: 1)
+      }
+    }
+    .listRowInsets(
+      EdgeInsets(top: 8, leading: 8, bottom: 8, trailing: 8)
+    )
+    .listRowSeparator(.hidden)
+    .listRowBackground(Color.clear)
+  }
+
+  private var resolvedBackgroundColor: Color {
+    Color(appleLiquidARGB: group.sectionStyle.backgroundARGB) ??
+      Color(uiColor: .secondarySystemGroupedBackground)
+  }
+
+  private var sectionShape: RoundedRectangle {
+    RoundedRectangle(
+      cornerRadius: group.sectionStyle.cornerRadius ?? 12,
+      style: .continuous
+    )
+  }
+}
+
+@available(iOS 16.0, *)
 private extension View {
   @ViewBuilder
   func appleLiquidSheetBackground(_ color: Color, isEnabled: Bool) -> some View {
@@ -3410,6 +3577,7 @@ private extension View {
       listRowBackground(Color.clear)
     }
   }
+
 }
 
 @available(iOS 16.0, *)
