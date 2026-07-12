@@ -69,6 +69,15 @@ enum AppleLiquidSheetPresenter {
           arguments: ["actionId": actionId]
         )
       },
+      onMultiSelectionAction: { actionId, selectedOptions in
+        channel.invokeMethod(
+          "multiSelectionChanged",
+          arguments: [
+            "actionId": actionId,
+            "selectedOptions": selectedOptions
+          ]
+        )
+      },
       onFinish: {
         activeSession = nil
       }
@@ -204,6 +213,7 @@ private struct AppleLiquidSheetContentConfiguration {
   let leadingAction: AppleLiquidSheetToolbarActionConfiguration?
   let trailingAction: AppleLiquidSheetToolbarActionConfiguration
   let detents: AppleLiquidSheetDetentConfiguration
+  let showsSectionBackgrounds: Bool
   let sections: [AppleLiquidSheetSectionConfiguration]
 
   init(value: Any?, fallbackTitle: String = "Settings") {
@@ -229,6 +239,10 @@ private struct AppleLiquidSheetContentConfiguration {
     let detents = AppleLiquidSheetDetentConfiguration(
       value: dictionary["detents"]
     )
+    let showsSectionBackgrounds = Self.bool(
+      dictionary["showsSectionBackgrounds"],
+      defaultValue: true
+    )
     let sections = (dictionary["sections"] as? [Any] ?? [])
       .enumerated()
       .compactMap { index, value in
@@ -244,6 +258,7 @@ private struct AppleLiquidSheetContentConfiguration {
       leadingAction: leadingAction,
       trailingAction: trailingAction,
       detents: detents,
+      showsSectionBackgrounds: showsSectionBackgrounds,
       sections: sections.isEmpty ? Self.defaultContent.sections : sections
     )
   }
@@ -254,6 +269,7 @@ private struct AppleLiquidSheetContentConfiguration {
     leadingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     trailingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     detents: AppleLiquidSheetDetentConfiguration = .automatic,
+    showsSectionBackgrounds: Bool = true,
     sections: [AppleLiquidSheetSectionConfiguration]
   ) {
     self.title = title
@@ -263,6 +279,7 @@ private struct AppleLiquidSheetContentConfiguration {
       trailingAction ??
       .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     self.detents = detents
+    self.showsSectionBackgrounds = showsSectionBackgrounds
     self.sections = sections
   }
 
@@ -277,6 +294,18 @@ private struct AppleLiquidSheetContentConfiguration {
     }
 
     return string
+  }
+
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
   }
 
   var estimatedDetentHeight: CGFloat {
@@ -755,6 +784,7 @@ private enum AppleLiquidSheetRowKind: String {
   case value
   case toggle
   case picker
+  case multiPicker
   case segmented
   case button
   case slider
@@ -1400,6 +1430,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let boolValue: Bool
   let options: [String]
   let selectedOption: String?
+  let selectedOptions: [String]
   let sliderValue: Double
   let valueSuffix: String?
   let sliderMin: Double
@@ -1412,6 +1443,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration
   let buttonStyle: AppleLiquidSheetButtonStyleConfiguration
   let buttonActionId: String?
+  let multiSelectionActionId: String?
   let buttonAccessibilityLabel: String
   let buttonDismissesSheet: Bool
   let buttonEnabled: Bool
@@ -1435,7 +1467,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       max: sliderMax
     )
 
-    if kind == .picker && options.isEmpty {
+    if (kind == .picker || kind == .multiPicker) && options.isEmpty {
       return nil
     }
 
@@ -1467,6 +1499,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = Self.bool(dictionary["boolValue"], defaultValue: false)
     self.options = options
     self.selectedOption = Self.optionalString(dictionary["selectedOption"])
+    self.selectedOptions = Self.stringArray(dictionary["selectedOptions"])
+      .filter(options.contains)
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
@@ -1497,6 +1531,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       value: dictionary["buttonStyle"]
     )
     self.buttonActionId = Self.optionalString(dictionary["buttonActionId"])
+    self.multiSelectionActionId = Self.optionalString(
+      dictionary["multiSelectionActionId"]
+    )
     self.buttonAccessibilityLabel = Self.string(
       dictionary["buttonSemanticLabel"],
       defaultValue: title
@@ -1520,6 +1557,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     boolValue: Bool = false,
     options: [String] = [],
     selectedOption: String? = nil,
+    selectedOptions: [String] = [],
     sliderValue: Double = 0,
     valueSuffix: String? = nil,
     sliderMin: Double = 0,
@@ -1534,6 +1572,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     buttonStyle: AppleLiquidSheetButtonStyleConfiguration =
       AppleLiquidSheetButtonStyleConfiguration(value: nil),
     buttonActionId: String? = nil,
+    multiSelectionActionId: String? = nil,
     buttonAccessibilityLabel: String? = nil,
     buttonDismissesSheet: Bool = false,
     buttonEnabled: Bool = true
@@ -1546,6 +1585,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.boolValue = boolValue
     self.options = options
     self.selectedOption = selectedOption
+    self.selectedOptions = selectedOptions
     self.sliderMin = sliderMin
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
@@ -1563,6 +1603,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.segmentedStyle = segmentedStyle
     self.buttonStyle = buttonStyle
     self.buttonActionId = buttonActionId
+    self.multiSelectionActionId = multiSelectionActionId
     self.buttonAccessibilityLabel = buttonAccessibilityLabel ?? title
     self.buttonDismissesSheet = buttonDismissesSheet
     self.buttonEnabled = buttonEnabled
@@ -1742,7 +1783,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = subtitle == nil ? 48 : 66
     case .toggle:
       baseHeight = subtitle == nil ? 50 : 68
-    case .picker:
+    case .picker, .multiPicker:
       baseHeight = subtitle == nil ? 50 : 68
     case .segmented:
       baseHeight = segmentedStyle.estimatedHeight(hasSubtitle: subtitle != nil)
@@ -1925,6 +1966,7 @@ private final class AppleLiquidSheetSession: NSObject,
   private var hostController: UIViewController?
   private let result: FlutterResult
   private let onButtonAction: (String) -> Void
+  private let onMultiSelectionAction: (String, [String]) -> Void
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
   private let originalCornerRadius: CGFloat
@@ -1948,12 +1990,14 @@ private final class AppleLiquidSheetSession: NSObject,
     presentingView: UIView?,
     result: @escaping FlutterResult,
     onButtonAction: @escaping (String) -> Void,
+    onMultiSelectionAction: @escaping (String, [String]) -> Void,
     onFinish: @escaping () -> Void
   ) {
     self.configuration = configuration
     self.presentingView = presentingView
     self.result = result
     self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self.onFinish = onFinish
     self.originalTransform = presentingView?.transform ?? .identity
     self.originalCornerRadius = presentingView?.layer.cornerRadius ?? 0
@@ -2008,6 +2052,13 @@ private final class AppleLiquidSheetSession: NSObject,
         if row.buttonDismissesSheet {
           self.dismissFromControl()
         }
+      },
+      onMultiSelectionAction: { [weak self] row, selectedOptions in
+        guard let self, let actionId = row.multiSelectionActionId else {
+          return
+        }
+
+        self.onMultiSelectionAction(actionId, selectedOptions)
       },
       onDismissRequest: { [weak self] in
         self?.dismissFromControl()
@@ -2364,6 +2415,7 @@ private struct AppleLiquidSettingsSheetView: View {
   let onFrameChange: (CGRect, CGRect) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onDismissRequest: () -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
@@ -2374,12 +2426,17 @@ private struct AppleLiquidSettingsSheetView: View {
     onFrameChange: @escaping (CGRect, CGRect) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
     onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void,
+    onMultiSelectionAction: @escaping (
+      AppleLiquidSheetRowConfiguration,
+      [String]
+    ) -> Void,
     onDismissRequest: @escaping () -> Void
   ) {
     self.configuration = configuration
     self.onFrameChange = onFrameChange
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self.onDismissRequest = onDismissRequest
 
     let detentHeights = configuration.content.preferredDetentHeights
@@ -2396,6 +2453,7 @@ private struct AppleLiquidSettingsSheetView: View {
         onPreferredDetentHeightsChange: setPreferredDetentHeights,
         onControlInteractionChanged: onControlInteractionChanged,
         onButtonAction: onButtonAction,
+        onMultiSelectionAction: onMultiSelectionAction,
         onToolbarAction: onDismissRequest
       )
     }
@@ -2516,6 +2574,7 @@ private struct AppleLiquidSheetFormScreen: View {
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onToolbarAction: (() -> Void)?
 
   var body: some View {
@@ -2528,7 +2587,11 @@ private struct AppleLiquidSheetFormScreen: View {
                 row: row,
                 onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
                 onControlInteractionChanged: onControlInteractionChanged,
-                onButtonAction: onButtonAction
+                onButtonAction: onButtonAction,
+                onMultiSelectionAction: onMultiSelectionAction
+              )
+              .appleLiquidFormRowBackground(
+                isVisible: content.showsSectionBackgrounds
               )
             }
           } header: {
@@ -2581,8 +2644,10 @@ private struct AppleLiquidSheetRowView: View {
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
+  let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   @State private var toggleValue: Bool
   @State private var pickerSelection: String
+  @State private var multiPickerSelection: Set<String>
   @State private var sliderValue: Double
   @State private var textValue: String
 
@@ -2593,13 +2658,19 @@ private struct AppleLiquidSheetRowView: View {
     ) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
     onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void
+    , onMultiSelectionAction: @escaping (
+      AppleLiquidSheetRowConfiguration,
+      [String]
+    ) -> Void
   ) {
     self.row = row
     self.onPreferredDetentHeightsChange = onPreferredDetentHeightsChange
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
+    self.onMultiSelectionAction = onMultiSelectionAction
     self._toggleValue = State(initialValue: row.boolValue)
     self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
+    self._multiPickerSelection = State(initialValue: Set(row.selectedOptions))
     self._sliderValue = State(initialValue: row.sliderValue)
     self._textValue = State(initialValue: row.value ?? "")
   }
@@ -2633,6 +2704,40 @@ private struct AppleLiquidSheetRowView: View {
       .pickerStyle(.navigationLink)
       .scrollContentBackground(formBackgroundVisibility)
       .appleLiquidNavigationContainerBackground()
+
+    case .multiPicker:
+      NavigationLink {
+        List {
+          ForEach(row.options, id: \.self) { option in
+            Button {
+              toggleMultiPickerOption(option)
+            } label: {
+              HStack {
+                Text(option)
+                  .foregroundStyle(.primary)
+                Spacer()
+                if multiPickerSelection.contains(option) {
+                  Image(systemName: "checkmark")
+                    .foregroundStyle(.tint)
+                }
+              }
+              .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+          }
+        }
+        .navigationTitle(row.title)
+        .scrollContentBackground(formBackgroundVisibility)
+        .appleLiquidNavigationContainerBackground()
+      } label: {
+        HStack {
+          AppleLiquidSheetRowLabel(row: row)
+          Spacer()
+          Text(multiPickerSummary)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+      }
 
     case .segmented:
       VStack(alignment: .leading, spacing: row.segmentedStyle.contentSpacing) {
@@ -2691,6 +2796,7 @@ private struct AppleLiquidSheetRowView: View {
             onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
             onControlInteractionChanged: onControlInteractionChanged,
             onButtonAction: onButtonAction,
+            onMultiSelectionAction: onMultiSelectionAction,
             onToolbarAction: nil
           )
         } label: {
@@ -2775,6 +2881,37 @@ private struct AppleLiquidSheetRowView: View {
     } else {
       pickerSelection = option
     }
+  }
+
+  private var multiPickerSummary: String {
+    if multiPickerSelection.isEmpty || multiPickerSelection.contains("Alle") {
+      return "Alle"
+    }
+
+    if multiPickerSelection.count == 1 {
+      return multiPickerSelection.first ?? "Alle"
+    }
+
+    return "\(multiPickerSelection.count) ausgewählt"
+  }
+
+  private func toggleMultiPickerOption(_ option: String) {
+    if option == "Alle" {
+      multiPickerSelection = ["Alle"]
+    } else {
+      multiPickerSelection.remove("Alle")
+      if multiPickerSelection.contains(option) {
+        multiPickerSelection.remove(option)
+      } else {
+        multiPickerSelection.insert(option)
+      }
+      if multiPickerSelection.isEmpty {
+        multiPickerSelection = ["Alle"]
+      }
+    }
+
+    let orderedSelection = row.options.filter(multiPickerSelection.contains)
+    onMultiSelectionAction(row, orderedSelection)
   }
 }
 

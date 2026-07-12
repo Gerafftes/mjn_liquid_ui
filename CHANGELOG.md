@@ -1,3 +1,10 @@
+## 0.2.15
+
+- Added `AppleLiquidSheetContent.showsSectionBackgrounds` to optionally remove
+  the native SwiftUI form section boxes.
+- Added `AppleLiquidSheetRow.multiPicker` with initial selections and Dart
+  callbacks for native multi-selection changes.
+
 ## 0.2.14
 
 - Added `AppleLiquidSheetRow.button` for native full-width action buttons with

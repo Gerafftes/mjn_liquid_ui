@@ -28,6 +28,21 @@ void main() {
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
   );
 
+  test('multi-picker row serializes its initial selection', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.multiPicker(
+      title: 'Category',
+      options: <String>['All', 'Garden', 'Moving'],
+      selectedOptions: <String>['Garden', 'Moving'],
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'multiPicker',
+      'title': 'Category',
+      'options': <String>['All', 'Garden', 'Moving'],
+      'selectedOptions': <String>['Garden', 'Moving'],
+    });
+  });
+
   test('AppleLiquidTabItem serializes to platform arguments', () {
     const AppleLiquidTabItem item = AppleLiquidTabItem(
       title: 'Search',
@@ -69,6 +84,7 @@ void main() {
         backgroundColor: Color(0xFF0A84FF),
       ),
       detents: AppleLiquidSheetDetents(initialHeight: 420, expandedHeight: 640),
+      showsSectionBackgrounds: false,
       sections: <AppleLiquidSheetSection>[
         AppleLiquidSheetSection(
           title: 'Overview',
@@ -193,6 +209,7 @@ void main() {
         'initialHeight': 420.0,
         'expandedHeight': 640.0,
       },
+      'showsSectionBackgrounds': false,
       'sections': <Object?>[
         <String, Object?>{
           'title': 'Overview',
