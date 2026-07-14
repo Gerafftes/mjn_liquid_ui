@@ -332,9 +332,9 @@ remains the main-row fallback.
 
 | API | Purpose |
 | --- | --- |
-| `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, and sections |
+| `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, section spacing, and sections |
 | `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol |
-| `AppleLiquidSheetSection` | Optional section header, native form rows, and per-section background, border, and corner styling |
+| `AppleLiquidSheetSection` | Optional section header with a custom color, native form rows, and per-section background, border, and corner styling |
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
@@ -376,6 +376,7 @@ void openMap() {
 final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   title: 'Project',
   showsSectionBackgrounds: false,
+  sectionSpacing: 8,
   doneSemanticLabel: 'Close sheet',
   leadingAction: AppleLiquidSheetToolbarAction(
     systemImage: 'xmark',
@@ -396,6 +397,7 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   sections: <AppleLiquidSheetSection>[
     AppleLiquidSheetSection(
       title: 'Overview',
+      titleColor: Color(0xFFE6E6E6),
       showsBackground: true,
       backgroundColor: Color(0xFF1A1A1A),
       borderColor: Color(0xFF2C2C2E),
@@ -593,10 +595,55 @@ Set `showsSectionBackgrounds: false` on an `AppleLiquidSheetContent` page to
 remove the rounded native SwiftUI section boxes while keeping the form rows and
 controls. The option can be configured independently for nested pages. Each
 `AppleLiquidSheetSection` can inherit that setting or override it with
-`showsBackground`, `backgroundColor`, `borderColor`, and `cornerRadius`.
+`showsBackground`, `titleColor`, `backgroundColor`, `borderColor`, and
+`cornerRadius`.
 These options work with every supported sheet row type. To style only one
 element, place that row in its own `AppleLiquidSheetSection`, as shown by the
 `Label` field in the example app.
+
+Set `sectionSpacing` on an `AppleLiquidSheetContent` page to control the native
+vertical distance between its form sections. When omitted, SwiftUI keeps its
+system spacing. Custom section spacing is applied on iOS 17 and newer. The
+example app demonstrates `8` points on the main sheet page and `24` points on
+the nested Release page.
+
+```dart
+const AppleLiquidSheetContent(
+  title: 'Main sheet',
+  sectionSpacing: 8,
+  sections: <AppleLiquidSheetSection>[
+    AppleLiquidSheetSection(
+      title: 'Overview',
+      rows: <AppleLiquidSheetRow>[
+        AppleLiquidSheetRow.navigation(
+          title: 'Release details',
+          content: AppleLiquidSheetContent(
+            title: 'Release',
+            sectionSpacing: 24,
+            sections: <AppleLiquidSheetSection>[
+              AppleLiquidSheetSection(
+                title: 'Highlights',
+                rows: <AppleLiquidSheetRow>[
+                  AppleLiquidSheetRow.text(title: 'Native SwiftUI form'),
+                ],
+              ),
+              AppleLiquidSheetSection(
+                title: 'Spacing demo',
+                rows: <AppleLiquidSheetRow>[
+                  AppleLiquidSheetRow.value(
+                    title: 'Section spacing',
+                    value: '24 pt',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  ],
+);
+```
 
 The iOS implementation opens at a SwiftUI content-sized sheet detent instead of
 expanding straight to `.large`. Pass `AppleLiquidSheetDetents` to any

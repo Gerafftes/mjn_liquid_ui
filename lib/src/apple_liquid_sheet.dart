@@ -62,8 +62,12 @@ class AppleLiquidSheetContent {
     this.trailingAction,
     this.detents,
     this.showsSectionBackgrounds = true,
+    this.sectionSpacing,
     required this.sections,
-  });
+  }) : assert(
+         sectionSpacing == null ||
+             (sectionSpacing >= 0 && sectionSpacing <= 200),
+       );
 
   /// Default content used when no custom content is passed.
   static const AppleLiquidSheetContent settings = AppleLiquidSheetContent(
@@ -207,6 +211,12 @@ class AppleLiquidSheetContent {
   /// Set this to false to render the rows without the rounded section boxes.
   final bool showsSectionBackgrounds;
 
+  /// Optional spacing between native form sections in iOS points.
+  ///
+  /// When null, SwiftUI keeps its native default spacing. Custom spacing is
+  /// supported natively on iOS 17 and newer.
+  final double? sectionSpacing;
+
   /// Form sections rendered in order.
   final List<AppleLiquidSheetSection> sections;
 
@@ -224,6 +234,7 @@ class AppleLiquidSheetContent {
       if (trailingAction != null) 'trailingAction': trailingAction!.toMap(),
       if (detents != null) 'detents': detents!.toMap(),
       if (!showsSectionBackgrounds) 'showsSectionBackgrounds': false,
+      if (sectionSpacing != null) 'sectionSpacing': sectionSpacing,
       'sections': sections
           .map(
             (AppleLiquidSheetSection section) => section._toMap(actionRegistry),
@@ -268,6 +279,7 @@ class AppleLiquidSheetSection {
   /// Creates a section with optional title and rows.
   const AppleLiquidSheetSection({
     this.title,
+    this.titleColor,
     this.showsBackground,
     this.backgroundColor,
     this.borderColor,
@@ -279,6 +291,9 @@ class AppleLiquidSheetSection {
 
   /// Optional section header.
   final String? title;
+
+  /// Optional custom color for the section header.
+  final Color? titleColor;
 
   /// Whether this section keeps a native form background.
   ///
@@ -308,6 +323,7 @@ class AppleLiquidSheetSection {
   ]) {
     return <String, Object?>{
       if (title != null) 'title': title,
+      if (titleColor != null) 'titleColor': titleColor!.toARGB32(),
       if (showsBackground != null) 'showsBackground': showsBackground,
       if (backgroundColor != null)
         'backgroundColor': backgroundColor!.toARGB32(),

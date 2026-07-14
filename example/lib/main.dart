@@ -142,6 +142,7 @@ class _DemoShellState extends State<DemoShell> {
         expandedHeight: 660,
       ),
       showsSectionBackgrounds: templateSheetSectionBackgrounds,
+      sectionSpacing: 8,
       sections: <AppleLiquidSheetSection>[
         const AppleLiquidSheetSection(
           title: 'Package',
@@ -156,6 +157,11 @@ class _DemoShellState extends State<DemoShell> {
               value: 'Configured from Flutter',
               systemImage: 'doc.text.fill',
             ),
+            AppleLiquidSheetRow.value(
+              title: 'Section spacing',
+              value: '8 pt',
+              systemImage: 'arrow.up.and.down',
+            ),
             AppleLiquidSheetRow.navigation(
               title: 'Release details',
               systemImage: 'sparkles',
@@ -165,6 +171,7 @@ class _DemoShellState extends State<DemoShell> {
                   initialHeight: 300,
                   expandedHeight: 520,
                 ),
+                sectionSpacing: 24,
                 sections: <AppleLiquidSheetSection>[
                   AppleLiquidSheetSection(
                     title: 'Highlights',
@@ -178,6 +185,16 @@ class _DemoShellState extends State<DemoShell> {
                       AppleLiquidSheetRow.value(
                         title: 'Detents',
                         value: 'Custom two-step',
+                      ),
+                    ],
+                  ),
+                  AppleLiquidSheetSection(
+                    title: 'Spacing demo',
+                    rows: <AppleLiquidSheetRow>[
+                      AppleLiquidSheetRow.value(
+                        title: 'Section spacing',
+                        value: '24 pt',
+                        systemImage: 'arrow.up.and.down',
                       ),
                     ],
                   ),
@@ -256,6 +273,7 @@ class _DemoShellState extends State<DemoShell> {
         ),
         const AppleLiquidSheetSection(
           title: 'Kategorie',
+          titleColor: Color(0xFFE6E6E6),
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.multiPicker(
               title: 'Kategorie',
@@ -915,6 +933,7 @@ class _TemplateSheetFallback extends StatelessWidget {
             for (final AppleLiquidSheetSection section in content.sections) ...[
               _SettingsFallbackSection(
                 title: section.title,
+                titleColor: section.titleColor,
                 children: <Widget>[
                   for (final AppleLiquidSheetRow row in section.rows)
                     _SettingsFallbackRow(
@@ -923,7 +942,7 @@ class _TemplateSheetFallback extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 14),
+              SizedBox(height: content.sectionSpacing ?? 14),
             ],
           ],
         ),
@@ -1061,9 +1080,14 @@ class _TemplateSheetFallbackToolbarButton extends StatelessWidget {
 }
 
 class _SettingsFallbackSection extends StatelessWidget {
-  const _SettingsFallbackSection({required this.title, required this.children});
+  const _SettingsFallbackSection({
+    required this.title,
+    required this.titleColor,
+    required this.children,
+  });
 
   final String? title;
+  final Color? titleColor;
   final List<Widget> children;
 
   @override
@@ -1076,7 +1100,12 @@ class _SettingsFallbackSection extends StatelessWidget {
         if (title != null) ...[
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Text(title!, style: Theme.of(context).textTheme.labelLarge),
+            child: Text(
+              title!,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(color: titleColor),
+            ),
           ),
           const SizedBox(height: 8),
         ],

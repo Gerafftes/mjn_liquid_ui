@@ -114,9 +114,11 @@ void main() {
       ),
       detents: AppleLiquidSheetDetents(initialHeight: 420, expandedHeight: 640),
       showsSectionBackgrounds: false,
+      sectionSpacing: 8,
       sections: <AppleLiquidSheetSection>[
         AppleLiquidSheetSection(
           title: 'Overview',
+          titleColor: Color(0xFFE6E6E6),
           showsBackground: true,
           backgroundColor: Color(0xFF1A1A1A),
           borderColor: Color(0xFF2C2C2E),
@@ -243,9 +245,11 @@ void main() {
         'expandedHeight': 640.0,
       },
       'showsSectionBackgrounds': false,
+      'sectionSpacing': 8.0,
       'sections': <Object?>[
         <String, Object?>{
           'title': 'Overview',
+          'titleColor': 0xFFE6E6E6,
           'showsBackground': true,
           'backgroundColor': 0xFF1A1A1A,
           'borderColor': 0xFF2C2C2E,
@@ -528,6 +532,23 @@ void main() {
           AppleLiquidSheetRow.text(title: 'Row'),
         ],
       ),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet section spacing stays within native bounds', () {
+    const List<AppleLiquidSheetSection> sections = <AppleLiquidSheetSection>[
+      AppleLiquidSheetSection(
+        rows: <AppleLiquidSheetRow>[AppleLiquidSheetRow.text(title: 'Row')],
+      ),
+    ];
+
+    expect(
+      () => AppleLiquidSheetContent(sectionSpacing: -1, sections: sections),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetContent(sectionSpacing: 201, sections: sections),
       throwsAssertionError,
     );
   });

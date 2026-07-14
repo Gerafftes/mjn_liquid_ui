@@ -1,3 +1,10 @@
+## 0.2.18
+
+- Added configurable native section-header colors through
+  `AppleLiquidSheetSection.titleColor`.
+- Added page-level native form section spacing through
+  `AppleLiquidSheetContent.sectionSpacing`.
+
 ## 0.2.17
 
 - Added configurable multi-picker selection-summary placement through
