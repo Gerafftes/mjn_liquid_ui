@@ -1,3 +1,10 @@
+## 0.2.21
+
+- Fixed exact button spacing to render transparent spacer rows inside existing
+  native form sections without introducing extra header or footer margins.
+- Aligned content-sized sheet detents with the fully rendered native form so a
+  final button remains visible without unintended scrolling.
+
 ## 0.2.20
 
 - Added independent native button-row top and bottom insets through
