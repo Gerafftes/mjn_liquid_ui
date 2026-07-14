@@ -43,6 +43,35 @@ void main() {
     });
   });
 
+  test('multi-picker row serializes primary selection label placement', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.multiPicker(
+      title: 'Kategorie',
+      options: <String>['Alle', 'Garten', 'Umzug'],
+      selectedOptions: <String>['Alle'],
+      systemImage: 'square.grid.2x2.fill',
+      selectionSystemImages: <String, String>{
+        'Alle': 'square.grid.2x2.fill',
+        'Garten': 'leaf.fill',
+        'Nicht vorhanden': 'questionmark',
+      },
+      selectionLabelPlacement:
+          AppleLiquidSheetMultiPickerLabelPlacement.primary,
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'multiPicker',
+      'title': 'Kategorie',
+      'options': <String>['Alle', 'Garten', 'Umzug'],
+      'selectedOptions': <String>['Alle'],
+      'systemImage': 'square.grid.2x2.fill',
+      'selectionLabelPlacement': 'primary',
+      'selectionSystemImages': <String, String>{
+        'Alle': 'square.grid.2x2.fill',
+        'Garten': 'leaf.fill',
+      },
+    });
+  });
+
   test('AppleLiquidTabItem serializes to platform arguments', () {
     const AppleLiquidTabItem item = AppleLiquidTabItem(
       title: 'Search',

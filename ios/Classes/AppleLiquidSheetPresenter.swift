@@ -894,6 +894,11 @@ private enum AppleLiquidSheetSliderValuePlacement: String {
   case besideTrack
 }
 
+private enum AppleLiquidSheetMultiPickerLabelPlacement: String {
+  case trailing
+  case primary
+}
+
 private enum AppleLiquidSheetSegmentedAnimationCurve: String {
   case linear
   case easeIn
@@ -1534,6 +1539,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let sliderMax: Double
   let sliderStep: Double?
   let sliderValuePlacement: AppleLiquidSheetSliderValuePlacement
+  let multiPickerLabelPlacement: AppleLiquidSheetMultiPickerLabelPlacement
+  let multiPickerSelectionSystemImages: [String: String]
   let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
@@ -1607,6 +1614,15 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
         defaultValue: AppleLiquidSheetSliderValuePlacement.topTrailing.rawValue
       )
     ) ?? .topTrailing
+    self.multiPickerLabelPlacement = AppleLiquidSheetMultiPickerLabelPlacement(
+      rawValue: Self.string(
+        dictionary["selectionLabelPlacement"],
+        defaultValue: AppleLiquidSheetMultiPickerLabelPlacement.trailing.rawValue
+      )
+    ) ?? .trailing
+    self.multiPickerSelectionSystemImages = Self.stringDictionary(
+      dictionary["selectionSystemImages"]
+    ).filter { options.contains($0.key) }
     self.sliderValue = Self.normalizedSliderValue(
       Self.optionalDouble(dictionary["sliderValue"]) ??
         Self.optionalDouble(dictionary["value"]) ??
@@ -1661,6 +1677,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     sliderMax: Double = 1,
     sliderStep: Double? = nil,
     sliderValuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
+    multiPickerLabelPlacement: AppleLiquidSheetMultiPickerLabelPlacement =
+      .trailing,
+    multiPickerSelectionSystemImages: [String: String] = [:],
     tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil,
@@ -1687,6 +1706,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
     self.sliderValuePlacement = sliderValuePlacement
+    self.multiPickerLabelPlacement = multiPickerLabelPlacement
+    self.multiPickerSelectionSystemImages = multiPickerSelectionSystemImages
     self.sliderValue = Self.normalizedSliderValue(
       sliderValue,
       min: sliderMin,
@@ -1930,6 +1951,22 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       }
 
       return string
+    }
+  }
+
+  private static func stringDictionary(_ value: Any?) -> [String: String] {
+    guard let dictionary = value as? [String: Any] else {
+      return [:]
+    }
+
+    return dictionary.reduce(into: [String: String]()) { result, entry in
+      guard let string = entry.value as? String,
+        !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+      else {
+        return
+      }
+
+      result[entry.key] = string
     }
   }
 
@@ -2826,6 +2863,13 @@ private struct AppleLiquidSheetRowView: View {
               toggleMultiPickerOption(option)
             } label: {
               HStack {
+                if let systemImage =
+                  row.multiPickerSelectionSystemImages[option]
+                {
+                  Image(systemName: systemImage)
+                    .foregroundStyle(.tint)
+                    .frame(width: 22)
+                }
                 Text(option)
                   .foregroundStyle(.primary)
                 Spacer()
@@ -2843,12 +2887,24 @@ private struct AppleLiquidSheetRowView: View {
         .scrollContentBackground(formBackgroundVisibility)
         .appleLiquidNavigationContainerBackground()
       } label: {
-        HStack {
-          AppleLiquidSheetRowLabel(row: row)
-          Spacer()
-          Text(multiPickerSummary)
-            .foregroundStyle(.secondary)
-            .lineLimit(1)
+        switch row.multiPickerLabelPlacement {
+        case .trailing:
+          HStack {
+            AppleLiquidSheetRowLabel(
+              row: row,
+              labelSystemImage: multiPickerSystemImage
+            )
+            Spacer()
+            Text(multiPickerSummary)
+              .foregroundStyle(.secondary)
+              .lineLimit(1)
+          }
+        case .primary:
+          AppleLiquidSheetRowLabel(
+            row: row,
+            labelTitle: multiPickerSummary,
+            labelSystemImage: multiPickerSystemImage
+          )
         }
       }
 
@@ -3006,6 +3062,24 @@ private struct AppleLiquidSheetRowView: View {
     }
 
     return "\(multiPickerSelection.count) ausgewählt"
+  }
+
+  private var multiPickerSystemImage: String? {
+    let selection: String?
+
+    if multiPickerSelection.isEmpty || multiPickerSelection.contains("Alle") {
+      selection = "Alle"
+    } else if multiPickerSelection.count == 1 {
+      selection = multiPickerSelection.first
+    } else {
+      selection = nil
+    }
+
+    guard let selection else {
+      return row.systemImage
+    }
+
+    return row.multiPickerSelectionSystemImages[selection] ?? row.systemImage
   }
 
   private func toggleMultiPickerOption(_ option: String) {
@@ -3397,6 +3471,8 @@ private final class AppleLiquidSheetSliderUIKitView: UISlider {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetRowLabel: View {
   let row: AppleLiquidSheetRowConfiguration
+  let labelTitle: String
+  let labelSystemImage: String?
   let titleFont: Font?
   let subtitleFont: Font?
   let titleColor: Color?
@@ -3404,12 +3480,16 @@ private struct AppleLiquidSheetRowLabel: View {
 
   init(
     row: AppleLiquidSheetRowConfiguration,
+    labelTitle: String? = nil,
+    labelSystemImage: String? = nil,
     titleFont: Font? = nil,
     subtitleFont: Font? = nil,
     titleColor: Color? = nil,
     subtitleColor: Color? = nil
   ) {
     self.row = row
+    self.labelTitle = labelTitle ?? row.title
+    self.labelSystemImage = labelSystemImage ?? row.systemImage
     self.titleFont = titleFont
     self.subtitleFont = subtitleFont
     self.titleColor = titleColor
@@ -3429,10 +3509,10 @@ private struct AppleLiquidSheetRowLabel: View {
 
   @ViewBuilder
   private var title: some View {
-    if let systemImage = row.systemImage {
-      styledTitle(Label(row.title, systemImage: systemImage))
+    if let systemImage = labelSystemImage {
+      styledTitle(Label(labelTitle, systemImage: systemImage))
     } else {
-      styledTitle(Text(row.title))
+      styledTitle(Text(labelTitle))
     }
   }
 

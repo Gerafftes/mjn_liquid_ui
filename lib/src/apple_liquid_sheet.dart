@@ -815,6 +815,23 @@ enum AppleLiquidSheetSliderValuePlacement {
   final String platformValue;
 }
 
+/// Placement for the selection summary rendered by
+/// [AppleLiquidSheetRow.multiPicker].
+enum AppleLiquidSheetMultiPickerLabelPlacement {
+  /// Shows the fixed row title first and the selection summary at the trailing
+  /// edge.
+  trailing('trailing'),
+
+  /// Shows the selection summary as the primary row label. The fixed title is
+  /// still used as the title of the pushed picker page.
+  primary('primary');
+
+  const AppleLiquidSheetMultiPickerLabelPlacement(this.platformValue);
+
+  /// Value sent over the platform channel.
+  final String platformValue;
+}
+
 /// A row rendered inside a native iOS Liquid Glass sheet form.
 class AppleLiquidSheetRow {
   const AppleLiquidSheetRow._({
@@ -828,6 +845,7 @@ class AppleLiquidSheetRow {
     String? secondSegmentOption,
     this.selectedOption,
     List<String> selectedOptions = const <String>[],
+    Map<String, String> selectionSystemImages = const <String, String>{},
     this.sliderValue,
     this.valueSuffix,
     this.min,
@@ -836,6 +854,8 @@ class AppleLiquidSheetRow {
     this.tintColor,
     this.sliderValuePlacement =
         AppleLiquidSheetSliderValuePlacement.topTrailing,
+    this.selectionLabelPlacement =
+        AppleLiquidSheetMultiPickerLabelPlacement.trailing,
     this.content,
     this.systemImage,
     this.segmentedStyle,
@@ -847,6 +867,7 @@ class AppleLiquidSheetRow {
     this.onMultiSelectionChanged,
   }) : _options = options,
        _selectedOptions = selectedOptions,
+       _selectionSystemImages = selectionSystemImages,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
        assert(
@@ -936,6 +957,9 @@ class AppleLiquidSheetRow {
     List<String> selectedOptions = const <String>[],
     String? subtitle,
     String? systemImage,
+    Map<String, String> selectionSystemImages = const <String, String>{},
+    AppleLiquidSheetMultiPickerLabelPlacement selectionLabelPlacement =
+        AppleLiquidSheetMultiPickerLabelPlacement.trailing,
     AppleLiquidSheetMultiSelectionCallback? onSelectionChanged,
   }) : this._(
          type: AppleLiquidSheetRowType.multiPicker,
@@ -944,6 +968,8 @@ class AppleLiquidSheetRow {
          options: options,
          selectedOptions: selectedOptions,
          systemImage: systemImage,
+         selectionSystemImages: selectionSystemImages,
+         selectionLabelPlacement: selectionLabelPlacement,
          onMultiSelectionChanged: onSelectionChanged,
        );
 
@@ -1067,6 +1093,7 @@ class AppleLiquidSheetRow {
 
   final List<String> _options;
   final List<String> _selectedOptions;
+  final Map<String, String> _selectionSystemImages;
   final String? _firstSegmentOption;
   final String? _secondSegmentOption;
 
@@ -1090,6 +1117,18 @@ class AppleLiquidSheetRow {
   List<String> get selectedOptions =>
       List<String>.unmodifiable(_selectedOptions.where(options.contains));
 
+  /// SF Symbols used for individual multi-picker selections.
+  ///
+  /// Entries whose keys are not present in [options] are ignored. When more
+  /// than one option is selected, [systemImage] remains the fallback icon.
+  Map<String, String> get selectionSystemImages =>
+      Map<String, String>.unmodifiable(<String, String>{
+        for (final MapEntry<String, String> entry
+            in _selectionSystemImages.entries)
+          if (options.contains(entry.key) && entry.value.isNotEmpty)
+            entry.key: entry.value,
+      });
+
   /// Initial slider value for [AppleLiquidSheetRow.slider].
   final double? sliderValue;
 
@@ -1110,6 +1149,9 @@ class AppleLiquidSheetRow {
 
   /// Placement for the slider value text.
   final AppleLiquidSheetSliderValuePlacement sliderValuePlacement;
+
+  /// Placement for the selection summary of a multi-picker row.
+  final AppleLiquidSheetMultiPickerLabelPlacement selectionLabelPlacement;
 
   /// Nested content for [AppleLiquidSheetRow.navigation].
   final AppleLiquidSheetContent? content;
@@ -1172,6 +1214,13 @@ class AppleLiquidSheetRow {
           sliderValuePlacement !=
               AppleLiquidSheetSliderValuePlacement.topTrailing)
         'sliderValuePlacement': sliderValuePlacement.platformValue,
+      if (type == AppleLiquidSheetRowType.multiPicker &&
+          selectionLabelPlacement !=
+              AppleLiquidSheetMultiPickerLabelPlacement.trailing)
+        'selectionLabelPlacement': selectionLabelPlacement.platformValue,
+      if (type == AppleLiquidSheetRowType.multiPicker &&
+          selectionSystemImages.isNotEmpty)
+        'selectionSystemImages': selectionSystemImages,
       if (content != null) 'content': content!._toMap(actionRegistry),
       if (systemImage != null) 'systemImage': systemImage,
       if (segmentedStyle != null) 'segmentedStyle': segmentedStyle!.toMap(),

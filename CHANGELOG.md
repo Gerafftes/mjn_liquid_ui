@@ -1,3 +1,10 @@
+## 0.2.17
+
+- Added configurable multi-picker selection-summary placement through
+  `AppleLiquidSheetMultiPickerLabelPlacement`.
+- Added per-option and selection-dependent multi-picker SF Symbols through
+  `selectionSystemImages`.
+
 ## 0.2.16
 
 - Added per-section native form background, border, visibility, and corner
