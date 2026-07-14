@@ -214,6 +214,7 @@ private struct AppleLiquidSheetContentConfiguration {
   let trailingAction: AppleLiquidSheetToolbarActionConfiguration
   let detents: AppleLiquidSheetDetentConfiguration
   let showsSectionBackgrounds: Bool
+  let sectionSpacing: CGFloat?
   let sections: [AppleLiquidSheetSectionConfiguration]
 
   init(value: Any?, fallbackTitle: String = "Settings") {
@@ -243,6 +244,11 @@ private struct AppleLiquidSheetContentConfiguration {
       dictionary["showsSectionBackgrounds"],
       defaultValue: true
     )
+    let sectionSpacing = Self.optionalClampedCGFloat(
+      dictionary["sectionSpacing"],
+      minValue: 0,
+      maxValue: 200
+    )
     let sections = (dictionary["sections"] as? [Any] ?? [])
       .enumerated()
       .compactMap { index, value in
@@ -259,6 +265,7 @@ private struct AppleLiquidSheetContentConfiguration {
       trailingAction: trailingAction,
       detents: detents,
       showsSectionBackgrounds: showsSectionBackgrounds,
+      sectionSpacing: sectionSpacing,
       sections: sections.isEmpty ? Self.defaultContent.sections : sections
     )
   }
@@ -270,6 +277,7 @@ private struct AppleLiquidSheetContentConfiguration {
     trailingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     detents: AppleLiquidSheetDetentConfiguration = .automatic,
     showsSectionBackgrounds: Bool = true,
+    sectionSpacing: CGFloat? = nil,
     sections: [AppleLiquidSheetSectionConfiguration]
   ) {
     self.title = title
@@ -280,6 +288,7 @@ private struct AppleLiquidSheetContentConfiguration {
       .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     self.detents = detents
     self.showsSectionBackgrounds = showsSectionBackgrounds
+    self.sectionSpacing = sectionSpacing
     self.sections = sections
   }
 
@@ -308,18 +317,41 @@ private struct AppleLiquidSheetContentConfiguration {
     return defaultValue
   }
 
+  private static func optionalClampedCGFloat(
+    _ value: Any?,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat? {
+    let doubleValue: Double?
+    if let value = value as? Double {
+      doubleValue = value
+    } else if let value = value as? NSNumber {
+      doubleValue = value.doubleValue
+    } else {
+      doubleValue = nil
+    }
+
+    guard let doubleValue else {
+      return nil
+    }
+
+    return CGFloat(min(max(doubleValue, minValue), maxValue))
+  }
+
   var estimatedDetentHeight: CGFloat {
     let navigationChromeHeight: CGFloat = 92
     let formGroups = sections.flatMap(\.formGroups)
     let sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
       partial + (group.title == nil ? 12 : 34)
     }
-    let sectionSpacing = CGFloat(max(formGroups.count - 1, 0)) * 12
+    let sectionSpacingHeight = CGFloat(max(formGroups.count - 1, 0)) *
+      (sectionSpacing ?? 12)
     let rowHeight = sections.reduce(CGFloat.zero) { partial, section in
       partial + section.estimatedHeight
     }
 
-    return navigationChromeHeight + sectionHeaderHeight + sectionSpacing + rowHeight
+    return navigationChromeHeight + sectionHeaderHeight +
+      sectionSpacingHeight + rowHeight
   }
 
   var preferredDetentHeights: AppleLiquidSheetDetentHeights {
@@ -689,12 +721,16 @@ private struct AppleLiquidSheetDetentConfiguration {
 }
 
 private struct AppleLiquidSheetSectionStyleConfiguration {
+  let titleARGB: Int?
   let showsBackground: Bool?
   let backgroundARGB: Int?
   let borderARGB: Int?
   let cornerRadius: CGFloat?
 
   init(value: [String: Any]) {
+    self.titleARGB = AppleLiquidTabbarConfiguration.intValue(
+      value["titleColor"]
+    )
     self.showsBackground = Self.optionalBool(value["showsBackground"])
     self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
       value["backgroundColor"]
@@ -710,11 +746,13 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
   }
 
   init(
+    titleARGB: Int? = nil,
     showsBackground: Bool? = nil,
     backgroundARGB: Int? = nil,
     borderARGB: Int? = nil,
     cornerRadius: CGFloat? = nil
   ) {
+    self.titleARGB = titleARGB
     self.showsBackground = showsBackground
     self.backgroundARGB = backgroundARGB
     self.borderARGB = borderARGB
@@ -2746,12 +2784,20 @@ private struct AppleLiquidSheetFormScreen: View {
             }
           } header: {
             if let title = group.title {
-              Text(title)
+              if let titleColor = Color(
+                appleLiquidARGB: group.sectionStyle.titleARGB
+              ) {
+                Text(title)
+                  .foregroundStyle(titleColor)
+              } else {
+                Text(title)
+              }
             }
           }
         }
       }
     }
+    .appleLiquidListSectionSpacing(content.sectionSpacing)
     .navigationTitle(content.title)
     .toolbar {
       if showsToolbarActions {
@@ -3655,6 +3701,19 @@ private extension View {
       self
     } else {
       listRowBackground(Color.clear)
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidListSectionSpacing(_ spacing: CGFloat?) -> some View {
+    if let spacing {
+      if #available(iOS 17.0, *) {
+        listSectionSpacing(spacing)
+      } else {
+        self
+      }
+    } else {
+      self
     }
   }
 
