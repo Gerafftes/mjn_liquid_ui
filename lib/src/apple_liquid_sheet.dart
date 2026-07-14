@@ -412,6 +412,7 @@ class AppleLiquidSheetSegmentedStyle {
     this.buttonSpacing = 12,
     this.contentSpacing = 12,
     this.verticalPadding = 6,
+    this.rowHorizontalInset,
     this.borderWidth = 1,
     this.selectedShadowRadius = 8,
     this.selectedShadowOffsetX = 0,
@@ -436,6 +437,10 @@ class AppleLiquidSheetSegmentedStyle {
        assert(buttonSpacing >= 0),
        assert(contentSpacing >= 0),
        assert(verticalPadding >= 0),
+       assert(
+         rowHorizontalInset == null ||
+             (rowHorizontalInset >= 0 && rowHorizontalInset <= 80),
+       ),
        assert(borderWidth >= 0),
        assert(selectedShadowRadius >= 0),
        assert(titleFontSize == null || titleFontSize > 0),
@@ -489,6 +494,11 @@ class AppleLiquidSheetSegmentedStyle {
 
   /// Vertical padding around the complete row in native iOS points.
   final double verticalPadding;
+
+  /// Optional horizontal inset for the surrounding SwiftUI form row.
+  ///
+  /// When null, SwiftUI keeps its native default row insets.
+  final double? rowHorizontalInset;
 
   /// Button border width in native iOS points.
   final double borderWidth;
@@ -573,6 +583,7 @@ class AppleLiquidSheetSegmentedStyle {
       'buttonSpacing': buttonSpacing,
       'contentSpacing': contentSpacing,
       'verticalPadding': verticalPadding,
+      if (rowHorizontalInset != null) 'rowHorizontalInset': rowHorizontalInset,
       'borderWidth': borderWidth,
       'selectedShadowRadius': selectedShadowRadius,
       'selectedShadowOffsetX': selectedShadowOffsetX,

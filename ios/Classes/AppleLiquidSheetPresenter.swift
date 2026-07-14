@@ -960,6 +960,7 @@ private struct AppleLiquidSheetSegmentedStyleConfiguration {
   let buttonSpacing: CGFloat
   let contentSpacing: CGFloat
   let verticalPadding: CGFloat
+  let rowHorizontalInset: CGFloat?
   let borderWidth: CGFloat
   let selectedShadowRadius: CGFloat
   let selectedShadowOffsetX: CGFloat
@@ -1037,6 +1038,11 @@ private struct AppleLiquidSheetSegmentedStyleConfiguration {
       defaultValue: 6,
       minValue: 0,
       maxValue: 48
+    )
+    self.rowHorizontalInset = Self.optionalClampedCGFloat(
+      dictionary["rowHorizontalInset"],
+      minValue: 0,
+      maxValue: 80
     )
     self.borderWidth = Self.clampedCGFloat(
       dictionary["borderWidth"],
@@ -2955,29 +2961,7 @@ private struct AppleLiquidSheetRowView: View {
       }
 
     case .segmented:
-      VStack(alignment: .leading, spacing: row.segmentedStyle.contentSpacing) {
-        AppleLiquidSheetRowLabel(
-          row: row,
-          titleFont: row.segmentedStyle.titleFont,
-          subtitleFont: row.segmentedStyle.subtitleFont,
-          titleColor: row.segmentedStyle.titleColor,
-          subtitleColor: row.segmentedStyle.subtitleColor
-        )
-
-        HStack(spacing: row.segmentedStyle.buttonSpacing) {
-          ForEach(row.options, id: \.self) { option in
-            AppleLiquidSheetSegmentOptionButton(
-              title: option,
-              isSelected: pickerSelection == option,
-              style: row.segmentedStyle,
-              onSelect: {
-                selectSegmentedOption(option)
-              }
-            )
-          }
-        }
-      }
-      .padding(.vertical, row.segmentedStyle.verticalPadding)
+      segmentedRow
 
     case .button:
       AppleLiquidSheetActionButton(
@@ -3026,6 +3010,49 @@ private struct AppleLiquidSheetRowView: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+
+  @ViewBuilder
+  private var segmentedRow: some View {
+    if let horizontalInset = row.segmentedStyle.rowHorizontalInset {
+      segmentedRowContent
+        .listRowInsets(
+          EdgeInsets(
+            top: row.segmentedStyle.verticalPadding,
+            leading: horizontalInset,
+            bottom: row.segmentedStyle.verticalPadding,
+            trailing: horizontalInset
+          )
+        )
+    } else {
+      segmentedRowContent
+        .padding(.vertical, row.segmentedStyle.verticalPadding)
+    }
+  }
+
+  private var segmentedRowContent: some View {
+    VStack(alignment: .leading, spacing: row.segmentedStyle.contentSpacing) {
+      AppleLiquidSheetRowLabel(
+        row: row,
+        titleFont: row.segmentedStyle.titleFont,
+        subtitleFont: row.segmentedStyle.subtitleFont,
+        titleColor: row.segmentedStyle.titleColor,
+        subtitleColor: row.segmentedStyle.subtitleColor
+      )
+
+      HStack(spacing: row.segmentedStyle.buttonSpacing) {
+        ForEach(row.options, id: \.self) { option in
+          AppleLiquidSheetSegmentOptionButton(
+            title: option,
+            isSelected: pickerSelection == option,
+            style: row.segmentedStyle,
+            onSelect: {
+              selectSegmentedOption(option)
+            }
+          )
+        }
+      }
+    }
   }
 
   @ViewBuilder
@@ -3606,7 +3633,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
           onMultiSelectionAction: onMultiSelectionAction
         )
         .frame(maxWidth: .infinity, minHeight: row.estimatedHeight)
-        .padding(.horizontal, 16)
+        .padding(.horizontal, horizontalPadding(for: row))
 
         if row.id != group.rows.last?.id {
           Divider()
@@ -3638,6 +3665,18 @@ private struct AppleLiquidSheetStyledFormGroup: View {
       cornerRadius: group.sectionStyle.cornerRadius ?? 12,
       style: .continuous
     )
+  }
+
+  private func horizontalPadding(
+    for row: AppleLiquidSheetRowConfiguration
+  ) -> CGFloat {
+    if row.kind == .segmented,
+      let rowHorizontalInset = row.segmentedStyle.rowHorizontalInset
+    {
+      return rowHorizontalInset
+    }
+
+    return 16
   }
 }
 

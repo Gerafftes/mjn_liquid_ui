@@ -219,6 +219,7 @@ class _DemoShellState extends State<DemoShell> {
                 selectedShadowColor: Color(0x0AFFFFFF),
                 buttonHeight: 48,
                 cornerRadius: 16,
+                rowHorizontalInset: 8,
                 selectedShadowRadius: 8,
                 selectedShadowOffsetY: 2,
                 buttonFontWeight: AppleLiquidSheetSegmentedFontWeight.bold,

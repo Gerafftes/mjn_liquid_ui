@@ -1,3 +1,8 @@
+## 0.2.19
+
+- Added optional segmented-row horizontal form insets through
+  `AppleLiquidSheetSegmentedStyle.rowHorizontalInset`.
+
 ## 0.2.18
 
 - Added configurable native section-header colors through

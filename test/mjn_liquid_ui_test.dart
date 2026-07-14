@@ -156,6 +156,7 @@ void main() {
                 buttonSpacing: 16,
                 contentSpacing: 14,
                 verticalPadding: 8,
+                rowHorizontalInset: 10,
                 borderWidth: 2,
                 selectedShadowRadius: 9,
                 selectedShadowOffsetX: 1,
@@ -293,6 +294,7 @@ void main() {
                 'buttonSpacing': 16.0,
                 'contentSpacing': 14.0,
                 'verticalPadding': 8.0,
+                'rowHorizontalInset': 10.0,
                 'borderWidth': 2.0,
                 'selectedShadowRadius': 9.0,
                 'selectedShadowOffsetX': 1.0,
@@ -583,6 +585,14 @@ void main() {
     );
     expect(
       () => AppleLiquidSheetSegmentedStyle(selectedShadowRadius: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(rowHorizontalInset: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSegmentedStyle(rowHorizontalInset: 81),
       throwsAssertionError,
     );
     expect(
