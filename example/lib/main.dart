@@ -255,6 +255,24 @@ class _DemoShellState extends State<DemoShell> {
           ],
         ),
         const AppleLiquidSheetSection(
+          title: 'Kategorie',
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.multiPicker(
+              title: 'Kategorie',
+              options: <String>['Alle', 'Garten', 'Umzug'],
+              selectedOptions: <String>['Alle'],
+              selectionSystemImages: <String, String>{
+                'Alle': 'square.grid.2x2.fill',
+                'Garten': 'leaf.fill',
+                'Umzug': 'shippingbox.fill',
+              },
+              selectionLabelPlacement:
+                  AppleLiquidSheetMultiPickerLabelPlacement.primary,
+              systemImage: 'square.grid.2x2.fill',
+            ),
+          ],
+        ),
+        const AppleLiquidSheetSection(
           showsBackground: true,
           backgroundColor: Color(0x1A007AFF),
           borderColor: Color(0x80007AFF),
@@ -900,8 +918,8 @@ class _TemplateSheetFallback extends StatelessWidget {
                 children: <Widget>[
                   for (final AppleLiquidSheetRow row in section.rows)
                     _SettingsFallbackRow(
-                      label: row.title,
-                      value: _valueFor(row),
+                      label: _labelFor(row),
+                      value: _trailingValueFor(row),
                     ),
                 ],
               ),
@@ -911,6 +929,26 @@ class _TemplateSheetFallback extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _labelFor(AppleLiquidSheetRow row) {
+    if (row.type == AppleLiquidSheetRowType.multiPicker &&
+        row.selectionLabelPlacement ==
+            AppleLiquidSheetMultiPickerLabelPlacement.primary) {
+      return _valueFor(row);
+    }
+
+    return row.title;
+  }
+
+  String _trailingValueFor(AppleLiquidSheetRow row) {
+    if (row.type == AppleLiquidSheetRowType.multiPicker &&
+        row.selectionLabelPlacement ==
+            AppleLiquidSheetMultiPickerLabelPlacement.primary) {
+      return '';
+    }
+
+    return _valueFor(row);
   }
 
   String _valueFor(AppleLiquidSheetRow row) {

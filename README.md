@@ -303,6 +303,33 @@ continuous slider. Set
 the value beside the slider track instead of above it. Pass `valueSuffix` to
 append a unit to the rendered value.
 
+For multi-pickers, the selection summary appears at the trailing edge by
+default. Set `selectionLabelPlacement` to
+`AppleLiquidSheetMultiPickerLabelPlacement.primary` to use the current
+selection as the primary row label while keeping `title` for the pushed picker
+page:
+
+```dart
+const AppleLiquidSheetRow.multiPicker(
+  title: 'Kategorie',
+  options: <String>['Alle', 'Garten', 'Umzug'],
+  selectedOptions: <String>['Alle'],
+  systemImage: 'square.grid.2x2.fill',
+  selectionSystemImages: <String, String>{
+    'Alle': 'square.grid.2x2.fill',
+    'Garten': 'leaf.fill',
+    'Umzug': 'shippingbox.fill',
+  },
+  selectionLabelPlacement:
+      AppleLiquidSheetMultiPickerLabelPlacement.primary,
+);
+```
+
+`selectionSystemImages` displays each mapped SF Symbol beside its option and
+changes the main-row icon immediately when exactly one matching option is
+selected. For multiple selections, or when no mapping exists, `systemImage`
+remains the main-row fallback.
+
 | API | Purpose |
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, and sections |
@@ -312,7 +339,7 @@ append a unit to the rendered value.
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
 | `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
-| `AppleLiquidSheetRow.multiPicker` | Native multi-selection picker with initial selections and a Dart change callback |
+| `AppleLiquidSheetRow.multiPicker` | Native multi-selection picker with initial selections, configurable summary placement, and a Dart change callback |
 | `AppleLiquidSheetRow.segmented` | Two separate, equal-width native buttons with local selection state |
 | `AppleLiquidSheetSegmentedStyle` | Per-row colors, dimensions, typography, spacing, borders, shadows, press feedback, and selection transitions |
 | `AppleLiquidSheetRow.button` | Full-width native action button with a Dart callback, optional sheet dismissal, accessibility label, and configurable enabled state |
