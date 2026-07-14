@@ -1,3 +1,11 @@
+## 0.2.20
+
+- Added independent native button-row top and bottom insets through
+  `AppleLiquidSheetButtonStyle.rowTopInset` and `rowBottomInset`.
+- Made zero button edge insets remove automatic section and bottom content
+  spacing on iOS 17 and newer.
+- Kept the native button border fully visible when a row inset is zero.
+
 ## 0.2.19
 
 - Added optional segmented-row horizontal form insets through

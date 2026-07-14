@@ -264,7 +264,8 @@ class _DemoShellState extends State<DemoShell> {
               semanticLabel: 'Open map view',
               dismissesSheet: true,
               style: const AppleLiquidSheetButtonStyle(
-                rowVerticalInset: 8,
+                rowTopInset: 12,
+                rowBottomInset: 0,
                 cornerRadius: 12,
                 pressedScale: 0.97,
               ),

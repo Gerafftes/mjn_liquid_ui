@@ -430,7 +430,8 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           semanticLabel: 'Open map view',
           dismissesSheet: true,
           style: const AppleLiquidSheetButtonStyle(
-            rowVerticalInset: 8,
+            rowTopInset: 12,
+            rowBottomInset: 0,
             cornerRadius: 12,
           ),
           onPressed: openMap,
@@ -481,6 +482,49 @@ callback. Omit `style` for the blue outlined default, or pass
 `AppleLiquidSheetButtonStyle` to configure colors, sizing, typography,
 alignment, row insets, the form background and separator, disabled appearance,
 and press feedback.
+
+### Button row spacing
+
+`rowTopInset` and `rowBottomInset` override the corresponding side of
+`rowVerticalInset`. On iOS 17 and newer they describe the complete distance to
+adjacent native form content. A value of `0` therefore adds no section gap:
+
+```dart
+AppleLiquidSheetContent(
+  sectionSpacing: 8,
+  sections: <AppleLiquidSheetSection>[
+    AppleLiquidSheetSection(
+      rows: <AppleLiquidSheetRow>[
+        AppleLiquidSheetRow.button(
+          title: 'Show on map',
+          systemImage: 'map.fill',
+          style: const AppleLiquidSheetButtonStyle(
+            rowTopInset: 12,
+            rowBottomInset: 0,
+          ),
+          onPressed: openMap,
+        ),
+      ],
+    ),
+    const AppleLiquidSheetSection(
+      title: 'Category',
+      rows: <AppleLiquidSheetRow>[
+        AppleLiquidSheetRow.text(title: 'Garden'),
+      ],
+    ),
+  ],
+);
+```
+
+Here the automatic space between the button and the `Category` section is
+removed, even though the other section boundaries continue to use
+`sectionSpacing: 8`. The section header keeps only its own intrinsic text
+height. If the button is the final row of the final section,
+`rowBottomInset: 0` also removes the form's automatic bottom content margin.
+
+If only `rowVerticalInset` is set, it remains the fallback for both sides. On
+iOS 16, SwiftUI keeps its native inter-section and bottom form spacing because
+the required per-list spacing APIs are available from iOS 17.
 
 `AppleLiquidSheetRow.segmented` requires exactly two distinct, non-empty
 options. It renders them as separate, equal-width rounded buttons. Keep both

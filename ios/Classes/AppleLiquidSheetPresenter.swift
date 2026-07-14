@@ -340,18 +340,51 @@ private struct AppleLiquidSheetContentConfiguration {
 
   var estimatedDetentHeight: CGFloat {
     let navigationChromeHeight: CGFloat = 92
-    let formGroups = sections.flatMap(\.formGroups)
+    let formGroups = self.formGroups
     let sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
       partial + (group.title == nil ? 12 : 34)
     }
-    let sectionSpacingHeight = CGFloat(max(formGroups.count - 1, 0)) *
-      (sectionSpacing ?? 12)
+    let sectionSpacingHeight: CGFloat
+    if #available(iOS 17.0, *), usesExactButtonSpacing {
+      sectionSpacingHeight = formGroups.indices.dropFirst().reduce(
+        CGFloat.zero
+      ) { partial, index in
+        partial + resolvedSpacing(
+          after: formGroups[index - 1],
+          before: formGroups[index]
+        )
+      }
+    } else {
+      sectionSpacingHeight = CGFloat(max(formGroups.count - 1, 0)) *
+        (sectionSpacing ?? 12)
+    }
     let rowHeight = sections.reduce(CGFloat.zero) { partial, section in
       partial + section.estimatedHeight
     }
 
     return navigationChromeHeight + sectionHeaderHeight +
       sectionSpacingHeight + rowHeight
+  }
+
+  var formGroups: [AppleLiquidSheetFormGroup] {
+    sections.flatMap(\.formGroups)
+  }
+
+  var usesExactButtonSpacing: Bool {
+    formGroups.contains { group in
+      group.startsWithButton || group.endsWithButton
+    }
+  }
+
+  func resolvedSpacing(
+    after previousGroup: AppleLiquidSheetFormGroup,
+    before nextGroup: AppleLiquidSheetFormGroup
+  ) -> CGFloat {
+    if previousGroup.endsWithButton || nextGroup.startsWithButton {
+      return 0
+    }
+
+    return sectionSpacing ?? 12
   }
 
   var preferredDetentHeights: AppleLiquidSheetDetentHeights {
@@ -912,6 +945,14 @@ private struct AppleLiquidSheetFormGroup: Identifiable {
   let title: String?
   let sectionStyle: AppleLiquidSheetSectionStyleConfiguration
   let rows: [AppleLiquidSheetRowConfiguration]
+
+  var startsWithButton: Bool {
+    rows.first?.kind == .button
+  }
+
+  var endsWithButton: Bool {
+    rows.last?.kind == .button
+  }
 }
 
 private enum AppleLiquidSheetRowKind: String {
@@ -1307,6 +1348,8 @@ private struct AppleLiquidSheetButtonStyleConfiguration {
   let labelSpacing: CGFloat
   let rowHorizontalInset: CGFloat
   let rowVerticalInset: CGFloat
+  let rowTopInset: CGFloat
+  let rowBottomInset: CGFloat
   let titleFontSize: CGFloat?
   let subtitleFontSize: CGFloat?
   let iconSize: CGFloat?
@@ -1383,9 +1426,22 @@ private struct AppleLiquidSheetButtonStyleConfiguration {
       minValue: 0,
       maxValue: 80
     )
-    self.rowVerticalInset = Self.clampedCGFloat(
+    let rowVerticalInset = Self.clampedCGFloat(
       dictionary["rowVerticalInset"],
       defaultValue: 6,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.rowVerticalInset = rowVerticalInset
+    self.rowTopInset = Self.clampedCGFloat(
+      dictionary["rowTopInset"],
+      defaultValue: Double(rowVerticalInset),
+      minValue: 0,
+      maxValue: 48
+    )
+    self.rowBottomInset = Self.clampedCGFloat(
+      dictionary["rowBottomInset"],
+      defaultValue: Double(rowVerticalInset),
       minValue: 0,
       maxValue: 48
     )
@@ -1483,7 +1539,7 @@ private struct AppleLiquidSheetButtonStyleConfiguration {
   }
 
   var estimatedHeight: CGFloat {
-    buttonHeight + rowVerticalInset * 2
+    buttonHeight + rowTopInset + rowBottomInset
   }
 
   private func resolvedFont(
@@ -2757,53 +2813,76 @@ private struct AppleLiquidSheetFormScreen: View {
 
   var body: some View {
     Form {
-      ForEach(content.sections) { section in
-        ForEach(section.formGroups) { group in
-          Section {
-            if group.sectionStyle.hasCustomAppearance &&
-              group.sectionStyle.resolvesBackgroundVisibility(
-                defaultValue: content.showsSectionBackgrounds
-              )
-            {
-              AppleLiquidSheetStyledFormGroup(
-                group: group,
+      ForEach(Array(formGroups.enumerated()), id: \.element.id) { index, group in
+        if #available(iOS 17.0, *),
+          content.usesExactButtonSpacing,
+          index > 0
+        {
+          let spacing = content.resolvedSpacing(
+            after: formGroups[index - 1],
+            before: group
+          )
+          if spacing > 0 {
+            Section {
+              Color.clear
+                .frame(height: spacing)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .environment(\.defaultMinListRowHeight, 0)
+            }
+          }
+        }
+
+        Section {
+          if group.sectionStyle.hasCustomAppearance &&
+            group.sectionStyle.resolvesBackgroundVisibility(
+              defaultValue: content.showsSectionBackgrounds
+            )
+          {
+            AppleLiquidSheetStyledFormGroup(
+              group: group,
+              onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+              onControlInteractionChanged: onControlInteractionChanged,
+              onButtonAction: onButtonAction,
+              onMultiSelectionAction: onMultiSelectionAction
+            )
+          } else {
+            ForEach(group.rows) { row in
+              AppleLiquidSheetRowView(
+                row: row,
                 onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
                 onControlInteractionChanged: onControlInteractionChanged,
                 onButtonAction: onButtonAction,
                 onMultiSelectionAction: onMultiSelectionAction
               )
-            } else {
-              ForEach(group.rows) { row in
-                AppleLiquidSheetRowView(
-                  row: row,
-                  onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
-                  onControlInteractionChanged: onControlInteractionChanged,
-                  onButtonAction: onButtonAction,
-                  onMultiSelectionAction: onMultiSelectionAction
+              .appleLiquidFormRowBackground(
+                isVisible: group.sectionStyle.resolvesBackgroundVisibility(
+                  defaultValue: content.showsSectionBackgrounds
                 )
-                .appleLiquidFormRowBackground(
-                  isVisible: group.sectionStyle.resolvesBackgroundVisibility(
-                    defaultValue: content.showsSectionBackgrounds
-                  )
-                )
-              }
+              )
             }
-          } header: {
-            if let title = group.title {
-              if let titleColor = Color(
-                appleLiquidARGB: group.sectionStyle.titleARGB
-              ) {
-                Text(title)
-                  .foregroundStyle(titleColor)
-              } else {
-                Text(title)
-              }
+          }
+        } header: {
+          if let title = group.title {
+            if let titleColor = Color(
+              appleLiquidARGB: group.sectionStyle.titleARGB
+            ) {
+              Text(title)
+                .foregroundStyle(titleColor)
+            } else {
+              Text(title)
             }
           }
         }
       }
     }
-    .appleLiquidListSectionSpacing(content.sectionSpacing)
+    .appleLiquidListSectionSpacing(
+      content.usesExactButtonSpacing ? 0 : content.sectionSpacing
+    )
+    .appleLiquidRemoveBottomContentMargin(
+      formGroups.last?.endsWithButton == true
+    )
     .navigationTitle(content.title)
     .toolbar {
       if showsToolbarActions {
@@ -2837,6 +2916,10 @@ private struct AppleLiquidSheetFormScreen: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+
+  private var formGroups: [AppleLiquidSheetFormGroup] {
+    content.formGroups
   }
 }
 
@@ -2972,9 +3055,9 @@ private struct AppleLiquidSheetRowView: View {
       )
       .listRowInsets(
         EdgeInsets(
-          top: row.buttonStyle.rowVerticalInset,
+          top: row.buttonStyle.rowTopInset,
           leading: row.buttonStyle.rowHorizontalInset,
-          bottom: row.buttonStyle.rowVerticalInset,
+          bottom: row.buttonStyle.rowBottomInset,
           trailing: row.buttonStyle.rowHorizontalInset
         )
       )
@@ -3330,7 +3413,7 @@ private struct AppleLiquidSheetActionButton: View {
       )
       .overlay(
         RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
-          .stroke(borderColor, lineWidth: style.borderWidth)
+          .strokeBorder(borderColor, lineWidth: style.borderWidth)
       )
       .contentShape(
         RoundedRectangle(cornerRadius: style.cornerRadius, style: .continuous)
@@ -3632,8 +3715,10 @@ private struct AppleLiquidSheetStyledFormGroup: View {
           onButtonAction: onButtonAction,
           onMultiSelectionAction: onMultiSelectionAction
         )
-        .frame(maxWidth: .infinity, minHeight: row.estimatedHeight)
+        .frame(maxWidth: .infinity, minHeight: minimumContentHeight(for: row))
         .padding(.horizontal, horizontalPadding(for: row))
+        .padding(.top, topPadding(for: row))
+        .padding(.bottom, bottomPadding(for: row))
 
         if row.id != group.rows.last?.id {
           Divider()
@@ -3677,6 +3762,28 @@ private struct AppleLiquidSheetStyledFormGroup: View {
     }
 
     return 16
+  }
+
+  private func minimumContentHeight(
+    for row: AppleLiquidSheetRowConfiguration
+  ) -> CGFloat {
+    if row.kind == .button {
+      return row.buttonStyle.buttonHeight
+    }
+
+    return row.estimatedHeight
+  }
+
+  private func topPadding(
+    for row: AppleLiquidSheetRowConfiguration
+  ) -> CGFloat {
+    row.kind == .button ? row.buttonStyle.rowTopInset : 0
+  }
+
+  private func bottomPadding(
+    for row: AppleLiquidSheetRowConfiguration
+  ) -> CGFloat {
+    row.kind == .button ? row.buttonStyle.rowBottomInset : 0
   }
 }
 
@@ -3748,6 +3855,19 @@ private extension View {
     if let spacing {
       if #available(iOS 17.0, *) {
         listSectionSpacing(spacing)
+      } else {
+        self
+      }
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidRemoveBottomContentMargin(_ isEnabled: Bool) -> some View {
+    if isEnabled {
+      if #available(iOS 17.0, *) {
+        contentMargins(.bottom, 0, for: .scrollContent)
       } else {
         self
       }
