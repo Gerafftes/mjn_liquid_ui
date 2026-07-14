@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.13
+  mjn_liquid_ui: ^0.2.21
 ```
 
 Then import the package:
@@ -521,6 +521,12 @@ removed, even though the other section boundaries continue to use
 `sectionSpacing: 8`. The section header keeps only its own intrinsic text
 height. If the button is the final row of the final section,
 `rowBottomInset: 0` also removes the form's automatic bottom content margin.
+
+In exact button-spacing mode, non-zero gaps are rendered as transparent rows at
+the end of the preceding native `Section`. No additional `Section` is created,
+so SwiftUI does not add another header or footer margin. The content-sized
+detent includes the rendered section headers, rows, gaps, and sheet chrome up to
+the final button row.
 
 If only `rowVerticalInset` is set, it remains the fallback for both sides. On
 iOS 16, SwiftUI keeps its native inter-section and bottom form spacing because

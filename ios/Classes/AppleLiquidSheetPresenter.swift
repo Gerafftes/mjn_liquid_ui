@@ -208,6 +208,16 @@ private struct AppleLiquidSheetConfiguration {
 }
 
 private struct AppleLiquidSheetContentConfiguration {
+  static let navigationChromeHeight: CGFloat = 122
+
+  private static var exactTitledSectionHeaderHeight: CGFloat {
+    40 + (1 / max(UIScreen.main.scale, 1))
+  }
+
+  private static var exactCompactRowHeight: CGFloat {
+    50 + (1 / max(UIScreen.main.scale, 1))
+  }
+
   let title: String
   let doneAccessibilityLabel: String
   let leadingAction: AppleLiquidSheetToolbarActionConfiguration?
@@ -339,13 +349,14 @@ private struct AppleLiquidSheetContentConfiguration {
   }
 
   var estimatedDetentHeight: CGFloat {
-    let navigationChromeHeight: CGFloat = 92
     let formGroups = self.formGroups
-    let sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
-      partial + (group.title == nil ? 12 : 34)
-    }
+    let sectionHeaderHeight: CGFloat
     let sectionSpacingHeight: CGFloat
+    let rowHeight: CGFloat
     if #available(iOS 17.0, *), usesExactButtonSpacing {
+      sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
+        partial + (group.title == nil ? 0 : Self.exactTitledSectionHeaderHeight)
+      }
       sectionSpacingHeight = formGroups.indices.dropFirst().reduce(
         CGFloat.zero
       ) { partial, index in
@@ -354,15 +365,27 @@ private struct AppleLiquidSheetContentConfiguration {
           before: formGroups[index]
         )
       }
+      rowHeight = formGroups.reduce(CGFloat.zero) { partial, group in
+        partial + group.rows.reduce(CGFloat.zero) { rowPartial, row in
+          let estimatedHeight = row.estimatedHeight
+          let resolvedHeight = row.kind == .button
+            ? estimatedHeight
+            : max(estimatedHeight, Self.exactCompactRowHeight)
+          return rowPartial + resolvedHeight
+        }
+      }
     } else {
+      sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
+        partial + (group.title == nil ? 12 : 34)
+      }
       sectionSpacingHeight = CGFloat(max(formGroups.count - 1, 0)) *
         (sectionSpacing ?? 12)
-    }
-    let rowHeight = sections.reduce(CGFloat.zero) { partial, section in
-      partial + section.estimatedHeight
+      rowHeight = sections.reduce(CGFloat.zero) { partial, section in
+        partial + section.estimatedHeight
+      }
     }
 
-    return navigationChromeHeight + sectionHeaderHeight +
+    return Self.navigationChromeHeight + sectionHeaderHeight +
       sectionSpacingHeight + rowHeight
   }
 
@@ -385,6 +408,17 @@ private struct AppleLiquidSheetContentConfiguration {
     }
 
     return sectionSpacing ?? 12
+  }
+
+  func spacingAfterGroup(at index: Int) -> CGFloat {
+    guard formGroups.indices.contains(index), index + 1 < formGroups.count else {
+      return 0
+    }
+
+    return resolvedSpacing(
+      after: formGroups[index],
+      before: formGroups[index + 1]
+    )
   }
 
   var preferredDetentHeights: AppleLiquidSheetDetentHeights {
@@ -2814,26 +2848,6 @@ private struct AppleLiquidSheetFormScreen: View {
   var body: some View {
     Form {
       ForEach(Array(formGroups.enumerated()), id: \.element.id) { index, group in
-        if #available(iOS 17.0, *),
-          content.usesExactButtonSpacing,
-          index > 0
-        {
-          let spacing = content.resolvedSpacing(
-            after: formGroups[index - 1],
-            before: group
-          )
-          if spacing > 0 {
-            Section {
-              Color.clear
-                .frame(height: spacing)
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-                .environment(\.defaultMinListRowHeight, 0)
-            }
-          }
-        }
-
         Section {
           if group.sectionStyle.hasCustomAppearance &&
             group.sectionStyle.resolvesBackgroundVisibility(
@@ -2863,6 +2877,18 @@ private struct AppleLiquidSheetFormScreen: View {
               )
             }
           }
+
+          if #available(iOS 17.0, *), content.usesExactButtonSpacing {
+            let spacingAfterCurrentGroup = content.spacingAfterGroup(at: index)
+            if spacingAfterCurrentGroup > 0 {
+              Color.clear
+                .frame(height: spacingAfterCurrentGroup)
+                .listRowInsets(EdgeInsets())
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+                .environment(\.defaultMinListRowHeight, 0)
+            }
+          }
         } header: {
           if let title = group.title {
             if let titleColor = Color(
@@ -2879,6 +2905,9 @@ private struct AppleLiquidSheetFormScreen: View {
     }
     .appleLiquidListSectionSpacing(
       content.usesExactButtonSpacing ? 0 : content.sectionSpacing
+    )
+    .appleLiquidMinimumListRowHeight(
+      content.usesExactButtonSpacing ? 0 : nil
     )
     .appleLiquidRemoveBottomContentMargin(
       formGroups.last?.endsWithButton == true
@@ -2922,6 +2951,80 @@ private struct AppleLiquidSheetFormScreen: View {
     content.formGroups
   }
 }
+
+#if DEBUG
+@available(iOS 16.0, *)
+struct AppleLiquidSheetLayoutTestSnapshot {
+  let groupCount: Int
+  let rowCounts: [Int]
+  let spacingAfterGroups: [CGFloat]
+  let lastButtonTopInset: CGFloat?
+  let lastButtonBottomInset: CGFloat?
+  let removesBottomContentMargin: Bool
+  let estimatedDetentHeight: CGFloat
+  let preferredDetentHeight: CGFloat
+}
+
+@available(iOS 16.0, *)
+enum AppleLiquidSheetLayoutTestSupport {
+  static func snapshot(contentValue: Any?) -> AppleLiquidSheetLayoutTestSnapshot {
+    let content = AppleLiquidSheetContentConfiguration(value: contentValue)
+    let groups = content.formGroups
+    let spacingAfterGroups = groups.indices.map { index in
+      content.spacingAfterGroup(at: index)
+    }
+    let rowCounts = groups.indices.map { index in
+      groups[index].rows.count + (spacingAfterGroups[index] > 0 ? 1 : 0)
+    }
+    let lastButton = groups.last?.rows.last
+
+    return AppleLiquidSheetLayoutTestSnapshot(
+      groupCount: groups.count,
+      rowCounts: rowCounts,
+      spacingAfterGroups: spacingAfterGroups,
+      lastButtonTopInset: lastButton?.buttonStyle.rowTopInset,
+      lastButtonBottomInset: lastButton?.buttonStyle.rowBottomInset,
+      removesBottomContentMargin: groups.last?.endsWithButton == true,
+      estimatedDetentHeight: content.estimatedDetentHeight,
+      preferredDetentHeight: content.preferredDetentHeight
+    )
+  }
+
+  @MainActor
+  static func makePresentedSheet(contentValue: Any?) -> AnyView {
+    let configuration = AppleLiquidSheetConfiguration(
+      arguments: ["content": contentValue as Any]
+    )
+
+    return AnyView(
+      AppleLiquidSheetLayoutTestHost(configuration: configuration)
+    )
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetLayoutTestHost: View {
+  let configuration: AppleLiquidSheetConfiguration
+  @State private var isPresented = false
+
+  var body: some View {
+    Color.clear
+      .onAppear {
+        isPresented = true
+      }
+      .sheet(isPresented: $isPresented) {
+        AppleLiquidSettingsSheetView(
+          configuration: configuration,
+          onFrameChange: { _, _ in },
+          onControlInteractionChanged: { _ in },
+          onButtonAction: { _ in },
+          onMultiSelectionAction: { _, _ in },
+          onDismissRequest: {}
+        )
+      }
+  }
+}
+#endif
 
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetRowView: View {
@@ -3858,6 +3961,15 @@ private extension View {
       } else {
         self
       }
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidMinimumListRowHeight(_ height: CGFloat?) -> some View {
+    if let height {
+      environment(\.defaultMinListRowHeight, height)
     } else {
       self
     }
