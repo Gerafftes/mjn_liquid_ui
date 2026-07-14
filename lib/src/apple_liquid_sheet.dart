@@ -640,6 +640,8 @@ class AppleLiquidSheetButtonStyle {
     this.labelSpacing = 2,
     this.rowHorizontalInset = 16,
     this.rowVerticalInset = 6,
+    this.rowTopInset,
+    this.rowBottomInset,
     this.titleFontSize,
     this.subtitleFontSize,
     this.iconSize,
@@ -662,6 +664,8 @@ class AppleLiquidSheetButtonStyle {
        assert(labelSpacing >= 0),
        assert(rowHorizontalInset >= 0),
        assert(rowVerticalInset >= 0),
+       assert(rowTopInset == null || rowTopInset >= 0),
+       assert(rowBottomInset == null || rowBottomInset >= 0),
        assert(titleFontSize == null || titleFontSize > 0),
        assert(subtitleFontSize == null || subtitleFontSize > 0),
        assert(iconSize == null || iconSize > 0),
@@ -707,8 +711,22 @@ class AppleLiquidSheetButtonStyle {
   /// Horizontal inset applied to the surrounding SwiftUI form row.
   final double rowHorizontalInset;
 
-  /// Vertical inset applied to the surrounding SwiftUI form row.
+  /// Default vertical inset applied to the surrounding SwiftUI form row.
+  ///
+  /// [rowTopInset] and [rowBottomInset] can override the individual sides.
   final double rowVerticalInset;
+
+  /// Optional top inset for the surrounding SwiftUI form row.
+  ///
+  /// On iOS 17 and newer this is the complete distance to a preceding native
+  /// form section when the button starts its own section.
+  final double? rowTopInset;
+
+  /// Optional bottom inset for the surrounding SwiftUI form row.
+  ///
+  /// On iOS 17 and newer this is the complete distance to the next native form
+  /// section or the form's bottom edge. A value of zero adds no extra space.
+  final double? rowBottomInset;
 
   /// Optional title font size. Null keeps native Dynamic Type sizing.
   final double? titleFontSize;
@@ -766,6 +784,8 @@ class AppleLiquidSheetButtonStyle {
       'labelSpacing': labelSpacing,
       'rowHorizontalInset': rowHorizontalInset,
       'rowVerticalInset': rowVerticalInset,
+      if (rowTopInset != null) 'rowTopInset': rowTopInset,
+      if (rowBottomInset != null) 'rowBottomInset': rowBottomInset,
       if (titleFontSize != null) 'titleFontSize': titleFontSize,
       if (subtitleFontSize != null) 'subtitleFontSize': subtitleFontSize,
       if (iconSize != null) 'iconSize': iconSize,

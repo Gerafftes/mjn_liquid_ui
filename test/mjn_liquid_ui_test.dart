@@ -373,10 +373,12 @@ void main() {
   });
 
   test('sheet button styles serialize every native appearance option', () {
-    expect(
-      const AppleLiquidSheetButtonStyle().toMap()['rowHorizontalInset'],
-      16.0,
-    );
+    final Map<String, Object?> defaultStyle =
+        const AppleLiquidSheetButtonStyle().toMap();
+    expect(defaultStyle['rowHorizontalInset'], 16.0);
+    expect(defaultStyle['rowVerticalInset'], 6.0);
+    expect(defaultStyle, isNot(contains('rowTopInset')));
+    expect(defaultStyle, isNot(contains('rowBottomInset')));
 
     const AppleLiquidSheetButtonStyle style = AppleLiquidSheetButtonStyle(
       backgroundColor: Color(0x22007AFF),
@@ -392,6 +394,8 @@ void main() {
       labelSpacing: 3,
       rowHorizontalInset: 4,
       rowVerticalInset: 7,
+      rowTopInset: 12,
+      rowBottomInset: 0,
       titleFontSize: 17,
       subtitleFontSize: 12,
       iconSize: 18,
@@ -421,6 +425,8 @@ void main() {
       'labelSpacing': 3.0,
       'rowHorizontalInset': 4.0,
       'rowVerticalInset': 7.0,
+      'rowTopInset': 12.0,
+      'rowBottomInset': 0.0,
       'titleFontSize': 17.0,
       'subtitleFontSize': 12.0,
       'iconSize': 18.0,
