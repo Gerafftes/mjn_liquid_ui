@@ -512,6 +512,7 @@ AppleLiquidSheetRow.segmented(
     buttonSpacing: 14,
     contentSpacing: 12,
     verticalPadding: 8,
+    rowHorizontalInset: 8,
     borderWidth: 1,
     selectedShadowRadius: 8,
     selectedShadowOffsetX: 0,
