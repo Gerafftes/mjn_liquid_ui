@@ -11,6 +11,51 @@ final class RunnerTests: XCTestCase {
     XCTAssertNotNil(plugin)
   }
 
+  func testCustomChevronColorsReachNativeNavigationRows() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "picker",
+              "title": "Theme",
+              "options": ["Auto", "Dark"],
+              "chevronColor": 0xFFFF9F0A
+            ],
+            [
+              "type": "multiPicker",
+              "title": "Kategorie",
+              "options": ["Alle", "Garten"],
+              "chevronColor": 0xFF0A84FF
+            ],
+            [
+              "type": "navigation",
+              "title": "Details",
+              "chevronColor": 0xFF34C759,
+              "content": [
+                "sections": [
+                  ["rows": [["type": "text", "title": "Detail"]]]
+                ]
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(
+      snapshot.chevronARGBValues,
+      [0xFFFF9F0A, 0xFF0A84FF, 0xFF34C759]
+    )
+  }
+
   @MainActor
   func testExactButtonSpacingRenderedHeightMatchesDetent() throws {
     guard #available(iOS 17.0, *) else {
@@ -23,6 +68,7 @@ final class RunnerTests: XCTestCase {
       "sections": [
         [
           "title": "First",
+          "titleHorizontalInset": 8.0,
           "titleSpacing": 0.0,
           "rows": [
             ["type": "text", "title": "First row"]
@@ -135,6 +181,11 @@ final class RunnerTests: XCTestCase {
       accuracy: 0.5
     )
     XCTAssertEqual(
+      firstHeaderContentFrame.minX - firstRowAttributes.frame.minX,
+      8,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
       secondRowAttributes.frame.minY - secondHeaderContentFrame.maxY,
       6,
       accuracy: 0.5
@@ -206,6 +257,79 @@ final class RunnerTests: XCTestCase {
       snapshot.preferredDetentHeight,
       snapshot.estimatedDetentHeight.rounded(.up),
       accuracy: 1
+    )
+
+    withExtendedLifetime(window) {}
+  }
+
+  @MainActor
+  func testSliderDirectionalInsetsRenderIndependently() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet layout requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "title": "Inset test",
+      "sections": [
+        [
+          "title": "Kategorie",
+          "titleLeadingInset": 8.0,
+          "titleTrailingInset": 24.0,
+          "rows": [
+            [
+              "type": "slider",
+              "title": "Distanz",
+              "sliderValue": 5.0,
+              "min": 0.0,
+              "max": 10.0,
+              "rowLeadingInset": 8.0,
+              "rowTrailingInset": 24.0
+            ]
+          ]
+        ]
+      ]
+    ]
+    let host = UIHostingController(
+      rootView: AppleLiquidSheetLayoutTestSupport.makePresentedSheet(
+        contentValue: content
+      )
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+    let sheetController = try XCTUnwrap(host.presentedViewController)
+    sheetController.view.layoutIfNeeded()
+    let collectionView: UICollectionView = try XCTUnwrap(
+      firstSubview(of: UICollectionView.self, in: sheetController.view)
+    )
+    collectionView.collectionViewLayout.prepare()
+
+    let sliderRowIndexPath = IndexPath(item: 0, section: 0)
+    let sliderRowAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForItem(
+        at: sliderRowIndexPath
+      )
+    )
+    let sliderCell = try XCTUnwrap(
+      collectionView.cellForItem(at: sliderRowIndexPath)
+    )
+    let slider = try XCTUnwrap(
+      firstSubview(of: UISlider.self, in: sliderCell)
+    )
+    let sliderFrame = slider.convert(slider.bounds, to: collectionView)
+
+    XCTAssertEqual(
+      sliderFrame.minX - sliderRowAttributes.frame.minX,
+      8,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
+      sliderRowAttributes.frame.maxX - sliderFrame.maxX,
+      24,
+      accuracy: 0.5
     )
 
     withExtendedLifetime(window) {}

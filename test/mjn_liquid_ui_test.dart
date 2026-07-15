@@ -49,6 +49,7 @@ void main() {
       options: <String>['Alle', 'Garten', 'Umzug'],
       selectedOptions: <String>['Alle'],
       systemImage: 'square.grid.2x2.fill',
+      chevronColor: Color(0xFF0A84FF),
       selectionSystemImages: <String, String>{
         'Alle': 'square.grid.2x2.fill',
         'Garten': 'leaf.fill',
@@ -64,6 +65,7 @@ void main() {
       'options': <String>['Alle', 'Garten', 'Umzug'],
       'selectedOptions': <String>['Alle'],
       'systemImage': 'square.grid.2x2.fill',
+      'chevronColor': 0xFF0A84FF,
       'selectionLabelPlacement': 'primary',
       'selectionSystemImages': <String, String>{
         'Alle': 'square.grid.2x2.fill',
@@ -119,6 +121,9 @@ void main() {
         AppleLiquidSheetSection(
           title: 'Overview',
           titleColor: Color(0xFFE6E6E6),
+          titleHorizontalInset: 8,
+          titleLeadingInset: 4,
+          titleTrailingInset: 12,
           titleSpacing: 10,
           showsBackground: true,
           backgroundColor: Color(0xFF1A1A1A),
@@ -135,6 +140,7 @@ void main() {
               title: 'Theme',
               options: <String>['Auto', 'Light', 'Dark'],
               selectedOption: 'Auto',
+              chevronColor: Color(0xFFFF9F0A),
             ),
             AppleLiquidSheetRow.segmented(
               title: 'Layout',
@@ -194,6 +200,9 @@ void main() {
               max: 1,
               tintColor: Color(0xFF0A84FF),
               valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              rowHorizontalInset: 8,
+              rowLeadingInset: 6,
+              rowTrailingInset: 14,
               systemImage: 'slider.horizontal.3',
             ),
             AppleLiquidSheetRow.slider(
@@ -204,6 +213,7 @@ void main() {
             ),
             AppleLiquidSheetRow.navigation(
               title: 'Details',
+              chevronColor: Color(0xFF34C759),
               content: AppleLiquidSheetContent(
                 title: 'Details',
                 detents: AppleLiquidSheetDetents(
@@ -252,6 +262,9 @@ void main() {
         <String, Object?>{
           'title': 'Overview',
           'titleColor': 0xFFE6E6E6,
+          'titleHorizontalInset': 8.0,
+          'titleLeadingInset': 4.0,
+          'titleTrailingInset': 12.0,
           'titleSpacing': 10.0,
           'showsBackground': true,
           'backgroundColor': 0xFF1A1A1A,
@@ -274,6 +287,7 @@ void main() {
               'title': 'Theme',
               'options': <String>['Auto', 'Light', 'Dark'],
               'selectedOption': 'Auto',
+              'chevronColor': 0xFFFF9F0A,
             },
             <String, Object?>{
               'type': 'segmented',
@@ -334,6 +348,9 @@ void main() {
               'max': 1.0,
               'tintColor': 0xFF0A84FF,
               'sliderValuePlacement': 'besideTrack',
+              'rowHorizontalInset': 8.0,
+              'rowLeadingInset': 6.0,
+              'rowTrailingInset': 14.0,
               'systemImage': 'slider.horizontal.3',
             },
             <String, Object?>{
@@ -348,6 +365,7 @@ void main() {
             <String, Object?>{
               'type': 'navigation',
               'title': 'Details',
+              'chevronColor': 0xFF34C759,
               'content': <String, Object?>{
                 'title': 'Details',
                 'doneSemanticLabel': 'Done',
@@ -557,6 +575,50 @@ void main() {
     );
     expect(
       () => AppleLiquidSheetSection(titleSpacing: 201, rows: rows),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet section title inset stays within native bounds', () {
+    const List<AppleLiquidSheetRow> rows = <AppleLiquidSheetRow>[
+      AppleLiquidSheetRow.text(title: 'Row'),
+    ];
+
+    expect(
+      () => AppleLiquidSheetSection(titleHorizontalInset: -1, rows: rows),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSection(titleHorizontalInset: 201, rows: rows),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSection(titleLeadingInset: -1, rows: rows),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSection(titleTrailingInset: 201, rows: rows),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet slider row inset stays within native bounds', () {
+    expect(
+      () =>
+          AppleLiquidSheetRow.slider(title: 'Distance', rowHorizontalInset: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () =>
+          AppleLiquidSheetRow.slider(title: 'Distance', rowHorizontalInset: 81),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.slider(title: 'Distance', rowLeadingInset: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.slider(title: 'Distance', rowTrailingInset: 81),
       throwsAssertionError,
     );
   });

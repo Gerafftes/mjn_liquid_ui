@@ -210,6 +210,8 @@ private struct AppleLiquidSheetConfiguration {
 private struct AppleLiquidSheetContentConfiguration {
   static let navigationChromeHeight: CGFloat = 122
   static let nativeSectionTitleContentSpacing: CGFloat = 10
+  static let nativeSectionTitleHorizontalInset: CGFloat = 16
+  static let nativeFormRowHorizontalInset: CGFloat = 16
 
   private static var exactTitledSectionHeaderHeight: CGFloat {
     40 + (1 / max(UIScreen.main.scale, 1))
@@ -799,6 +801,9 @@ private struct AppleLiquidSheetDetentConfiguration {
 
 private struct AppleLiquidSheetSectionStyleConfiguration {
   let titleARGB: Int?
+  let titleHorizontalInset: CGFloat?
+  let titleLeadingInset: CGFloat?
+  let titleTrailingInset: CGFloat?
   let titleSpacing: CGFloat?
   let showsBackground: Bool?
   let backgroundARGB: Int?
@@ -808,6 +813,21 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
   init(value: [String: Any]) {
     self.titleARGB = AppleLiquidTabbarConfiguration.intValue(
       value["titleColor"]
+    )
+    self.titleHorizontalInset = Self.optionalClampedCGFloat(
+      value["titleHorizontalInset"],
+      minValue: 0,
+      maxValue: 200
+    )
+    self.titleLeadingInset = Self.optionalClampedCGFloat(
+      value["titleLeadingInset"],
+      minValue: 0,
+      maxValue: 200
+    )
+    self.titleTrailingInset = Self.optionalClampedCGFloat(
+      value["titleTrailingInset"],
+      minValue: 0,
+      maxValue: 200
     )
     self.titleSpacing = Self.optionalClampedCGFloat(
       value["titleSpacing"],
@@ -830,6 +850,9 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
 
   init(
     titleARGB: Int? = nil,
+    titleHorizontalInset: CGFloat? = nil,
+    titleLeadingInset: CGFloat? = nil,
+    titleTrailingInset: CGFloat? = nil,
     titleSpacing: CGFloat? = nil,
     showsBackground: Bool? = nil,
     backgroundARGB: Int? = nil,
@@ -837,6 +860,9 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
     cornerRadius: CGFloat? = nil
   ) {
     self.titleARGB = titleARGB
+    self.titleHorizontalInset = titleHorizontalInset
+    self.titleLeadingInset = titleLeadingInset
+    self.titleTrailingInset = titleTrailingInset
     self.titleSpacing = titleSpacing
     self.showsBackground = showsBackground
     self.backgroundARGB = backgroundARGB
@@ -1700,11 +1726,15 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let sliderMax: Double
   let sliderStep: Double?
   let sliderValuePlacement: AppleLiquidSheetSliderValuePlacement
+  let rowHorizontalInset: CGFloat?
+  let rowLeadingInset: CGFloat?
+  let rowTrailingInset: CGFloat?
   let multiPickerLabelPlacement: AppleLiquidSheetMultiPickerLabelPlacement
   let multiPickerSelectionSystemImages: [String: String]
   let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
+  let chevronARGB: Int?
   let segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration
   let buttonStyle: AppleLiquidSheetButtonStyleConfiguration
   let buttonActionId: String?
@@ -1775,6 +1805,21 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
         defaultValue: AppleLiquidSheetSliderValuePlacement.topTrailing.rawValue
       )
     ) ?? .topTrailing
+    self.rowHorizontalInset = Self.optionalClampedCGFloat(
+      dictionary["rowHorizontalInset"],
+      minValue: 0,
+      maxValue: 80
+    )
+    self.rowLeadingInset = Self.optionalClampedCGFloat(
+      dictionary["rowLeadingInset"],
+      minValue: 0,
+      maxValue: 80
+    )
+    self.rowTrailingInset = Self.optionalClampedCGFloat(
+      dictionary["rowTrailingInset"],
+      minValue: 0,
+      maxValue: 80
+    )
     self.multiPickerLabelPlacement = AppleLiquidSheetMultiPickerLabelPlacement(
       rawValue: Self.string(
         dictionary["selectionLabelPlacement"],
@@ -1798,6 +1843,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     )
     self.content = content
     self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.chevronARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["chevronColor"]
+    )
     self.segmentedStyle = AppleLiquidSheetSegmentedStyleConfiguration(
       value: dictionary["segmentedStyle"]
     )
@@ -1838,12 +1886,16 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     sliderMax: Double = 1,
     sliderStep: Double? = nil,
     sliderValuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
+    rowHorizontalInset: CGFloat? = nil,
+    rowLeadingInset: CGFloat? = nil,
+    rowTrailingInset: CGFloat? = nil,
     multiPickerLabelPlacement: AppleLiquidSheetMultiPickerLabelPlacement =
       .trailing,
     multiPickerSelectionSystemImages: [String: String] = [:],
     tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil,
+    chevronARGB: Int? = nil,
     segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration =
       AppleLiquidSheetSegmentedStyleConfiguration(value: nil),
     buttonStyle: AppleLiquidSheetButtonStyleConfiguration =
@@ -1867,6 +1919,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.sliderMax = sliderMax
     self.sliderStep = sliderStep
     self.sliderValuePlacement = sliderValuePlacement
+    self.rowHorizontalInset = rowHorizontalInset
+    self.rowLeadingInset = rowLeadingInset
+    self.rowTrailingInset = rowTrailingInset
     self.multiPickerLabelPlacement = multiPickerLabelPlacement
     self.multiPickerSelectionSystemImages = multiPickerSelectionSystemImages
     self.sliderValue = Self.normalizedSliderValue(
@@ -1879,6 +1934,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.tintColor = tintColor
     self.content = content
     self.systemImage = systemImage
+    self.chevronARGB = chevronARGB
     self.segmentedStyle = segmentedStyle
     self.buttonStyle = buttonStyle
     self.buttonActionId = buttonActionId
@@ -1944,6 +2000,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     selectedOption: String? = nil,
     subtitle: String? = nil,
     systemImage: String? = nil,
+    chevronARGB: Int? = nil,
     style: AppleLiquidSheetSegmentedStyleConfiguration =
       AppleLiquidSheetSegmentedStyleConfiguration(value: nil)
   ) -> AppleLiquidSheetRowConfiguration {
@@ -1955,6 +2012,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       options: options,
       selectedOption: selectedOption,
       systemImage: systemImage,
+      chevronARGB: chevronARGB,
       segmentedStyle: style
     )
   }
@@ -1988,6 +2046,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     valueSuffix: String? = nil,
     tintColor: Int? = nil,
     valuePlacement: AppleLiquidSheetSliderValuePlacement = .topTrailing,
+    rowHorizontalInset: CGFloat? = nil,
+    rowLeadingInset: CGFloat? = nil,
+    rowTrailingInset: CGFloat? = nil,
     subtitle: String? = nil,
     systemImage: String? = nil
   ) -> AppleLiquidSheetRowConfiguration {
@@ -2005,6 +2066,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       sliderMax: resolvedMax,
       sliderStep: resolvedStep,
       sliderValuePlacement: valuePlacement,
+      rowHorizontalInset: rowHorizontalInset,
+      rowLeadingInset: rowLeadingInset,
+      rowTrailingInset: rowTrailingInset,
       tintColor: tintColor,
       systemImage: systemImage
     )
@@ -2015,7 +2079,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     title: String,
     content: AppleLiquidSheetContentConfiguration,
     subtitle: String? = nil,
-    systemImage: String? = nil
+    systemImage: String? = nil,
+    chevronARGB: Int? = nil
   ) -> AppleLiquidSheetRowConfiguration {
     AppleLiquidSheetRowConfiguration(
       id: id,
@@ -2023,7 +2088,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       title: title,
       subtitle: subtitle,
       content: content,
-      systemImage: systemImage
+      systemImage: systemImage,
+      chevronARGB: chevronARGB
     )
   }
 
@@ -2157,6 +2223,18 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     }
 
     return nil
+  }
+
+  private static func optionalClampedCGFloat(
+    _ value: Any?,
+    minValue: CGFloat,
+    maxValue: CGFloat
+  ) -> CGFloat? {
+    guard let value = optionalDouble(value) else {
+      return nil
+    }
+
+    return min(max(CGFloat(value), minValue), maxValue)
   }
 
   private static func validStep(
@@ -2897,6 +2975,13 @@ private struct AppleLiquidSheetFormScreen: View {
                 onButtonAction: onButtonAction,
                 onMultiSelectionAction: onMultiSelectionAction
               )
+              .appleLiquidSliderRowInsets(
+                horizontal: row.kind == .slider
+                  ? row.rowHorizontalInset
+                  : nil,
+                leading: row.kind == .slider ? row.rowLeadingInset : nil,
+                trailing: row.kind == .slider ? row.rowTrailingInset : nil
+              )
               .appleLiquidFormRowBackground(
                 isVisible: group.sectionStyle.resolvesBackgroundVisibility(
                   defaultValue: content.showsSectionBackgrounds
@@ -2928,6 +3013,11 @@ private struct AppleLiquidSheetFormScreen: View {
                 Text(title)
               }
             }
+            .appleLiquidSectionTitleInsets(
+              horizontal: group.sectionStyle.titleHorizontalInset,
+              leading: group.sectionStyle.titleLeadingInset,
+              trailing: group.sectionStyle.titleTrailingInset
+            )
             .appleLiquidSectionTitleSpacing(group.sectionStyle.titleSpacing)
           }
         }
@@ -2987,6 +3077,7 @@ private struct AppleLiquidSheetFormScreen: View {
 struct AppleLiquidSheetLayoutTestSnapshot {
   let groupCount: Int
   let rowCounts: [Int]
+  let chevronARGBValues: [Int]
   let spacingAfterGroups: [CGFloat]
   let lastButtonTopInset: CGFloat?
   let lastButtonBottomInset: CGFloat?
@@ -3011,6 +3102,9 @@ enum AppleLiquidSheetLayoutTestSupport {
     return AppleLiquidSheetLayoutTestSnapshot(
       groupCount: groups.count,
       rowCounts: rowCounts,
+      chevronARGBValues: groups.flatMap { group in
+        group.rows.compactMap(\.chevronARGB)
+      },
       spacingAfterGroups: spacingAfterGroups,
       lastButtonTopInset: lastButton?.buttonStyle.rowTopInset,
       lastButtonBottomInset: lastButton?.buttonStyle.rowBottomInset,
@@ -3068,6 +3162,7 @@ private struct AppleLiquidSheetRowView: View {
   @State private var multiPickerSelection: Set<String>
   @State private var sliderValue: Double
   @State private var textValue: String
+  @State private var isCustomNavigationActive = false
 
   init(
     row: AppleLiquidSheetRowConfiguration,
@@ -3112,67 +3207,43 @@ private struct AppleLiquidSheetRowView: View {
       }
 
     case .picker:
-      Picker(selection: $pickerSelection) {
-        ForEach(row.options, id: \.self) { option in
-          Text(option)
-        }
-      } label: {
-        AppleLiquidSheetRowLabel(row: row)
-      }
-      .pickerStyle(.navigationLink)
-      .scrollContentBackground(formBackgroundVisibility)
-      .appleLiquidNavigationContainerBackground()
-
-    case .multiPicker:
-      NavigationLink {
-        List {
-          ForEach(row.options, id: \.self) { option in
-            Button {
-              toggleMultiPickerOption(option)
-            } label: {
-              HStack {
-                if let systemImage =
-                  row.multiPickerSelectionSystemImages[option]
-                {
-                  Image(systemName: systemImage)
-                    .foregroundStyle(.tint)
-                    .frame(width: 22)
-                }
-                Text(option)
-                  .foregroundStyle(.primary)
-                Spacer()
-                if multiPickerSelection.contains(option) {
-                  Image(systemName: "checkmark")
-                    .foregroundStyle(.tint)
-                }
-              }
-              .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-          }
-        }
-        .navigationTitle(row.title)
-        .scrollContentBackground(formBackgroundVisibility)
-        .appleLiquidNavigationContainerBackground()
-      } label: {
-        switch row.multiPickerLabelPlacement {
-        case .trailing:
+      if row.chevronARGB != nil {
+        customChevronNavigationRow {
+          pickerDestination
+        } label: {
           HStack {
-            AppleLiquidSheetRowLabel(
-              row: row,
-              labelSystemImage: multiPickerSystemImage
-            )
+            AppleLiquidSheetRowLabel(row: row)
             Spacer()
-            Text(multiPickerSummary)
+            Text(pickerSelection)
               .foregroundStyle(.secondary)
               .lineLimit(1)
           }
-        case .primary:
-          AppleLiquidSheetRowLabel(
-            row: row,
-            labelTitle: multiPickerSummary,
-            labelSystemImage: multiPickerSystemImage
-          )
+        }
+      } else {
+        Picker(selection: $pickerSelection) {
+          ForEach(row.options, id: \.self) { option in
+            Text(option)
+          }
+        } label: {
+          AppleLiquidSheetRowLabel(row: row)
+        }
+        .pickerStyle(.navigationLink)
+        .scrollContentBackground(formBackgroundVisibility)
+        .appleLiquidNavigationContainerBackground()
+      }
+
+    case .multiPicker:
+      if row.chevronARGB != nil {
+        customChevronNavigationRow {
+          multiPickerDestination
+        } label: {
+          multiPickerRowLabel
+        }
+      } else {
+        NavigationLink {
+          multiPickerDestination
+        } label: {
+          multiPickerRowLabel
         }
       }
 
@@ -3204,18 +3275,18 @@ private struct AppleLiquidSheetRowView: View {
 
     case .navigation:
       if let content = row.content {
-        NavigationLink {
-          AppleLiquidSheetFormScreen(
-            content: content,
-            showsToolbarActions: false,
-            onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
-            onControlInteractionChanged: onControlInteractionChanged,
-            onButtonAction: onButtonAction,
-            onMultiSelectionAction: onMultiSelectionAction,
-            onToolbarAction: nil
-          )
-        } label: {
-          AppleLiquidSheetRowLabel(row: row)
+        if row.chevronARGB != nil {
+          customChevronNavigationRow {
+            navigationDestination(content: content)
+          } label: {
+            AppleLiquidSheetRowLabel(row: row)
+          }
+        } else {
+          NavigationLink {
+            navigationDestination(content: content)
+          } label: {
+            AppleLiquidSheetRowLabel(row: row)
+          }
         }
       }
 
@@ -3226,6 +3297,130 @@ private struct AppleLiquidSheetRowView: View {
 
   private var formBackgroundVisibility: Visibility {
     .hidden
+  }
+
+  private var pickerDestination: some View {
+    List {
+      ForEach(row.options, id: \.self) { option in
+        Button {
+          pickerSelection = option
+        } label: {
+          HStack {
+            Text(option)
+              .foregroundStyle(.primary)
+            Spacer()
+            if pickerSelection == option {
+              Image(systemName: "checkmark")
+                .foregroundStyle(.tint)
+            }
+          }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+      }
+    }
+    .navigationTitle(row.title)
+    .scrollContentBackground(formBackgroundVisibility)
+    .appleLiquidNavigationContainerBackground()
+  }
+
+  private var multiPickerDestination: some View {
+    List {
+      ForEach(row.options, id: \.self) { option in
+        Button {
+          toggleMultiPickerOption(option)
+        } label: {
+          HStack {
+            if let systemImage = row.multiPickerSelectionSystemImages[option] {
+              Image(systemName: systemImage)
+                .foregroundStyle(.tint)
+                .frame(width: 22)
+            }
+            Text(option)
+              .foregroundStyle(.primary)
+            Spacer()
+            if multiPickerSelection.contains(option) {
+              Image(systemName: "checkmark")
+                .foregroundStyle(.tint)
+            }
+          }
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+      }
+    }
+    .navigationTitle(row.title)
+    .scrollContentBackground(formBackgroundVisibility)
+    .appleLiquidNavigationContainerBackground()
+  }
+
+  @ViewBuilder
+  private var multiPickerRowLabel: some View {
+    switch row.multiPickerLabelPlacement {
+    case .trailing:
+      HStack {
+        AppleLiquidSheetRowLabel(
+          row: row,
+          labelSystemImage: multiPickerSystemImage
+        )
+        Spacer()
+        Text(multiPickerSummary)
+          .foregroundStyle(.secondary)
+          .lineLimit(1)
+      }
+    case .primary:
+      AppleLiquidSheetRowLabel(
+        row: row,
+        labelTitle: multiPickerSummary,
+        labelSystemImage: multiPickerSystemImage
+      )
+    }
+  }
+
+  private func navigationDestination(
+    content: AppleLiquidSheetContentConfiguration
+  ) -> some View {
+    AppleLiquidSheetFormScreen(
+      content: content,
+      showsToolbarActions: false,
+      onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+      onControlInteractionChanged: onControlInteractionChanged,
+      onButtonAction: onButtonAction,
+      onMultiSelectionAction: onMultiSelectionAction,
+      onToolbarAction: nil
+    )
+  }
+
+  private func customChevronNavigationRow<Destination: View, Label: View>(
+    @ViewBuilder destination: @escaping () -> Destination,
+    @ViewBuilder label: () -> Label
+  ) -> some View {
+    Button {
+      isCustomNavigationActive = true
+    } label: {
+      HStack(spacing: 8) {
+        label()
+          .frame(maxWidth: .infinity, alignment: .leading)
+
+        Image(systemName: "chevron.forward")
+          .font(.system(size: 13, weight: .semibold))
+          .foregroundStyle(
+            Color(appleLiquidARGB: row.chevronARGB) ?? .secondary
+          )
+          .accessibilityHidden(true)
+      }
+      .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .background {
+      NavigationLink(
+        destination: destination(),
+        isActive: $isCustomNavigationActive
+      ) {
+        EmptyView()
+      }
+      .hidden()
+    }
   }
 
   @ViewBuilder
@@ -3849,7 +4044,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
           onMultiSelectionAction: onMultiSelectionAction
         )
         .frame(maxWidth: .infinity, minHeight: minimumContentHeight(for: row))
-        .padding(.horizontal, horizontalPadding(for: row))
+        .padding(horizontalInsets(for: row))
         .padding(.top, topPadding(for: row))
         .padding(.bottom, bottomPadding(for: row))
 
@@ -3885,16 +4080,43 @@ private struct AppleLiquidSheetStyledFormGroup: View {
     )
   }
 
-  private func horizontalPadding(
+  private func horizontalInsets(
     for row: AppleLiquidSheetRowConfiguration
-  ) -> CGFloat {
+  ) -> EdgeInsets {
     if row.kind == .segmented,
       let rowHorizontalInset = row.segmentedStyle.rowHorizontalInset
     {
-      return rowHorizontalInset
+      return EdgeInsets(
+        top: 0,
+        leading: rowHorizontalInset,
+        bottom: 0,
+        trailing: rowHorizontalInset
+      )
     }
 
-    return 16
+    if row.kind == .slider {
+      let nativeInset =
+        AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+      let leadingInset =
+        row.rowLeadingInset ?? row.rowHorizontalInset ?? nativeInset
+      let trailingInset =
+        row.rowTrailingInset ?? row.rowHorizontalInset ?? nativeInset
+      return EdgeInsets(
+        top: 0,
+        leading: leadingInset,
+        bottom: 0,
+        trailing: trailingInset
+      )
+    }
+
+    let nativeInset =
+      AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+    return EdgeInsets(
+      top: 0,
+      leading: nativeInset,
+      bottom: 0,
+      trailing: nativeInset
+    )
   }
 
   private func minimumContentHeight(
@@ -4012,6 +4234,50 @@ private extension View {
         .bottom,
         spacing -
           AppleLiquidSheetContentConfiguration.nativeSectionTitleContentSpacing
+      )
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidSectionTitleInsets(
+    horizontal: CGFloat?,
+    leading: CGFloat?,
+    trailing: CGFloat?
+  ) -> some View {
+    if horizontal != nil || leading != nil || trailing != nil {
+      let nativeInset =
+        AppleLiquidSheetContentConfiguration.nativeSectionTitleHorizontalInset
+      padding(
+        EdgeInsets(
+          top: 0,
+          leading: (leading ?? horizontal ?? nativeInset) - nativeInset,
+          bottom: 0,
+          trailing: (trailing ?? horizontal ?? nativeInset) - nativeInset
+        )
+      )
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidSliderRowInsets(
+    horizontal: CGFloat?,
+    leading: CGFloat?,
+    trailing: CGFloat?
+  ) -> some View {
+    if horizontal != nil || leading != nil || trailing != nil {
+      let nativeInset =
+        AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+      padding(
+        EdgeInsets(
+          top: 0,
+          leading: (leading ?? horizontal ?? nativeInset) - nativeInset,
+          bottom: 0,
+          trailing: (trailing ?? horizontal ?? nativeInset) - nativeInset
+        )
       )
     } else {
       self
