@@ -23,12 +23,14 @@ final class RunnerTests: XCTestCase {
       "sections": [
         [
           "title": "First",
+          "titleSpacing": 0.0,
           "rows": [
             ["type": "text", "title": "First row"]
           ]
         ],
         [
           "title": "Second",
+          "titleSpacing": 6.0,
           "rows": [
             ["type": "text", "title": "Second row"]
           ]
@@ -87,6 +89,62 @@ final class RunnerTests: XCTestCase {
     )
 
     collectionView.collectionViewLayout.prepare()
+    let firstHeaderAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForSupplementaryView(
+        ofKind: UICollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: 0)
+      )
+    )
+    let secondHeaderAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForSupplementaryView(
+        ofKind: UICollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: 1)
+      )
+    )
+    let firstHeaderView = try XCTUnwrap(
+      collectionView.supplementaryView(
+        forElementKind: UICollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: 0)
+      )
+    )
+    let secondHeaderView = try XCTUnwrap(
+      collectionView.supplementaryView(
+        forElementKind: UICollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: 1)
+      )
+    )
+    let firstHeaderContentFrame = try XCTUnwrap(
+      smallestVisibleLeafFrame(in: firstHeaderView, relativeTo: collectionView)
+    )
+    let secondHeaderContentFrame = try XCTUnwrap(
+      smallestVisibleLeafFrame(in: secondHeaderView, relativeTo: collectionView)
+    )
+    let firstRowAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForItem(
+        at: IndexPath(item: 0, section: 0)
+      )
+    )
+    let secondRowAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForItem(
+        at: IndexPath(item: 0, section: 1)
+      )
+    )
+    XCTAssertEqual(
+      firstRowAttributes.frame.minY - firstHeaderContentFrame.maxY,
+      0,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
+      secondRowAttributes.frame.minY - secondHeaderContentFrame.maxY,
+      6,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
+      secondHeaderAttributes.frame.height - firstHeaderAttributes.frame.height,
+      6,
+      accuracy: 0.5
+    )
+
     for section in 0...1 {
       let spacerAttributes = try XCTUnwrap(
         collectionView.collectionViewLayout.layoutAttributesForItem(
@@ -168,5 +226,32 @@ final class RunnerTests: XCTestCase {
     }
 
     return nil
+  }
+
+  private func smallestVisibleLeafFrame(
+    in view: UIView,
+    relativeTo ancestor: UIView
+  ) -> CGRect? {
+    let smallestLeaf = allSubviews(of: view)
+      .filter { candidate in
+        candidate.subviews.isEmpty &&
+          !candidate.isHidden &&
+          candidate.alpha > 0 &&
+          candidate.bounds.width > 1 &&
+          candidate.bounds.height > 1
+      }
+      .min { lhs, rhs in
+        lhs.bounds.height < rhs.bounds.height
+      }
+
+    guard let smallestLeaf else {
+      return nil
+    }
+
+    return smallestLeaf.convert(smallestLeaf.bounds, to: ancestor)
+  }
+
+  private func allSubviews(of view: UIView) -> [UIView] {
+    view.subviews + view.subviews.flatMap(allSubviews)
   }
 }

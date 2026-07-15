@@ -280,6 +280,7 @@ class AppleLiquidSheetSection {
   const AppleLiquidSheetSection({
     this.title,
     this.titleColor,
+    this.titleSpacing,
     this.showsBackground,
     this.backgroundColor,
     this.borderColor,
@@ -287,6 +288,9 @@ class AppleLiquidSheetSection {
     required this.rows,
   }) : assert(
          cornerRadius == null || (cornerRadius >= 0 && cornerRadius <= 80),
+       ),
+       assert(
+         titleSpacing == null || (titleSpacing >= 0 && titleSpacing <= 200),
        );
 
   /// Optional section header.
@@ -294,6 +298,12 @@ class AppleLiquidSheetSection {
 
   /// Optional custom color for the section header.
   final Color? titleColor;
+
+  /// Optional absolute spacing between the section title and its content.
+  ///
+  /// The value uses native iOS points. Set it to `0` to remove the native gap,
+  /// or leave it null to preserve SwiftUI's system spacing.
+  final double? titleSpacing;
 
   /// Whether this section keeps a native form background.
   ///
@@ -324,6 +334,7 @@ class AppleLiquidSheetSection {
     return <String, Object?>{
       if (title != null) 'title': title,
       if (titleColor != null) 'titleColor': titleColor!.toARGB32(),
+      if (titleSpacing != null) 'titleSpacing': titleSpacing,
       if (showsBackground != null) 'showsBackground': showsBackground,
       if (backgroundColor != null)
         'backgroundColor': backgroundColor!.toARGB32(),

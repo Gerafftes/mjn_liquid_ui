@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.21
+  mjn_liquid_ui: ^0.2.22
 ```
 
 Then import the package:
@@ -334,7 +334,7 @@ remains the main-row fallback.
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, section spacing, and sections |
 | `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol |
-| `AppleLiquidSheetSection` | Optional section header with a custom color, native form rows, and per-section background, border, and corner styling |
+| `AppleLiquidSheetSection` | Optional section header with configurable color and content spacing, native form rows, and per-section background, border, and corner styling |
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
@@ -646,11 +646,26 @@ Set `showsSectionBackgrounds: false` on an `AppleLiquidSheetContent` page to
 remove the rounded native SwiftUI section boxes while keeping the form rows and
 controls. The option can be configured independently for nested pages. Each
 `AppleLiquidSheetSection` can inherit that setting or override it with
-`showsBackground`, `titleColor`, `backgroundColor`, `borderColor`, and
-`cornerRadius`.
+`showsBackground`, `titleColor`, `titleSpacing`, `backgroundColor`,
+`borderColor`, and `cornerRadius`.
 These options work with every supported sheet row type. To style only one
 element, place that row in its own `AppleLiquidSheetSection`, as shown by the
 `Label` field in the example app.
+
+Use `titleSpacing` to set the absolute distance between a section's native title
+and first content row. The value is measured in native iOS points. Set it to `0`
+to remove the gap completely, or omit it to keep SwiftUI's system spacing:
+
+```dart
+const AppleLiquidSheetSection(
+  title: 'Kategorie',
+  titleColor: Color(0xFFE6E6E6),
+  titleSpacing: 0,
+  rows: <AppleLiquidSheetRow>[
+    AppleLiquidSheetRow.text(title: 'Garten'),
+  ],
+)
+```
 
 Set `sectionSpacing` on an `AppleLiquidSheetContent` page to control the native
 vertical distance between its form sections. When omitted, SwiftUI keeps its

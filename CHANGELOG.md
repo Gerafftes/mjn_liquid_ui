@@ -1,3 +1,9 @@
+## 0.2.22
+
+- Added configurable absolute spacing between native section titles and their
+  content through `AppleLiquidSheetSection.titleSpacing`, including a true
+  zero-gap layout.
+
 ## 0.2.21
 
 - Fixed exact button spacing to render transparent spacer rows inside existing
