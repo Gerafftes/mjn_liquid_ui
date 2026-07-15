@@ -280,6 +280,9 @@ class AppleLiquidSheetSection {
   const AppleLiquidSheetSection({
     this.title,
     this.titleColor,
+    this.titleHorizontalInset,
+    this.titleLeadingInset,
+    this.titleTrailingInset,
     this.titleSpacing,
     this.showsBackground,
     this.backgroundColor,
@@ -290,6 +293,18 @@ class AppleLiquidSheetSection {
          cornerRadius == null || (cornerRadius >= 0 && cornerRadius <= 80),
        ),
        assert(
+         titleHorizontalInset == null ||
+             (titleHorizontalInset >= 0 && titleHorizontalInset <= 200),
+       ),
+       assert(
+         titleLeadingInset == null ||
+             (titleLeadingInset >= 0 && titleLeadingInset <= 200),
+       ),
+       assert(
+         titleTrailingInset == null ||
+             (titleTrailingInset >= 0 && titleTrailingInset <= 200),
+       ),
+       assert(
          titleSpacing == null || (titleSpacing >= 0 && titleSpacing <= 200),
        );
 
@@ -298,6 +313,24 @@ class AppleLiquidSheetSection {
 
   /// Optional custom color for the section header.
   final Color? titleColor;
+
+  /// Optional absolute horizontal inset for the section header.
+  ///
+  /// The value uses native iOS points. Set it to `0` to align the title with
+  /// the section edge, or leave it null to preserve SwiftUI's system inset.
+  final double? titleHorizontalInset;
+
+  /// Optional absolute leading inset for the section header.
+  ///
+  /// This overrides [titleHorizontalInset] only on the leading edge. When both
+  /// values are null, SwiftUI's system inset is preserved.
+  final double? titleLeadingInset;
+
+  /// Optional absolute trailing inset for the section header.
+  ///
+  /// This overrides [titleHorizontalInset] only on the trailing edge. When
+  /// both values are null, SwiftUI's system inset is preserved.
+  final double? titleTrailingInset;
 
   /// Optional absolute spacing between the section title and its content.
   ///
@@ -334,6 +367,10 @@ class AppleLiquidSheetSection {
     return <String, Object?>{
       if (title != null) 'title': title,
       if (titleColor != null) 'titleColor': titleColor!.toARGB32(),
+      if (titleHorizontalInset != null)
+        'titleHorizontalInset': titleHorizontalInset,
+      if (titleLeadingInset != null) 'titleLeadingInset': titleLeadingInset,
+      if (titleTrailingInset != null) 'titleTrailingInset': titleTrailingInset,
       if (titleSpacing != null) 'titleSpacing': titleSpacing,
       if (showsBackground != null) 'showsBackground': showsBackground,
       if (backgroundColor != null)
@@ -912,10 +949,14 @@ class AppleLiquidSheetRow {
     this.tintColor,
     this.sliderValuePlacement =
         AppleLiquidSheetSliderValuePlacement.topTrailing,
+    this.rowHorizontalInset,
+    this.rowLeadingInset,
+    this.rowTrailingInset,
     this.selectionLabelPlacement =
         AppleLiquidSheetMultiPickerLabelPlacement.trailing,
     this.content,
     this.systemImage,
+    this.chevronColor,
     this.segmentedStyle,
     this.buttonStyle,
     this.buttonSemanticLabel,
@@ -938,6 +979,21 @@ class AppleLiquidSheetRow {
          type != AppleLiquidSheetRowType.slider ||
              step == null ||
              step <= (max ?? 1) - (min ?? 0),
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.slider ||
+             rowHorizontalInset == null ||
+             (rowHorizontalInset >= 0 && rowHorizontalInset <= 80),
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.slider ||
+             rowLeadingInset == null ||
+             (rowLeadingInset >= 0 && rowLeadingInset <= 80),
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.slider ||
+             rowTrailingInset == null ||
+             (rowTrailingInset >= 0 && rowTrailingInset <= 80),
        ),
        assert(
          type != AppleLiquidSheetRowType.segmented ||
@@ -999,6 +1055,7 @@ class AppleLiquidSheetRow {
     String? selectedOption,
     String? subtitle,
     String? systemImage,
+    Color? chevronColor,
   }) : this._(
          type: AppleLiquidSheetRowType.picker,
          title: title,
@@ -1006,6 +1063,7 @@ class AppleLiquidSheetRow {
          options: options,
          selectedOption: selectedOption,
          systemImage: systemImage,
+         chevronColor: chevronColor,
        );
 
   /// Creates a native picker row that allows multiple selected options.
@@ -1015,6 +1073,7 @@ class AppleLiquidSheetRow {
     List<String> selectedOptions = const <String>[],
     String? subtitle,
     String? systemImage,
+    Color? chevronColor,
     Map<String, String> selectionSystemImages = const <String, String>{},
     AppleLiquidSheetMultiPickerLabelPlacement selectionLabelPlacement =
         AppleLiquidSheetMultiPickerLabelPlacement.trailing,
@@ -1026,6 +1085,7 @@ class AppleLiquidSheetRow {
          options: options,
          selectedOptions: selectedOptions,
          systemImage: systemImage,
+         chevronColor: chevronColor,
          selectionSystemImages: selectionSystemImages,
          selectionLabelPlacement: selectionLabelPlacement,
          onMultiSelectionChanged: onSelectionChanged,
@@ -1089,6 +1149,9 @@ class AppleLiquidSheetRow {
     Color? tintColor,
     AppleLiquidSheetSliderValuePlacement valuePlacement =
         AppleLiquidSheetSliderValuePlacement.topTrailing,
+    double? rowHorizontalInset,
+    double? rowLeadingInset,
+    double? rowTrailingInset,
     String? subtitle,
     String? systemImage,
   }) : this._(
@@ -1102,6 +1165,9 @@ class AppleLiquidSheetRow {
          valueSuffix: valueSuffix,
          tintColor: tintColor,
          sliderValuePlacement: valuePlacement,
+         rowHorizontalInset: rowHorizontalInset,
+         rowLeadingInset: rowLeadingInset,
+         rowTrailingInset: rowTrailingInset,
          systemImage: systemImage,
        );
 
@@ -1111,12 +1177,14 @@ class AppleLiquidSheetRow {
     required AppleLiquidSheetContent content,
     String? subtitle,
     String? systemImage,
+    Color? chevronColor,
   }) : this._(
          type: AppleLiquidSheetRowType.navigation,
          title: title,
          subtitle: subtitle,
          content: content,
          systemImage: systemImage,
+         chevronColor: chevronColor,
        );
 
   /// Creates a native text field row.
@@ -1208,6 +1276,25 @@ class AppleLiquidSheetRow {
   /// Placement for the slider value text.
   final AppleLiquidSheetSliderValuePlacement sliderValuePlacement;
 
+  /// Optional absolute horizontal form-row inset for slider content.
+  ///
+  /// The value uses native iOS points. Set it to `0` to align the slider row
+  /// with the section edge, or leave it null to preserve SwiftUI's system
+  /// inset.
+  final double? rowHorizontalInset;
+
+  /// Optional absolute leading form-row inset for slider content.
+  ///
+  /// This overrides [rowHorizontalInset] only on the leading edge. When both
+  /// values are null, SwiftUI's system inset is preserved.
+  final double? rowLeadingInset;
+
+  /// Optional absolute trailing form-row inset for slider content.
+  ///
+  /// This overrides [rowHorizontalInset] only on the trailing edge. When both
+  /// values are null, SwiftUI's system inset is preserved.
+  final double? rowTrailingInset;
+
   /// Placement for the selection summary of a multi-picker row.
   final AppleLiquidSheetMultiPickerLabelPlacement selectionLabelPlacement;
 
@@ -1216,6 +1303,12 @@ class AppleLiquidSheetRow {
 
   /// Optional SF Symbol name used by native rows that can show a label icon.
   final String? systemImage;
+
+  /// Optional color for the navigation chevron.
+  ///
+  /// Supported by picker, multi-picker, and navigation rows. When null, the
+  /// native SwiftUI chevron and its system color are preserved.
+  final Color? chevronColor;
 
   /// Visual style for [AppleLiquidSheetRow.segmented].
   final AppleLiquidSheetSegmentedStyle? segmentedStyle;
@@ -1272,6 +1365,12 @@ class AppleLiquidSheetRow {
           sliderValuePlacement !=
               AppleLiquidSheetSliderValuePlacement.topTrailing)
         'sliderValuePlacement': sliderValuePlacement.platformValue,
+      if (type == AppleLiquidSheetRowType.slider && rowHorizontalInset != null)
+        'rowHorizontalInset': rowHorizontalInset,
+      if (type == AppleLiquidSheetRowType.slider && rowLeadingInset != null)
+        'rowLeadingInset': rowLeadingInset,
+      if (type == AppleLiquidSheetRowType.slider && rowTrailingInset != null)
+        'rowTrailingInset': rowTrailingInset,
       if (type == AppleLiquidSheetRowType.multiPicker &&
           selectionLabelPlacement !=
               AppleLiquidSheetMultiPickerLabelPlacement.trailing)
@@ -1281,6 +1380,11 @@ class AppleLiquidSheetRow {
         'selectionSystemImages': selectionSystemImages,
       if (content != null) 'content': content!._toMap(actionRegistry),
       if (systemImage != null) 'systemImage': systemImage,
+      if ((type == AppleLiquidSheetRowType.picker ||
+              type == AppleLiquidSheetRowType.multiPicker ||
+              type == AppleLiquidSheetRowType.navigation) &&
+          chevronColor != null)
+        'chevronColor': chevronColor!.toARGB32(),
       if (segmentedStyle != null) 'segmentedStyle': segmentedStyle!.toMap(),
       if (buttonStyle != null) 'buttonStyle': buttonStyle!.toMap(),
       if (buttonSemanticLabel != null)

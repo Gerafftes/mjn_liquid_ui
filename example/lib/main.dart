@@ -165,6 +165,7 @@ class _DemoShellState extends State<DemoShell> {
             AppleLiquidSheetRow.navigation(
               title: 'Release details',
               systemImage: 'sparkles',
+              chevronColor: Color(0xFF34C759),
               content: AppleLiquidSheetContent(
                 title: 'Release',
                 detents: AppleLiquidSheetDetents(
@@ -205,6 +206,7 @@ class _DemoShellState extends State<DemoShell> {
         ),
         AppleLiquidSheetSection(
           title: 'Presentation',
+          titleHorizontalInset: 8,
           rows: <AppleLiquidSheetRow>[
             const AppleLiquidSheetRow.segmented(
               title: 'Layout',
@@ -238,12 +240,14 @@ class _DemoShellState extends State<DemoShell> {
               options: const <String>['Automatic', 'Light', 'Dark'],
               selectedOption: colorMode,
               systemImage: 'paintpalette.fill',
+              chevronColor: const Color(0xFFFF9F0A),
             ),
             const AppleLiquidSheetRow.slider(
               title: 'Corner feel',
               value: 0.7,
               tintColor: Color(0xFF0A84FF),
               valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              rowHorizontalInset: 8,
               systemImage: 'slider.horizontal.3',
             ),
             const AppleLiquidSheetRow.slider(
@@ -255,6 +259,7 @@ class _DemoShellState extends State<DemoShell> {
               valueSuffix: 'km',
               tintColor: Color(0xFF007AFF),
               valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              rowHorizontalInset: 8,
               systemImage: 'location.fill',
             ),
             AppleLiquidSheetRow.button(
@@ -276,6 +281,7 @@ class _DemoShellState extends State<DemoShell> {
         const AppleLiquidSheetSection(
           title: 'Kategorie',
           titleColor: Color(0xFFE6E6E6),
+          titleHorizontalInset: 8,
           titleSpacing: 0,
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.multiPicker(
@@ -290,6 +296,7 @@ class _DemoShellState extends State<DemoShell> {
               selectionLabelPlacement:
                   AppleLiquidSheetMultiPickerLabelPlacement.primary,
               systemImage: 'square.grid.2x2.fill',
+              chevronColor: Color(0xFF0A84FF),
             ),
           ],
         ),
@@ -311,6 +318,27 @@ class _DemoShellState extends State<DemoShell> {
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.value(title: 'Platform', value: 'iOS'),
             AppleLiquidSheetRow.value(title: 'Renderer', value: 'SwiftUI Form'),
+          ],
+        ),
+        const AppleLiquidSheetSection(
+          title: 'Only left · title 0 pt',
+          titleLeadingInset: 0,
+          titleSpacing: 0,
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.slider(
+              title: 'Only left · 0 pt',
+              value: 0.35,
+              tintColor: Color(0xFF007AFF),
+              valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              rowLeadingInset: 0,
+            ),
+            AppleLiquidSheetRow.slider(
+              title: 'Only right · 24 pt',
+              value: 0.7,
+              tintColor: Color(0xFF34C759),
+              valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+              rowTrailingInset: 24,
+            ),
           ],
         ),
       ],

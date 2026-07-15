@@ -315,6 +315,7 @@ const AppleLiquidSheetRow.multiPicker(
   options: <String>['Alle', 'Garten', 'Umzug'],
   selectedOptions: <String>['Alle'],
   systemImage: 'square.grid.2x2.fill',
+  chevronColor: Color(0xFF0A84FF),
   selectionSystemImages: <String, String>{
     'Alle': 'square.grid.2x2.fill',
     'Garten': 'leaf.fill',
@@ -330,6 +331,10 @@ changes the main-row icon immediately when exactly one matching option is
 selected. For multiple selections, or when no mapping exists, `systemImage`
 remains the main-row fallback.
 
+Set `chevronColor` on `AppleLiquidSheetRow.picker`, `multiPicker`, or
+`navigation` to color only that row's navigation chevron. Omit it to preserve
+the native SwiftUI chevron and system color.
+
 | API | Purpose |
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, section spacing, and sections |
@@ -338,15 +343,15 @@ remains the main-row fallback.
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
 | `AppleLiquidSheetRow.toggle` | Native SwiftUI toggle with local sheet state |
-| `AppleLiquidSheetRow.picker` | Native picker row with local sheet state |
-| `AppleLiquidSheetRow.multiPicker` | Native multi-selection picker with initial selections, configurable summary placement, and a Dart change callback |
+| `AppleLiquidSheetRow.picker` | Native picker row with local sheet state and an optional custom chevron color |
+| `AppleLiquidSheetRow.multiPicker` | Native multi-selection picker with initial selections, configurable summary placement, custom chevron color, and a Dart change callback |
 | `AppleLiquidSheetRow.segmented` | Two separate, equal-width native buttons with local selection state |
 | `AppleLiquidSheetSegmentedStyle` | Per-row colors, dimensions, typography, spacing, borders, shadows, press feedback, and selection transitions |
 | `AppleLiquidSheetRow.button` | Full-width native action button with a Dart callback, optional sheet dismissal, accessibility label, and configurable enabled state |
 | `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
-| `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, and value placement |
+| `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, value placement, and horizontal row inset |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
-| `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page |
+| `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page with an optional custom chevron color |
 
 `AppleLiquidSheetDetents` can be set on every `AppleLiquidSheetContent`, not
 only the root sheet. Heights are native iOS points:
@@ -416,6 +421,7 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           title: 'Theme',
           options: <String>['Auto', 'Light', 'Dark'],
           selectedOption: 'Auto',
+          chevronColor: Color(0xFFFF9F0A),
         ),
         AppleLiquidSheetRow.segmented(
           title: 'Layout',
@@ -442,9 +448,11 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           valueSuffix: 'x',
           tintColor: Color(0xFF0A84FF),
           valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
+          rowHorizontalInset: 8,
         ),
         AppleLiquidSheetRow.navigation(
           title: 'Details',
+          chevronColor: Color(0xFF34C759),
           content: AppleLiquidSheetContent(
             title: 'Details',
             detents: AppleLiquidSheetDetents(
@@ -647,7 +655,8 @@ remove the rounded native SwiftUI section boxes while keeping the form rows and
 controls. The option can be configured independently for nested pages. Each
 `AppleLiquidSheetSection` can inherit that setting or override it with
 `showsBackground`, `titleColor`, `titleSpacing`, `backgroundColor`,
-`borderColor`, and `cornerRadius`.
+`borderColor`, `cornerRadius`, `titleHorizontalInset`, `titleLeadingInset`, and
+`titleTrailingInset`.
 These options work with every supported sheet row type. To style only one
 element, place that row in its own `AppleLiquidSheetSection`, as shown by the
 `Label` field in the example app.
@@ -660,10 +669,29 @@ to remove the gap completely, or omit it to keep SwiftUI's system spacing:
 const AppleLiquidSheetSection(
   title: 'Kategorie',
   titleColor: Color(0xFFE6E6E6),
+  titleHorizontalInset: 8,
   titleSpacing: 0,
   rows: <AppleLiquidSheetRow>[
     AppleLiquidSheetRow.text(title: 'Garten'),
   ],
+)
+```
+
+`titleHorizontalInset` and the slider row's `rowHorizontalInset` are absolute
+native iOS point values. Use `titleLeadingInset`/`titleTrailingInset` or
+`rowLeadingInset`/`rowTrailingInset` to override only one edge. A directional
+value takes precedence over the corresponding horizontal value. Set an inset
+to `0` to align that edge with its section, or omit all applicable values to
+preserve SwiftUI's system inset:
+
+```dart
+const AppleLiquidSheetRow.slider(
+  title: 'Distanz',
+  value: 5,
+  min: 0,
+  max: 10,
+  rowLeadingInset: 8,
+  rowTrailingInset: 24,
 )
 ```
 

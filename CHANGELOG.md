@@ -1,3 +1,11 @@
+## 0.2.23
+
+- Added absolute horizontal, leading, and trailing inset controls for native
+  section titles and slider rows through `AppleLiquidSheetSection` and
+  `AppleLiquidSheetRow.slider`.
+- Added per-row navigation chevron colors for picker, multi-picker, and nested
+  content rows through `chevronColor`.
+
 ## 0.2.22
 
 - Added configurable absolute spacing between native section titles and their
