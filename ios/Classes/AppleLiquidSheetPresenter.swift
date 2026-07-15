@@ -209,6 +209,7 @@ private struct AppleLiquidSheetConfiguration {
 
 private struct AppleLiquidSheetContentConfiguration {
   static let navigationChromeHeight: CGFloat = 122
+  static let nativeSectionTitleContentSpacing: CGFloat = 10
 
   private static var exactTitledSectionHeaderHeight: CGFloat {
     40 + (1 / max(UIScreen.main.scale, 1))
@@ -355,7 +356,12 @@ private struct AppleLiquidSheetContentConfiguration {
     let rowHeight: CGFloat
     if #available(iOS 17.0, *), usesExactButtonSpacing {
       sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
-        partial + (group.title == nil ? 0 : Self.exactTitledSectionHeaderHeight)
+        partial + (
+          group.title == nil
+            ? 0
+            : Self.exactTitledSectionHeaderHeight +
+              group.sectionStyle.titleSpacingAdjustment
+        )
       }
       sectionSpacingHeight = formGroups.indices.dropFirst().reduce(
         CGFloat.zero
@@ -376,7 +382,11 @@ private struct AppleLiquidSheetContentConfiguration {
       }
     } else {
       sectionHeaderHeight = formGroups.reduce(CGFloat.zero) { partial, group in
-        partial + (group.title == nil ? 12 : 34)
+        partial + (
+          group.title == nil
+            ? 12
+            : 34 + group.sectionStyle.titleSpacingAdjustment
+        )
       }
       sectionSpacingHeight = CGFloat(max(formGroups.count - 1, 0)) *
         (sectionSpacing ?? 12)
@@ -789,6 +799,7 @@ private struct AppleLiquidSheetDetentConfiguration {
 
 private struct AppleLiquidSheetSectionStyleConfiguration {
   let titleARGB: Int?
+  let titleSpacing: CGFloat?
   let showsBackground: Bool?
   let backgroundARGB: Int?
   let borderARGB: Int?
@@ -797,6 +808,11 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
   init(value: [String: Any]) {
     self.titleARGB = AppleLiquidTabbarConfiguration.intValue(
       value["titleColor"]
+    )
+    self.titleSpacing = Self.optionalClampedCGFloat(
+      value["titleSpacing"],
+      minValue: 0,
+      maxValue: 200
     )
     self.showsBackground = Self.optionalBool(value["showsBackground"])
     self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
@@ -814,12 +830,14 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
 
   init(
     titleARGB: Int? = nil,
+    titleSpacing: CGFloat? = nil,
     showsBackground: Bool? = nil,
     backgroundARGB: Int? = nil,
     borderARGB: Int? = nil,
     cornerRadius: CGFloat? = nil
   ) {
     self.titleARGB = titleARGB
+    self.titleSpacing = titleSpacing
     self.showsBackground = showsBackground
     self.backgroundARGB = backgroundARGB
     self.borderARGB = borderARGB
@@ -828,6 +846,15 @@ private struct AppleLiquidSheetSectionStyleConfiguration {
 
   var hasCustomAppearance: Bool {
     backgroundARGB != nil || borderARGB != nil || cornerRadius != nil
+  }
+
+  var titleSpacingAdjustment: CGFloat {
+    guard let titleSpacing else {
+      return 0
+    }
+
+    return titleSpacing -
+      AppleLiquidSheetContentConfiguration.nativeSectionTitleContentSpacing
   }
 
   func resolvesBackgroundVisibility(defaultValue: Bool) -> Bool {
@@ -2891,14 +2918,17 @@ private struct AppleLiquidSheetFormScreen: View {
           }
         } header: {
           if let title = group.title {
-            if let titleColor = Color(
-              appleLiquidARGB: group.sectionStyle.titleARGB
-            ) {
-              Text(title)
-                .foregroundStyle(titleColor)
-            } else {
-              Text(title)
+            Group {
+              if let titleColor = Color(
+                appleLiquidARGB: group.sectionStyle.titleARGB
+              ) {
+                Text(title)
+                  .foregroundStyle(titleColor)
+              } else {
+                Text(title)
+              }
             }
+            .appleLiquidSectionTitleSpacing(group.sectionStyle.titleSpacing)
           }
         }
       }
@@ -3970,6 +4000,19 @@ private extension View {
   func appleLiquidMinimumListRowHeight(_ height: CGFloat?) -> some View {
     if let height {
       environment(\.defaultMinListRowHeight, height)
+    } else {
+      self
+    }
+  }
+
+  @ViewBuilder
+  func appleLiquidSectionTitleSpacing(_ spacing: CGFloat?) -> some View {
+    if let spacing {
+      padding(
+        .bottom,
+        spacing -
+          AppleLiquidSheetContentConfiguration.nativeSectionTitleContentSpacing
+      )
     } else {
       self
     }

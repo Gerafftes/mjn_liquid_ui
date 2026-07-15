@@ -276,6 +276,7 @@ class _DemoShellState extends State<DemoShell> {
         const AppleLiquidSheetSection(
           title: 'Kategorie',
           titleColor: Color(0xFFE6E6E6),
+          titleSpacing: 0,
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.multiPicker(
               title: 'Kategorie',
@@ -306,6 +307,7 @@ class _DemoShellState extends State<DemoShell> {
         ),
         const AppleLiquidSheetSection(
           title: 'State',
+          titleSpacing: 2,
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.value(title: 'Platform', value: 'iOS'),
             AppleLiquidSheetRow.value(title: 'Renderer', value: 'SwiftUI Form'),

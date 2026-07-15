@@ -119,6 +119,7 @@ void main() {
         AppleLiquidSheetSection(
           title: 'Overview',
           titleColor: Color(0xFFE6E6E6),
+          titleSpacing: 10,
           showsBackground: true,
           backgroundColor: Color(0xFF1A1A1A),
           borderColor: Color(0xFF2C2C2E),
@@ -251,6 +252,7 @@ void main() {
         <String, Object?>{
           'title': 'Overview',
           'titleColor': 0xFFE6E6E6,
+          'titleSpacing': 10.0,
           'showsBackground': true,
           'backgroundColor': 0xFF1A1A1A,
           'borderColor': 0xFF2C2C2E,
@@ -540,6 +542,21 @@ void main() {
           AppleLiquidSheetRow.text(title: 'Row'),
         ],
       ),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet section title spacing stays within native bounds', () {
+    const List<AppleLiquidSheetRow> rows = <AppleLiquidSheetRow>[
+      AppleLiquidSheetRow.text(title: 'Row'),
+    ];
+
+    expect(
+      () => AppleLiquidSheetSection(titleSpacing: -1, rows: rows),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetSection(titleSpacing: 201, rows: rows),
       throwsAssertionError,
     );
   });
