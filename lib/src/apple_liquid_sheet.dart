@@ -888,12 +888,76 @@ enum AppleLiquidSheetRowType {
   navigation('navigation'),
 
   /// Native SwiftUI text field with local state.
-  textField('textField');
+  textField('textField'),
+
+  /// Highlighted identity header with a role and activity type.
+  identity('identity'),
+
+  /// Connected sequence of past, current, and upcoming status steps.
+  timeline('timeline'),
+
+  /// Compact grid of short labeled facts.
+  factsGrid('factsGrid');
 
   const AppleLiquidSheetRowType(this.platformValue);
 
   /// Value sent over the platform channel.
   final String platformValue;
+}
+
+/// A single step rendered by [AppleLiquidSheetRow.timeline].
+@immutable
+class AppleLiquidSheetTimelineStep {
+  /// Creates a timeline step.
+  const AppleLiquidSheetTimelineStep({
+    required this.title,
+    this.subtitle,
+    this.systemImage,
+  }) : assert(title != '');
+
+  /// Main status text.
+  final String title;
+
+  /// Optional supporting text, such as a date or short explanation.
+  final String? subtitle;
+
+  /// Optional SF Symbol for the current or upcoming marker.
+  ///
+  /// Completed steps always use a checkmark.
+  final String? systemImage;
+
+  Map<String, Object?> toMap() => <String, Object?>{
+    'title': title,
+    if (subtitle != null) 'subtitle': subtitle,
+    if (systemImage != null) 'systemImage': systemImage,
+  };
+}
+
+/// A compact label-value item rendered by [AppleLiquidSheetRow.factsGrid].
+@immutable
+class AppleLiquidSheetFact {
+  /// Creates a fact grid item.
+  const AppleLiquidSheetFact({
+    required this.label,
+    required this.value,
+    this.systemImage,
+  }) : assert(label != ''),
+       assert(value != '');
+
+  /// Short descriptor, for example `Termin` or `Ort`.
+  final String label;
+
+  /// Short value displayed below the label.
+  final String value;
+
+  /// Optional SF Symbol displayed beside the label.
+  final String? systemImage;
+
+  Map<String, Object?> toMap() => <String, Object?>{
+    'label': label,
+    'value': value,
+    if (systemImage != null) 'systemImage': systemImage,
+  };
 }
 
 /// Placement for the value text rendered by [AppleLiquidSheetRow.slider].
@@ -956,6 +1020,14 @@ class AppleLiquidSheetRow {
         AppleLiquidSheetMultiPickerLabelPlacement.trailing,
     this.content,
     this.systemImage,
+    this.role,
+    this.activityType,
+    this.avatarUrl,
+    List<AppleLiquidSheetTimelineStep> timelineSteps =
+        const <AppleLiquidSheetTimelineStep>[],
+    this.currentStepIndex,
+    List<AppleLiquidSheetFact> facts = const <AppleLiquidSheetFact>[],
+    this.columns,
     this.chevronColor,
     this.segmentedStyle,
     this.buttonStyle,
@@ -967,6 +1039,8 @@ class AppleLiquidSheetRow {
   }) : _options = options,
        _selectedOptions = selectedOptions,
        _selectionSystemImages = selectionSystemImages,
+       _timelineSteps = timelineSteps,
+       _facts = facts,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
        assert(
@@ -1006,6 +1080,19 @@ class AppleLiquidSheetRow {
        assert(
          type != AppleLiquidSheetRowType.segmented ||
              firstSegmentOption != secondSegmentOption,
+       ),
+       assert(type != AppleLiquidSheetRowType.identity || role != null),
+       assert(type != AppleLiquidSheetRowType.identity || role != ''),
+       assert(type != AppleLiquidSheetRowType.identity || activityType != null),
+       assert(type != AppleLiquidSheetRowType.identity || activityType != ''),
+       assert(
+         type != AppleLiquidSheetRowType.identity ||
+             avatarUrl == null ||
+             avatarUrl != '',
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.factsGrid ||
+             columns != null && columns >= 1 && columns <= 4,
        );
 
   /// Creates a plain text row.
@@ -1201,6 +1288,69 @@ class AppleLiquidSheetRow {
          systemImage: systemImage,
        );
 
+  /// Creates a highlighted identity header.
+  ///
+  /// [systemImage] is used as the avatar fallback. When [avatarUrl] is set and
+  /// the image can be loaded, the remote avatar is shown instead.
+  const AppleLiquidSheetRow.identity({
+    required String title,
+    required String role,
+    required String activityType,
+    String? systemImage,
+    String? avatarUrl,
+    Color? tintColor,
+  }) : this._(
+         type: AppleLiquidSheetRowType.identity,
+         title: title,
+         role: role,
+         activityType: activityType,
+         systemImage: systemImage,
+         avatarUrl: avatarUrl,
+         tintColor: tintColor,
+       );
+
+  /// Creates a connected status timeline.
+  ///
+  /// Steps before [currentStepIndex] are rendered as completed, the indexed
+  /// step is highlighted, and later steps remain subdued.
+  factory AppleLiquidSheetRow.timeline({
+    required String title,
+    required List<AppleLiquidSheetTimelineStep> steps,
+    required int currentStepIndex,
+    Color? tintColor,
+  }) {
+    assert(steps.isNotEmpty);
+    assert(currentStepIndex >= 0 && currentStepIndex < steps.length);
+    return AppleLiquidSheetRow._(
+      type: AppleLiquidSheetRowType.timeline,
+      title: title,
+      timelineSteps: steps,
+      currentStepIndex: currentStepIndex,
+      tintColor: tintColor,
+    );
+  }
+
+  /// Creates a compact grid of short facts.
+  ///
+  /// [columns] accepts values from 1 through 4 and defaults to three compact
+  /// columns.
+  factory AppleLiquidSheetRow.factsGrid({
+    required String title,
+    required List<AppleLiquidSheetFact> facts,
+    int columns = 3,
+    Color? tintColor,
+  }) {
+    assert(facts.isNotEmpty);
+    assert(columns >= 1 && columns <= 4);
+    return AppleLiquidSheetRow._(
+      type: AppleLiquidSheetRowType.factsGrid,
+      title: title,
+      facts: facts,
+      columns: columns,
+      tintColor: tintColor,
+    );
+  }
+
   /// Row type rendered on iOS.
   final AppleLiquidSheetRowType type;
 
@@ -1270,7 +1420,7 @@ class AppleLiquidSheetRow {
   /// Optional fixed slider increment.
   final double? step;
 
-  /// Optional accent color for slider tracks and button rows.
+  /// Optional accent color for sliders, buttons, and structured rows.
   final Color? tintColor;
 
   /// Placement for the slider value text.
@@ -1303,6 +1453,33 @@ class AppleLiquidSheetRow {
 
   /// Optional SF Symbol name used by native rows that can show a label icon.
   final String? systemImage;
+
+  /// Role shown by [AppleLiquidSheetRow.identity].
+  final String? role;
+
+  /// Activity type shown by [AppleLiquidSheetRow.identity].
+  final String? activityType;
+
+  /// Optional remote avatar URL for [AppleLiquidSheetRow.identity].
+  final String? avatarUrl;
+
+  final List<AppleLiquidSheetTimelineStep> _timelineSteps;
+
+  /// Ordered steps rendered by [AppleLiquidSheetRow.timeline].
+  List<AppleLiquidSheetTimelineStep> get timelineSteps =>
+      List<AppleLiquidSheetTimelineStep>.unmodifiable(_timelineSteps);
+
+  /// Index of the active step in [timelineSteps].
+  final int? currentStepIndex;
+
+  final List<AppleLiquidSheetFact> _facts;
+
+  /// Items rendered by [AppleLiquidSheetRow.factsGrid].
+  List<AppleLiquidSheetFact> get facts =>
+      List<AppleLiquidSheetFact>.unmodifiable(_facts);
+
+  /// Number of columns used by [AppleLiquidSheetRow.factsGrid].
+  final int? columns;
 
   /// Optional color for the navigation chevron.
   ///
@@ -1380,6 +1557,19 @@ class AppleLiquidSheetRow {
         'selectionSystemImages': selectionSystemImages,
       if (content != null) 'content': content!._toMap(actionRegistry),
       if (systemImage != null) 'systemImage': systemImage,
+      if (role != null) 'role': role,
+      if (activityType != null) 'activityType': activityType,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (timelineSteps.isNotEmpty)
+        'steps': timelineSteps
+            .map((AppleLiquidSheetTimelineStep step) => step.toMap())
+            .toList(growable: false),
+      if (currentStepIndex != null) 'currentStepIndex': currentStepIndex,
+      if (facts.isNotEmpty)
+        'facts': facts
+            .map((AppleLiquidSheetFact fact) => fact.toMap())
+            .toList(growable: false),
+      if (columns != null) 'columns': columns,
       if ((type == AppleLiquidSheetRowType.picker ||
               type == AppleLiquidSheetRowType.multiPicker ||
               type == AppleLiquidSheetRowType.navigation) &&

@@ -1,3 +1,12 @@
+## 0.2.24
+
+- Added highlighted `AppleLiquidSheetRow.identity` headers with role, activity
+  type, SF Symbol fallback, optional remote avatar, and tint color.
+- Added connected `AppleLiquidSheetRow.timeline` status histories with typed
+  steps and automatic completed/current/upcoming styling.
+- Added compact `AppleLiquidSheetRow.factsGrid` layouts with typed facts,
+  optional SF Symbols, tint color, and one to four columns.
+
 ## 0.2.23
 
 - Added absolute horizontal, leading, and trailing inset controls for native

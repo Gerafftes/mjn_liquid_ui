@@ -57,6 +57,122 @@ final class RunnerTests: XCTestCase {
   }
 
   @MainActor
+  func testStructuredRowsRenderWithinCalculatedDetent() throws {
+    guard #available(iOS 17.0, *) else {
+      throw XCTSkip("Structured native sheet layout requires iOS 17 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "title": "Auftrag",
+      "sections": [
+        [
+          "title": "Übersicht",
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "activityType": "Gartenarbeit",
+              "systemImage": "person.fill",
+              "tintColor": 0xFF0A84FF
+            ],
+            [
+              "type": "factsGrid",
+              "title": "Auftrag",
+              "columns": 3,
+              "facts": [
+                ["label": "Termin", "value": "Mo · 18:00"],
+                ["label": "Ort", "value": "2,4 km"],
+                ["label": "Vergütung", "value": "18 €/Std."]
+              ]
+            ],
+            [
+              "type": "timeline",
+              "title": "Status",
+              "currentStepIndex": 1,
+              "steps": [
+                ["title": "Angefragt"],
+                ["title": "Bestätigt"]
+              ]
+            ],
+            [
+              "type": "button",
+              "title": "Öffnen",
+              "buttonActionId": "structured-layout-button"
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.groupCount, 2)
+    XCTAssertEqual(snapshot.rowCounts, [3, 1])
+    XCTAssertEqual(snapshot.rowKinds, ["identity", "factsGrid", "timeline", "button"])
+    XCTAssertEqual(snapshot.identityRoles, ["Helfer"])
+    XCTAssertEqual(snapshot.timelineCurrentStepIndices, [1])
+    XCTAssertEqual(snapshot.factColumnCounts, [3])
+
+    let host = UIHostingController(
+      rootView: AppleLiquidSheetLayoutTestSupport.makePresentedSheet(
+        contentValue: content
+      )
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+    let sheetController = try XCTUnwrap(host.presentedViewController)
+    sheetController.view.layoutIfNeeded()
+    let collectionView: UICollectionView = try XCTUnwrap(
+      firstSubview(of: UICollectionView.self, in: sheetController.view)
+    )
+    collectionView.collectionViewLayout.prepare()
+
+    let lastSection = collectionView.numberOfSections - 1
+    let lastItem = collectionView.numberOfItems(inSection: lastSection) - 1
+    let lastRowAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForItem(
+        at: IndexPath(item: lastItem, section: lastSection)
+      )
+    )
+    let renderedBottom = collectionView.convert(
+      lastRowAttributes.frame,
+      to: sheetController.view
+    ).maxY
+    let resolvedDetentHeight = sheetController.view.bounds.height -
+      sheetController.view.safeAreaInsets.bottom
+    let renderedRowHeights = (0..<collectionView.numberOfSections).flatMap {
+      section in
+      (0..<collectionView.numberOfItems(inSection: section)).compactMap {
+        item in
+        collectionView.collectionViewLayout.layoutAttributesForItem(
+          at: IndexPath(item: item, section: section)
+        )?.frame.height
+      }
+    }
+
+    XCTAssertLessThanOrEqual(
+      renderedBottom,
+      resolvedDetentHeight + 1,
+      "The calculated detent must fully contain all structured rows. " +
+        "Rendered row heights: \(renderedRowHeights); " +
+        "estimated row heights: \(snapshot.estimatedRowHeights)."
+    )
+    XCTAssertEqual(
+      resolvedDetentHeight,
+      snapshot.preferredDetentHeight,
+      accuracy: 1
+    )
+
+    withExtendedLifetime(window) {}
+  }
+
+  @MainActor
   func testExactButtonSpacingRenderedHeightMatchesDetent() throws {
     guard #available(iOS 17.0, *) else {
       throw XCTSkip("Exact native section spacing requires iOS 17 or newer.")
