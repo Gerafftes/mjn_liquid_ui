@@ -1053,6 +1053,9 @@ private enum AppleLiquidSheetRowKind: String {
   case slider
   case navigation
   case textField
+  case identity
+  case timeline
+  case factsGrid
 }
 
 private enum AppleLiquidSheetSliderValuePlacement: String {
@@ -1710,6 +1713,74 @@ private struct AppleLiquidSheetButtonStyleConfiguration {
   }
 }
 
+private struct AppleLiquidSheetTimelineStepConfiguration: Identifiable {
+  let id: String
+  let title: String
+  let subtitle: String?
+  let systemImage: String?
+
+  init?(value: Any?, id: String) {
+    guard let dictionary = value as? [String: Any],
+      let title = dictionary["title"] as? String,
+      !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    self.id = id
+    self.title = title
+    self.subtitle = Self.optionalString(dictionary["subtitle"])
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+  }
+
+  var estimatedHeight: CGFloat {
+    subtitle == nil ? 38 : 54
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+}
+
+private struct AppleLiquidSheetFactConfiguration: Identifiable {
+  let id: String
+  let label: String
+  let value: String
+  let systemImage: String?
+
+  init?(value: Any?, id: String) {
+    guard let dictionary = value as? [String: Any],
+      let label = dictionary["label"] as? String,
+      !label.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      let value = dictionary["value"] as? String,
+      !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    self.id = id
+    self.label = label
+    self.value = value
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+}
+
 private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let id: String
   let kind: AppleLiquidSheetRowKind
@@ -1734,6 +1805,13 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let tintColor: Int?
   let content: AppleLiquidSheetContentConfiguration?
   let systemImage: String?
+  let role: String?
+  let activityType: String?
+  let avatarURL: URL?
+  let timelineSteps: [AppleLiquidSheetTimelineStepConfiguration]
+  let currentStepIndex: Int
+  let facts: [AppleLiquidSheetFactConfiguration]
+  let factColumns: Int
   let chevronARGB: Int?
   let segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration
   let buttonStyle: AppleLiquidSheetButtonStyleConfiguration
@@ -1761,6 +1839,22 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       min: sliderMin,
       max: sliderMax
     )
+    let timelineSteps = (dictionary["steps"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { index, value in
+        AppleLiquidSheetTimelineStepConfiguration(
+          value: value,
+          id: "\(id)-step-\(index)"
+        )
+      }
+    let facts = (dictionary["facts"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { index, value in
+        AppleLiquidSheetFactConfiguration(
+          value: value,
+          id: "\(id)-fact-\(index)"
+        )
+      }
 
     if (kind == .picker || kind == .multiPicker) && options.isEmpty {
       return nil
@@ -1769,6 +1863,20 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     if kind == .segmented &&
       (options.count != 2 || options.first == options.last)
     {
+      return nil
+    }
+
+    let role = Self.optionalString(dictionary["role"])
+    let activityType = Self.optionalString(dictionary["activityType"])
+    if kind == .identity && (role == nil || activityType == nil) {
+      return nil
+    }
+
+    if kind == .timeline && timelineSteps.isEmpty {
+      return nil
+    }
+
+    if kind == .factsGrid && facts.isEmpty {
       return nil
     }
 
@@ -1843,6 +1951,23 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     )
     self.content = content
     self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.role = role
+    self.activityType = activityType
+    self.avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    self.timelineSteps = timelineSteps
+    self.currentStepIndex = Self.clampedInt(
+      dictionary["currentStepIndex"],
+      defaultValue: 0,
+      minValue: 0,
+      maxValue: max(timelineSteps.count - 1, 0)
+    )
+    self.facts = facts
+    self.factColumns = Self.clampedInt(
+      dictionary["columns"],
+      defaultValue: 3,
+      minValue: 1,
+      maxValue: 4
+    )
     self.chevronARGB = AppleLiquidTabbarConfiguration.intValue(
       dictionary["chevronColor"]
     )
@@ -1895,6 +2020,13 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     tintColor: Int? = nil,
     content: AppleLiquidSheetContentConfiguration? = nil,
     systemImage: String? = nil,
+    role: String? = nil,
+    activityType: String? = nil,
+    avatarURL: URL? = nil,
+    timelineSteps: [AppleLiquidSheetTimelineStepConfiguration] = [],
+    currentStepIndex: Int = 0,
+    facts: [AppleLiquidSheetFactConfiguration] = [],
+    factColumns: Int = 3,
     chevronARGB: Int? = nil,
     segmentedStyle: AppleLiquidSheetSegmentedStyleConfiguration =
       AppleLiquidSheetSegmentedStyleConfiguration(value: nil),
@@ -1934,6 +2066,13 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.tintColor = tintColor
     self.content = content
     self.systemImage = systemImage
+    self.role = role
+    self.activityType = activityType
+    self.avatarURL = avatarURL
+    self.timelineSteps = timelineSteps
+    self.currentStepIndex = currentStepIndex
+    self.facts = facts
+    self.factColumns = factColumns
     self.chevronARGB = chevronARGB
     self.segmentedStyle = segmentedStyle
     self.buttonStyle = buttonStyle
@@ -2140,6 +2279,17 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = subtitle == nil ? 50 : 68
     case .textField:
       baseHeight = 54
+    case .identity:
+      baseHeight = 94
+    case .timeline:
+      baseHeight = 52 + (1 / max(UIScreen.main.scale, 1)) +
+        timelineSteps.reduce(CGFloat.zero) { partial, step in
+          partial + step.estimatedHeight
+        }
+    case .factsGrid:
+      let rowCount = Int(ceil(Double(facts.count) / Double(factColumns)))
+      baseHeight = 52 + (1 / max(UIScreen.main.scale, 1)) +
+        CGFloat(rowCount) * 52
     }
 
     return systemImage == nil ? baseHeight : max(baseHeight, 54)
@@ -2163,6 +2313,36 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     }
 
     return string
+  }
+
+  private static func optionalURL(_ value: Any?) -> URL? {
+    guard let string = optionalString(value),
+      let url = URL(string: string),
+      let scheme = url.scheme?.lowercased(),
+      scheme == "https" || scheme == "http"
+    else {
+      return nil
+    }
+
+    return url
+  }
+
+  private static func clampedInt(
+    _ value: Any?,
+    defaultValue: Int,
+    minValue: Int,
+    maxValue: Int
+  ) -> Int {
+    let intValue: Int
+    if let value = value as? Int {
+      intValue = value
+    } else if let value = value as? NSNumber {
+      intValue = value.intValue
+    } else {
+      intValue = defaultValue
+    }
+
+    return min(max(intValue, minValue), maxValue)
   }
 
   private static func stringArray(_ value: Any?) -> [String] {
@@ -3077,6 +3257,11 @@ private struct AppleLiquidSheetFormScreen: View {
 struct AppleLiquidSheetLayoutTestSnapshot {
   let groupCount: Int
   let rowCounts: [Int]
+  let rowKinds: [String]
+  let estimatedRowHeights: [CGFloat]
+  let identityRoles: [String]
+  let timelineCurrentStepIndices: [Int]
+  let factColumnCounts: [Int]
   let chevronARGBValues: [Int]
   let spacingAfterGroups: [CGFloat]
   let lastButtonTopInset: CGFloat?
@@ -3102,6 +3287,27 @@ enum AppleLiquidSheetLayoutTestSupport {
     return AppleLiquidSheetLayoutTestSnapshot(
       groupCount: groups.count,
       rowCounts: rowCounts,
+      rowKinds: groups.flatMap { group in
+        group.rows.map(\.kind.rawValue)
+      },
+      estimatedRowHeights: groups.flatMap { group in
+        group.rows.map(\.estimatedHeight)
+      },
+      identityRoles: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.role : nil
+        }
+      },
+      timelineCurrentStepIndices: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline ? row.currentStepIndex : nil
+        }
+      },
+      factColumnCounts: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .factsGrid ? row.factColumns : nil
+        }
+      },
       chevronARGBValues: groups.flatMap { group in
         group.rows.compactMap(\.chevronARGB)
       },
@@ -3292,6 +3498,18 @@ private struct AppleLiquidSheetRowView: View {
 
     case .textField:
       TextField(row.title, text: $textValue)
+
+    case .identity:
+      AppleLiquidSheetIdentityRow(row: row)
+        .listRowSeparator(.hidden)
+
+    case .timeline:
+      AppleLiquidSheetTimelineRow(row: row)
+        .listRowSeparator(.hidden)
+
+    case .factsGrid:
+      AppleLiquidSheetFactsGridRow(row: row)
+        .listRowSeparator(.hidden)
     }
   }
 
@@ -3583,6 +3801,233 @@ private struct AppleLiquidSheetRowView: View {
 
     let orderedSelection = row.options.filter(multiPickerSelection.contains)
     onMultiSelectionAction(row, orderedSelection)
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetIdentityRow: View {
+  let row: AppleLiquidSheetRowConfiguration
+
+  var body: some View {
+    HStack(spacing: 12) {
+      avatar
+
+      VStack(alignment: .leading, spacing: 5) {
+        HStack(alignment: .firstTextBaseline, spacing: 6) {
+          Text(row.title)
+            .font(.headline)
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+
+          if let role = row.role {
+            Text("· \(role)")
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(tintColor)
+              .lineLimit(1)
+          }
+        }
+
+        if let activityType = row.activityType {
+          Text(activityType)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .lineLimit(1)
+        }
+      }
+
+      Spacer(minLength: 0)
+    }
+    .padding(10)
+    .background(
+      tintColor.opacity(0.12),
+      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+    )
+    .accessibilityElement(children: .combine)
+  }
+
+  @ViewBuilder
+  private var avatar: some View {
+    if let avatarURL = row.avatarURL {
+      AsyncImage(url: avatarURL) { phase in
+        switch phase {
+        case .success(let image):
+          image
+            .resizable()
+            .scaledToFill()
+        default:
+          avatarFallback
+        }
+      }
+      .frame(width: 44, height: 44)
+      .clipShape(Circle())
+    } else {
+      avatarFallback
+    }
+  }
+
+  private var avatarFallback: some View {
+    Image(systemName: row.systemImage ?? "person.fill")
+      .font(.system(size: 20, weight: .semibold))
+      .foregroundStyle(tintColor)
+      .frame(width: 44, height: 44)
+      .background(tintColor.opacity(0.16), in: Circle())
+  }
+
+  private var tintColor: Color {
+    Color(appleLiquidARGB: row.tintColor) ?? .accentColor
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetTimelineRow: View {
+  let row: AppleLiquidSheetRowConfiguration
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(row.title)
+        .font(.headline)
+
+      VStack(alignment: .leading, spacing: 0) {
+        ForEach(Array(row.timelineSteps.enumerated()), id: \.element.id) {
+          index, step in
+          HStack(alignment: .top, spacing: 11) {
+            markerColumn(for: step, at: index)
+
+            VStack(alignment: .leading, spacing: 2) {
+              Text(step.title)
+                .font(
+                  .subheadline.weight(
+                    index == row.currentStepIndex ? .semibold : .regular
+                  )
+                )
+                .foregroundStyle(stepTitleColor(at: index))
+
+              if let subtitle = step.subtitle {
+                Text(subtitle)
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .fixedSize(horizontal: false, vertical: true)
+              }
+            }
+            .padding(.bottom, index == row.timelineSteps.indices.last ? 0 : 10)
+
+            Spacer(minLength: 0)
+          }
+        }
+      }
+    }
+    .padding(.vertical, 4)
+    .accessibilityElement(children: .contain)
+  }
+
+  private func markerColumn(
+    for step: AppleLiquidSheetTimelineStepConfiguration,
+    at index: Int
+  ) -> some View {
+    VStack(spacing: 0) {
+      marker(for: step, at: index)
+        .frame(width: 22, height: 22)
+
+      if index != row.timelineSteps.indices.last {
+        Rectangle()
+          .fill(connectorColor(after: index))
+          .frame(width: 2, height: step.subtitle == nil ? 16 : 32)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func marker(
+    for step: AppleLiquidSheetTimelineStepConfiguration,
+    at index: Int
+  ) -> some View {
+    if index < row.currentStepIndex {
+      Image(systemName: "checkmark")
+        .font(.system(size: 10, weight: .bold))
+        .foregroundStyle(.white)
+        .frame(width: 20, height: 20)
+        .background(tintColor, in: Circle())
+    } else if index == row.currentStepIndex {
+      Image(systemName: step.systemImage ?? "circle.fill")
+        .font(.system(size: 8, weight: .bold))
+        .foregroundStyle(tintColor)
+        .frame(width: 20, height: 20)
+        .background(tintColor.opacity(0.14), in: Circle())
+        .overlay(Circle().stroke(tintColor, lineWidth: 2))
+    } else {
+      Image(systemName: step.systemImage ?? "circle.fill")
+        .font(.system(size: 6, weight: .semibold))
+        .foregroundStyle(.secondary)
+        .frame(width: 20, height: 20)
+        .overlay(Circle().stroke(Color.secondary.opacity(0.35), lineWidth: 1.5))
+    }
+  }
+
+  private func stepTitleColor(at index: Int) -> Color {
+    if index == row.currentStepIndex {
+      return tintColor
+    }
+
+    return index < row.currentStepIndex ? .primary : .secondary
+  }
+
+  private func connectorColor(after index: Int) -> Color {
+    index < row.currentStepIndex ? tintColor : Color.secondary.opacity(0.3)
+  }
+
+  private var tintColor: Color {
+    Color(appleLiquidARGB: row.tintColor) ?? .accentColor
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetFactsGridRow: View {
+  let row: AppleLiquidSheetRowConfiguration
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 10) {
+      Text(row.title)
+        .font(.headline)
+
+      LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 12) {
+        ForEach(row.facts) { fact in
+          VStack(alignment: .leading, spacing: 3) {
+            HStack(spacing: 4) {
+              if let systemImage = fact.systemImage {
+                Image(systemName: systemImage)
+                  .font(.caption.weight(.semibold))
+                  .foregroundStyle(tintColor)
+              }
+
+              Text(fact.label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            Text(fact.value)
+              .font(.subheadline.weight(.semibold))
+              .foregroundStyle(.primary)
+              .lineLimit(2)
+              .minimumScaleFactor(0.8)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .accessibilityElement(children: .combine)
+        }
+      }
+    }
+    .padding(.vertical, 4)
+  }
+
+  private var gridColumns: [GridItem] {
+    Array(
+      repeating: GridItem(.flexible(), spacing: 10, alignment: .topLeading),
+      count: row.factColumns
+    )
+  }
+
+  private var tintColor: Color {
+    Color(appleLiquidARGB: row.tintColor) ?? .accentColor
   }
 }
 

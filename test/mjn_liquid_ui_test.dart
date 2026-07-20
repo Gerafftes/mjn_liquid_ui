@@ -28,6 +28,125 @@ void main() {
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
   );
 
+  test('identity row serializes role, activity, icon, and avatar', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
+      title: 'Du',
+      role: 'Helfer',
+      activityType: 'Gartenarbeit',
+      systemImage: 'person.fill',
+      avatarUrl: 'https://example.com/avatar.jpg',
+      tintColor: Color(0xFF0A84FF),
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'identity',
+      'title': 'Du',
+      'tintColor': 0xFF0A84FF,
+      'systemImage': 'person.fill',
+      'role': 'Helfer',
+      'activityType': 'Gartenarbeit',
+      'avatarUrl': 'https://example.com/avatar.jpg',
+    });
+  });
+
+  test('timeline row serializes typed steps and current index', () {
+    final AppleLiquidSheetRow row = AppleLiquidSheetRow.timeline(
+      title: 'Status',
+      currentStepIndex: 1,
+      tintColor: Color(0xFF34C759),
+      steps: <AppleLiquidSheetTimelineStep>[
+        AppleLiquidSheetTimelineStep(
+          title: 'Angefragt',
+          subtitle: 'Heute · 09:30',
+        ),
+        AppleLiquidSheetTimelineStep(
+          title: 'Bestätigt',
+          systemImage: 'hand.thumbsup.fill',
+        ),
+        AppleLiquidSheetTimelineStep(title: 'Erledigt'),
+      ],
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'timeline',
+      'title': 'Status',
+      'tintColor': 0xFF34C759,
+      'steps': <Map<String, Object?>>[
+        <String, Object?>{'title': 'Angefragt', 'subtitle': 'Heute · 09:30'},
+        <String, Object?>{
+          'title': 'Bestätigt',
+          'systemImage': 'hand.thumbsup.fill',
+        },
+        <String, Object?>{'title': 'Erledigt'},
+      ],
+      'currentStepIndex': 1,
+    });
+  });
+
+  test('facts grid row serializes facts and column count', () {
+    final AppleLiquidSheetRow row = AppleLiquidSheetRow.factsGrid(
+      title: 'Auftrag',
+      columns: 3,
+      tintColor: Color(0xFFFF9F0A),
+      facts: <AppleLiquidSheetFact>[
+        AppleLiquidSheetFact(
+          label: 'Termin',
+          value: 'Mo · 18:00',
+          systemImage: 'calendar',
+        ),
+        AppleLiquidSheetFact(label: 'Ort', value: '2,4 km'),
+        AppleLiquidSheetFact(label: 'Vergütung', value: '18 €/Std.'),
+      ],
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'factsGrid',
+      'title': 'Auftrag',
+      'tintColor': 0xFFFF9F0A,
+      'facts': <Map<String, Object?>>[
+        <String, Object?>{
+          'label': 'Termin',
+          'value': 'Mo · 18:00',
+          'systemImage': 'calendar',
+        },
+        <String, Object?>{'label': 'Ort', 'value': '2,4 km'},
+        <String, Object?>{'label': 'Vergütung', 'value': '18 €/Std.'},
+      ],
+      'columns': 3,
+    });
+  });
+
+  test('structured rows reject empty or out-of-range configurations', () {
+    expect(
+      () => AppleLiquidSheetRow.timeline(
+        title: 'Status',
+        steps: const <AppleLiquidSheetTimelineStep>[],
+        currentStepIndex: 0,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.timeline(
+        title: 'Status',
+        steps: const <AppleLiquidSheetTimelineStep>[
+          AppleLiquidSheetTimelineStep(title: 'Start'),
+        ],
+        currentStepIndex: 1,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.factsGrid(
+        title: 'Fakten',
+        facts: const <AppleLiquidSheetFact>[
+          AppleLiquidSheetFact(label: 'Ort', value: 'Berlin'),
+        ],
+        columns: 5,
+      ),
+      throwsAssertionError,
+    );
+  });
+
   test('multi-picker row serializes its initial selection', () {
     const AppleLiquidSheetRow row = AppleLiquidSheetRow.multiPicker(
       title: 'Category',

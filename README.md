@@ -295,7 +295,8 @@ toolbar actions to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
 supports sections plus text, value, button, toggle, picker, multi-picker,
-segmented, slider, text-field, and nested navigation rows. Toggle, picker,
+segmented, slider, text-field, identity, timeline, facts-grid, and nested
+navigation rows. Toggle, picker,
 multi-picker, segmented, slider, and text-field state stays local to the native
 sheet while it is presented. Omit `step` on `AppleLiquidSheetRow.slider` for a
 continuous slider. Set
@@ -335,6 +336,60 @@ Set `chevronColor` on `AppleLiquidSheetRow.picker`, `multiPicker`, or
 `navigation` to color only that row's navigation chevron. Omit it to preserve
 the native SwiftUI chevron and system color.
 
+Use the structured identity, timeline, and facts-grid rows for compact job or
+activity summaries. A timeline automatically checks completed steps, highlights
+`currentStepIndex`, and subdues later steps. `avatarUrl` takes precedence over
+the identity row's SF Symbol when the image loads successfully:
+
+```dart
+AppleLiquidSheetSection(
+  rows: <AppleLiquidSheetRow>[
+    AppleLiquidSheetRow.identity(
+      title: 'Du',
+      role: 'Helfer',
+      activityType: 'Gartenarbeit',
+      systemImage: 'person.crop.circle.fill',
+      // avatarUrl: 'https://example.com/avatar.jpg',
+      tintColor: Color(0xFF0A84FF),
+    ),
+    AppleLiquidSheetRow.factsGrid(
+      title: 'Auftrag',
+      columns: 3,
+      facts: <AppleLiquidSheetFact>[
+        AppleLiquidSheetFact(
+          label: 'Termin',
+          value: 'Mo · 18:00',
+          systemImage: 'calendar',
+        ),
+        AppleLiquidSheetFact(
+          label: 'Ort',
+          value: '2,4 km',
+          systemImage: 'location.fill',
+        ),
+        AppleLiquidSheetFact(
+          label: 'Vergütung',
+          value: '18 €/Std.',
+          systemImage: 'eurosign.circle.fill',
+        ),
+      ],
+    ),
+    AppleLiquidSheetRow.timeline(
+      title: 'Status',
+      currentStepIndex: 1,
+      tintColor: Color(0xFF34C759),
+      steps: <AppleLiquidSheetTimelineStep>[
+        AppleLiquidSheetTimelineStep(title: 'Anfrage gesendet'),
+        AppleLiquidSheetTimelineStep(
+          title: 'Bestätigt',
+          subtitle: 'Aktueller Stand',
+        ),
+        AppleLiquidSheetTimelineStep(title: 'Auftrag erledigt'),
+      ],
+    ),
+  ],
+);
+```
+
 | API | Purpose |
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, section spacing, and sections |
@@ -351,6 +406,11 @@ the native SwiftUI chevron and system color.
 | `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, value placement, and horizontal row inset |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
+| `AppleLiquidSheetRow.identity` | Highlighted identity header with role, activity type, SF Symbol fallback, and optional remote avatar |
+| `AppleLiquidSheetRow.timeline` | Connected status history with completed, current, and upcoming steps |
+| `AppleLiquidSheetTimelineStep` | Typed title, optional subtitle, and optional SF Symbol for one timeline step |
+| `AppleLiquidSheetRow.factsGrid` | Compact one-to-four-column grid for short facts |
+| `AppleLiquidSheetFact` | Typed label, value, and optional SF Symbol for one grid item |
 | `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page with an optional custom chevron color |
 
 `AppleLiquidSheetDetents` can be set on every `AppleLiquidSheetContent`, not

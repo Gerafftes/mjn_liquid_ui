@@ -145,6 +145,62 @@ class _DemoShellState extends State<DemoShell> {
       sectionSpacing: 8,
       sections: <AppleLiquidSheetSection>[
         const AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.identity(
+              title: 'Du',
+              role: 'Helfer',
+              activityType: 'Gartenarbeit',
+              systemImage: 'person.crop.circle.fill',
+              tintColor: Color(0xFF0A84FF),
+            ),
+          ],
+        ),
+        AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.factsGrid(
+              title: 'Auftrag',
+              tintColor: Color(0xFFFF9F0A),
+              facts: const <AppleLiquidSheetFact>[
+                AppleLiquidSheetFact(
+                  label: 'Termin',
+                  value: 'Mo · 18:00',
+                  systemImage: 'calendar',
+                ),
+                AppleLiquidSheetFact(
+                  label: 'Ort',
+                  value: '2,4 km',
+                  systemImage: 'location.fill',
+                ),
+                AppleLiquidSheetFact(
+                  label: 'Vergütung',
+                  value: '18 €/Std.',
+                  systemImage: 'eurosign.circle.fill',
+                ),
+              ],
+            ),
+          ],
+        ),
+        AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.timeline(
+              title: 'Status',
+              currentStepIndex: 1,
+              tintColor: Color(0xFF34C759),
+              steps: const <AppleLiquidSheetTimelineStep>[
+                AppleLiquidSheetTimelineStep(
+                  title: 'Anfrage gesendet',
+                  subtitle: 'Heute · 09:30',
+                ),
+                AppleLiquidSheetTimelineStep(
+                  title: 'Bestätigt',
+                  subtitle: 'Aktueller Stand',
+                ),
+                AppleLiquidSheetTimelineStep(title: 'Auftrag erledigt'),
+              ],
+            ),
+          ],
+        ),
+        const AppleLiquidSheetSection(
           title: 'Package',
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.value(
@@ -1017,6 +1073,21 @@ class _TemplateSheetFallback extends StatelessWidget {
       AppleLiquidSheetRowType.slider => _sliderValueFor(row),
       AppleLiquidSheetRowType.navigation => 'Details',
       AppleLiquidSheetRowType.textField => row.value ?? '',
+      AppleLiquidSheetRowType.identity => <String>[
+        if (row.role != null) row.role!,
+        if (row.activityType != null) row.activityType!,
+      ].join(' · '),
+      AppleLiquidSheetRowType.timeline =>
+        row.timelineSteps.isEmpty
+            ? ''
+            : row
+                  .timelineSteps[(row.currentStepIndex ?? 0).clamp(
+                    0,
+                    row.timelineSteps.length - 1,
+                  )]
+                  .title,
+      AppleLiquidSheetRowType.factsGrid =>
+        row.facts.map((AppleLiquidSheetFact fact) => fact.value).join(' · '),
     };
   }
 
