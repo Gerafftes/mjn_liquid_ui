@@ -56,6 +56,38 @@ final class RunnerTests: XCTestCase {
     )
   }
 
+  func testSingleDetentDisablesAutomaticExpansion() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let oversizedRows = (0..<8).map { index in
+      ["type": "text", "title": "Row \(index)"]
+    }
+    let automaticContent: [String: Any] = [
+      "detents": ["initialHeight": 300.0],
+      "sections": [["rows": oversizedRows]]
+    ]
+    let singleDetentContent: [String: Any] = [
+      "detents": [
+        "initialHeight": 300.0,
+        "allowsAutomaticExpansion": false
+      ],
+      "sections": [["rows": oversizedRows]]
+    ]
+
+    let automaticSnapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: automaticContent
+    )
+    let singleDetentSnapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: singleDetentContent
+    )
+
+    XCTAssertNotNil(automaticSnapshot.preferredExpandedDetentHeight)
+    XCTAssertEqual(singleDetentSnapshot.preferredDetentHeight, 300)
+    XCTAssertNil(singleDetentSnapshot.preferredExpandedDetentHeight)
+  }
+
   @MainActor
   func testStructuredRowsRenderWithinCalculatedDetent() throws {
     guard #available(iOS 17.0, *) else {

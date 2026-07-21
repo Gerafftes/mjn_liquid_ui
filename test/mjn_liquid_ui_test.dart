@@ -369,7 +369,7 @@ void main() {
                 title: 'Details',
                 detents: AppleLiquidSheetDetents(
                   initialHeight: 300,
-                  expandedHeight: 520,
+                  allowsAutomaticExpansion: false,
                 ),
                 sections: <AppleLiquidSheetSection>[
                   AppleLiquidSheetSection(
@@ -522,7 +522,7 @@ void main() {
                 'doneSemanticLabel': 'Done',
                 'detents': <String, Object?>{
                   'initialHeight': 300.0,
-                  'expandedHeight': 520.0,
+                  'allowsAutomaticExpansion': false,
                 },
                 'sections': <Object?>[
                   <String, Object?>{

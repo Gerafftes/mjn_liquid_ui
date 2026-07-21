@@ -435,12 +435,12 @@ const AppleLiquidSheetContent(
   title: 'Release',
   detents: AppleLiquidSheetDetents(
     initialHeight: 300,
-    expandedHeight: 520,
+    allowsAutomaticExpansion: false,
   ),
   sections: <AppleLiquidSheetSection>[
     AppleLiquidSheetSection(
       rows: <AppleLiquidSheetRow>[
-        AppleLiquidSheetRow.value(title: 'Detents', value: 'Two-step'),
+        AppleLiquidSheetRow.value(title: 'Detents', value: 'Single compact'),
       ],
     ),
   ],
@@ -819,8 +819,11 @@ expanding straight to `.large`. Pass `AppleLiquidSheetDetents` to any
 higher height for that page, including nested navigation pages. When no custom
 detents are supplied and the estimated active form content is taller than the
 normal sheet height, iOS also gets an automatic second higher detent so the user
-can pull the sheet up. The form scroll background stays hidden so the Liquid
-Glass sheet remains visible behind the form content.
+can pull the sheet up. Set `allowsAutomaticExpansion: false` to keep only the
+configured initial detent. When native navigation pushes another content page,
+the sheet animates to that page's detents and restores the previous page's
+height when navigating back. The form scroll background stays hidden so the
+Liquid Glass sheet remains visible behind the form content.
 `showTemplateSheet()` and `AppleLiquidSheetController.showTemplateSheet()` are
 kept as compatibility aliases for older code.
 The earlier bottom search bar option has been removed from the sheet API.
