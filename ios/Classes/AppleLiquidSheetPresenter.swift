@@ -434,7 +434,16 @@ private struct AppleLiquidSheetContentConfiguration {
   }
 
   var preferredDetentHeights: AppleLiquidSheetDetentHeights {
-    Self.detentHeights(for: estimatedDetentHeight, configuration: detents)
+    preferredDetentHeights(adjustingEstimatedHeightBy: 0)
+  }
+
+  func preferredDetentHeights(
+    adjustingEstimatedHeightBy adjustment: CGFloat
+  ) -> AppleLiquidSheetDetentHeights {
+    Self.detentHeights(
+      for: estimatedDetentHeight + adjustment,
+      configuration: detents
+    )
   }
 
   var preferredDetentHeight: CGFloat {
@@ -1810,6 +1819,10 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let avatarURL: URL?
   let timelineSteps: [AppleLiquidSheetTimelineStepConfiguration]
   let currentStepIndex: Int
+  let timelineCollapsedStepLimit: Int?
+  let timelineInitiallyExpanded: Bool
+  let timelineExpandLabel: String
+  let timelineCollapseLabel: String
   let facts: [AppleLiquidSheetFactConfiguration]
   let factColumns: Int
   let chevronARGB: Int?
@@ -1961,6 +1974,23 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       minValue: 0,
       maxValue: max(timelineSteps.count - 1, 0)
     )
+    self.timelineCollapsedStepLimit = Self.optionalClampedInt(
+      dictionary["collapsedStepLimit"],
+      minValue: 1,
+      maxValue: max(timelineSteps.count, 1)
+    )
+    self.timelineInitiallyExpanded = Self.bool(
+      dictionary["initiallyExpanded"],
+      defaultValue: false
+    )
+    self.timelineExpandLabel = Self.string(
+      dictionary["expandLabel"],
+      defaultValue: "Alle Schritte anzeigen"
+    )
+    self.timelineCollapseLabel = Self.string(
+      dictionary["collapseLabel"],
+      defaultValue: "Weniger anzeigen"
+    )
     self.facts = facts
     self.factColumns = Self.clampedInt(
       dictionary["columns"],
@@ -2025,6 +2055,10 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     avatarURL: URL? = nil,
     timelineSteps: [AppleLiquidSheetTimelineStepConfiguration] = [],
     currentStepIndex: Int = 0,
+    timelineCollapsedStepLimit: Int? = nil,
+    timelineInitiallyExpanded: Bool = false,
+    timelineExpandLabel: String = "Alle Schritte anzeigen",
+    timelineCollapseLabel: String = "Weniger anzeigen",
     facts: [AppleLiquidSheetFactConfiguration] = [],
     factColumns: Int = 3,
     chevronARGB: Int? = nil,
@@ -2071,6 +2105,10 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.avatarURL = avatarURL
     self.timelineSteps = timelineSteps
     self.currentStepIndex = currentStepIndex
+    self.timelineCollapsedStepLimit = timelineCollapsedStepLimit
+    self.timelineInitiallyExpanded = timelineInitiallyExpanded
+    self.timelineExpandLabel = timelineExpandLabel
+    self.timelineCollapseLabel = timelineCollapseLabel
     self.facts = facts
     self.factColumns = factColumns
     self.chevronARGB = chevronARGB
@@ -2282,10 +2320,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     case .identity:
       baseHeight = 94
     case .timeline:
-      baseHeight = 52 + (1 / max(UIScreen.main.scale, 1)) +
-        timelineSteps.reduce(CGFloat.zero) { partial, step in
-          partial + step.estimatedHeight
-        }
+      baseHeight = timelineEstimatedHeight(
+        isExpanded: timelineInitiallyExpanded
+      )
     case .factsGrid:
       let rowCount = Int(ceil(Double(facts.count) / Double(factColumns)))
       baseHeight = 52 + (1 / max(UIScreen.main.scale, 1)) +
@@ -2293,6 +2330,38 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     }
 
     return systemImage == nil ? baseHeight : max(baseHeight, 54)
+  }
+
+  var canCollapseTimeline: Bool {
+    guard kind == .timeline, let timelineCollapsedStepLimit else {
+      return false
+    }
+
+    return timelineSteps.count > timelineCollapsedStepLimit
+  }
+
+  func timelineVisibleStepIndices(isExpanded: Bool) -> [Int] {
+    guard !isExpanded, canCollapseTimeline,
+      let limit = timelineCollapsedStepLimit
+    else {
+      return Array(timelineSteps.indices)
+    }
+
+    let centeredStart = currentStepIndex - (limit / 2)
+    let maximumStart = timelineSteps.count - limit
+    let start = min(max(centeredStart, 0), maximumStart)
+    return Array(start..<(start + limit))
+  }
+
+  func timelineEstimatedHeight(isExpanded: Bool) -> CGFloat {
+    let visibleStepsHeight = timelineVisibleStepIndices(isExpanded: isExpanded)
+      .reduce(CGFloat.zero) { partial, index in
+        partial + timelineSteps[index].estimatedHeight
+      }
+    let toggleHeight: CGFloat = canCollapseTimeline ? 42 : 0
+
+    return 52 + (1 / max(UIScreen.main.scale, 1)) +
+      visibleStepsHeight + toggleHeight
   }
 
   private static func string(_ value: Any?, defaultValue: String) -> String {
@@ -2340,6 +2409,23 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       intValue = value.intValue
     } else {
       intValue = defaultValue
+    }
+
+    return min(max(intValue, minValue), maxValue)
+  }
+
+  private static func optionalClampedInt(
+    _ value: Any?,
+    minValue: Int,
+    maxValue: Int
+  ) -> Int? {
+    let intValue: Int
+    if let value = value as? Int {
+      intValue = value
+    } else if let value = value as? NSNumber {
+      intValue = value.intValue
+    } else {
+      return nil
     }
 
     return min(max(intValue, minValue), maxValue)
@@ -3129,6 +3215,7 @@ private struct AppleLiquidSheetFormScreen: View {
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onToolbarAction: (() -> Void)?
+  @State private var timelineHeightAdjustments: [String: CGFloat] = [:]
 
   var body: some View {
     Form {
@@ -3144,7 +3231,8 @@ private struct AppleLiquidSheetFormScreen: View {
               onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
               onControlInteractionChanged: onControlInteractionChanged,
               onButtonAction: onButtonAction,
-              onMultiSelectionAction: onMultiSelectionAction
+              onMultiSelectionAction: onMultiSelectionAction,
+              onTimelineExpansionChanged: handleTimelineExpansionChange
             )
           } else {
             ForEach(group.rows) { row in
@@ -3153,7 +3241,8 @@ private struct AppleLiquidSheetFormScreen: View {
                 onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
                 onControlInteractionChanged: onControlInteractionChanged,
                 onButtonAction: onButtonAction,
-                onMultiSelectionAction: onMultiSelectionAction
+                onMultiSelectionAction: onMultiSelectionAction,
+                onTimelineExpansionChanged: handleTimelineExpansionChange
               )
               .appleLiquidSliderRowInsets(
                 horizontal: row.kind == .slider
@@ -3250,6 +3339,31 @@ private struct AppleLiquidSheetFormScreen: View {
   private var formGroups: [AppleLiquidSheetFormGroup] {
     content.formGroups
   }
+
+  private func handleTimelineExpansionChange(
+    _ row: AppleLiquidSheetRowConfiguration,
+    _ isExpanded: Bool
+  ) {
+    let initialHeight = row.timelineEstimatedHeight(
+      isExpanded: row.timelineInitiallyExpanded
+    )
+    let updatedHeight = row.timelineEstimatedHeight(isExpanded: isExpanded)
+    var updatedAdjustments = timelineHeightAdjustments
+    let adjustment = updatedHeight - initialHeight
+
+    if abs(adjustment) < 0.5 {
+      updatedAdjustments.removeValue(forKey: row.id)
+    } else {
+      updatedAdjustments[row.id] = adjustment
+    }
+
+    timelineHeightAdjustments = updatedAdjustments
+    onPreferredDetentHeightsChange(
+      content.preferredDetentHeights(
+        adjustingEstimatedHeightBy: updatedAdjustments.values.reduce(0, +)
+      )
+    )
+  }
 }
 
 #if DEBUG
@@ -3261,6 +3375,14 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let estimatedRowHeights: [CGFloat]
   let identityRoles: [String]
   let timelineCurrentStepIndices: [Int]
+  let timelineCollapsedStepLimits: [Int]
+  let timelineInitiallyExpandedValues: [Bool]
+  let timelineExpandLabels: [String]
+  let timelineCollapseLabels: [String]
+  let timelineCollapsedVisibleStepTitles: [[String]]
+  let timelineExpandedVisibleStepCounts: [Int]
+  let timelineCollapsedHeights: [CGFloat]
+  let timelineExpandedHeights: [CGFloat]
   let factColumnCounts: [Int]
   let chevronARGBValues: [Int]
   let spacingAfterGroups: [CGFloat]
@@ -3301,6 +3423,58 @@ enum AppleLiquidSheetLayoutTestSupport {
       timelineCurrentStepIndices: groups.flatMap { group in
         group.rows.compactMap { row in
           row.kind == .timeline ? row.currentStepIndex : nil
+        }
+      },
+      timelineCollapsedStepLimits: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline ? row.timelineCollapsedStepLimit : nil
+        }
+      },
+      timelineInitiallyExpandedValues: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline ? row.timelineInitiallyExpanded : nil
+        }
+      },
+      timelineExpandLabels: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline ? row.timelineExpandLabel : nil
+        }
+      },
+      timelineCollapseLabels: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline ? row.timelineCollapseLabel : nil
+        }
+      },
+      timelineCollapsedVisibleStepTitles: groups.flatMap { group in
+        group.rows.compactMap { row in
+          guard row.kind == .timeline else {
+            return nil
+          }
+
+          return row.timelineVisibleStepIndices(isExpanded: false).map {
+            row.timelineSteps[$0].title
+          }
+        }
+      },
+      timelineExpandedVisibleStepCounts: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline
+            ? row.timelineVisibleStepIndices(isExpanded: true).count
+            : nil
+        }
+      },
+      timelineCollapsedHeights: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline
+            ? row.timelineEstimatedHeight(isExpanded: false)
+            : nil
+        }
+      },
+      timelineExpandedHeights: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .timeline
+            ? row.timelineEstimatedHeight(isExpanded: true)
+            : nil
         }
       },
       factColumnCounts: groups.flatMap { group in
@@ -3363,6 +3537,7 @@ private struct AppleLiquidSheetRowView: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onTimelineExpansionChanged: (AppleLiquidSheetRowConfiguration, Bool) -> Void
   @State private var toggleValue: Bool
   @State private var pickerSelection: String
   @State private var multiPickerSelection: Set<String>
@@ -3376,10 +3551,14 @@ private struct AppleLiquidSheetRowView: View {
       AppleLiquidSheetDetentHeights
     ) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
-    onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void
-    , onMultiSelectionAction: @escaping (
+    onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void,
+    onMultiSelectionAction: @escaping (
       AppleLiquidSheetRowConfiguration,
       [String]
+    ) -> Void,
+    onTimelineExpansionChanged: @escaping (
+      AppleLiquidSheetRowConfiguration,
+      Bool
     ) -> Void
   ) {
     self.row = row
@@ -3387,6 +3566,7 @@ private struct AppleLiquidSheetRowView: View {
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
+    self.onTimelineExpansionChanged = onTimelineExpansionChanged
     self._toggleValue = State(initialValue: row.boolValue)
     self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
     self._multiPickerSelection = State(initialValue: Set(row.selectedOptions))
@@ -3504,7 +3684,12 @@ private struct AppleLiquidSheetRowView: View {
         .listRowSeparator(.hidden)
 
     case .timeline:
-      AppleLiquidSheetTimelineRow(row: row)
+      AppleLiquidSheetTimelineRow(
+        row: row,
+        onExpansionChanged: { isExpanded in
+          onTimelineExpansionChanged(row, isExpanded)
+        }
+      )
         .listRowSeparator(.hidden)
 
     case .factsGrid:
@@ -3881,6 +4066,18 @@ private struct AppleLiquidSheetIdentityRow: View {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetTimelineRow: View {
   let row: AppleLiquidSheetRowConfiguration
+  let onExpansionChanged: (Bool) -> Void
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
+  @State private var isExpanded: Bool
+
+  init(
+    row: AppleLiquidSheetRowConfiguration,
+    onExpansionChanged: @escaping (Bool) -> Void
+  ) {
+    self.row = row
+    self.onExpansionChanged = onExpansionChanged
+    self._isExpanded = State(initialValue: row.timelineInitiallyExpanded)
+  }
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
@@ -3888,8 +4085,8 @@ private struct AppleLiquidSheetTimelineRow: View {
         .font(.headline)
 
       VStack(alignment: .leading, spacing: 0) {
-        ForEach(Array(row.timelineSteps.enumerated()), id: \.element.id) {
-          index, step in
+        ForEach(visibleStepIndices, id: \.self) { index in
+          let step = row.timelineSteps[index]
           HStack(alignment: .top, spacing: 11) {
             markerColumn(for: step, at: index)
 
@@ -3909,11 +4106,36 @@ private struct AppleLiquidSheetTimelineRow: View {
                   .fixedSize(horizontal: false, vertical: true)
               }
             }
-            .padding(.bottom, index == row.timelineSteps.indices.last ? 0 : 10)
+            .padding(.bottom, index == visibleStepIndices.last ? 0 : 10)
 
             Spacer(minLength: 0)
           }
+          .transition(.opacity)
         }
+      }
+      .animation(expansionAnimation, value: visibleStepIndices)
+
+      if row.canCollapseTimeline {
+        Button(action: toggleExpanded) {
+          HStack(spacing: 6) {
+            Text(isExpanded ? row.timelineCollapseLabel : row.timelineExpandLabel)
+              .font(.subheadline.weight(.semibold))
+
+            Image(systemName: "chevron.down")
+              .font(.caption.weight(.semibold))
+              .rotationEffect(.degrees(isExpanded ? 180 : 0))
+              .animation(chevronAnimation, value: isExpanded)
+              .accessibilityHidden(true)
+          }
+          .foregroundStyle(tintColor)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.vertical, 6)
+        .accessibilityLabel(
+          Text(isExpanded ? row.timelineCollapseLabel : row.timelineExpandLabel)
+        )
       }
     }
     .padding(.vertical, 4)
@@ -3928,7 +4150,7 @@ private struct AppleLiquidSheetTimelineRow: View {
       marker(for: step, at: index)
         .frame(width: 22, height: 22)
 
-      if index != row.timelineSteps.indices.last {
+      if index != visibleStepIndices.last {
         Rectangle()
           .fill(connectorColor(after: index))
           .frame(width: 2, height: step.subtitle == nil ? 16 : 32)
@@ -3977,6 +4199,35 @@ private struct AppleLiquidSheetTimelineRow: View {
 
   private var tintColor: Color {
     Color(appleLiquidARGB: row.tintColor) ?? .accentColor
+  }
+
+  private var visibleStepIndices: [Int] {
+    row.timelineVisibleStepIndices(isExpanded: isExpanded)
+  }
+
+  private var expansionAnimation: Animation? {
+    guard !reduceMotion else {
+      return nil
+    }
+
+    return .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.22)
+  }
+
+  private var chevronAnimation: Animation? {
+    guard !reduceMotion else {
+      return nil
+    }
+
+    return .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.14)
+  }
+
+  private func toggleExpanded() {
+    let nextValue = !isExpanded
+
+    isExpanded = nextValue
+    withAnimation(expansionAnimation) {
+      onExpansionChanged(nextValue)
+    }
   }
 }
 
@@ -4477,6 +4728,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onTimelineExpansionChanged: (AppleLiquidSheetRowConfiguration, Bool) -> Void
 
   var body: some View {
     VStack(spacing: 0) {
@@ -4486,7 +4738,8 @@ private struct AppleLiquidSheetStyledFormGroup: View {
           onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
           onControlInteractionChanged: onControlInteractionChanged,
           onButtonAction: onButtonAction,
-          onMultiSelectionAction: onMultiSelectionAction
+          onMultiSelectionAction: onMultiSelectionAction,
+          onTimelineExpansionChanged: onTimelineExpansionChanged
         )
         .frame(maxWidth: .infinity, minHeight: minimumContentHeight(for: row))
         .padding(horizontalInsets(for: row))
@@ -4569,6 +4822,10 @@ private struct AppleLiquidSheetStyledFormGroup: View {
   ) -> CGFloat {
     if row.kind == .button {
       return row.buttonStyle.buttonHeight
+    }
+
+    if row.kind == .timeline {
+      return 0
     }
 
     return row.estimatedHeight

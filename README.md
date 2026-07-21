@@ -374,8 +374,12 @@ AppleLiquidSheetSection(
       ],
     ),
     AppleLiquidSheetRow.timeline(
-      title: 'Status',
+      title: 'Aktueller Status',
       currentStepIndex: 1,
+      collapsedStepLimit: 3,
+      initiallyExpanded: false,
+      expandLabel: 'Alle Schritte anzeigen',
+      collapseLabel: 'Weniger anzeigen',
       tintColor: Color(0xFF34C759),
       steps: <AppleLiquidSheetTimelineStep>[
         AppleLiquidSheetTimelineStep(title: 'Anfrage gesendet'),
@@ -383,12 +387,22 @@ AppleLiquidSheetSection(
           title: 'Bestätigt',
           subtitle: 'Aktueller Stand',
         ),
+        AppleLiquidSheetTimelineStep(title: 'Unterwegs'),
+        AppleLiquidSheetTimelineStep(title: 'In Arbeit'),
         AppleLiquidSheetTimelineStep(title: 'Auftrag erledigt'),
       ],
     ),
   ],
 );
 ```
+
+`collapsedStepLimit` enables the native expand/collapse control. The collapsed
+window always includes the current step and the nearest surrounding steps.
+SwiftUI keeps the expanded state internally and updates the content-sized sheet
+detent when the visible timeline height changes. The limit is configured per
+timeline and accepts any positive integer; `3` above is only an example. Omit
+`collapsedStepLimit` to keep the timeline permanently expanded as before. If
+the limit is greater than or equal to the number of steps, no toggle is shown.
 
 | API | Purpose |
 | --- | --- |

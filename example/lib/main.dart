@@ -183,8 +183,12 @@ class _DemoShellState extends State<DemoShell> {
         AppleLiquidSheetSection(
           rows: <AppleLiquidSheetRow>[
             AppleLiquidSheetRow.timeline(
-              title: 'Status',
+              title: 'Aktueller Status',
               currentStepIndex: 1,
+              collapsedStepLimit: 3,
+              initiallyExpanded: false,
+              expandLabel: 'Alle Schritte anzeigen',
+              collapseLabel: 'Weniger anzeigen',
               tintColor: Color(0xFF34C759),
               steps: const <AppleLiquidSheetTimelineStep>[
                 AppleLiquidSheetTimelineStep(
@@ -195,6 +199,8 @@ class _DemoShellState extends State<DemoShell> {
                   title: 'Bestätigt',
                   subtitle: 'Aktueller Stand',
                 ),
+                AppleLiquidSheetTimelineStep(title: 'Unterwegs'),
+                AppleLiquidSheetTimelineStep(title: 'In Arbeit'),
                 AppleLiquidSheetTimelineStep(title: 'Auftrag erledigt'),
               ],
             ),

@@ -173,6 +173,108 @@ final class RunnerTests: XCTestCase {
   }
 
   @MainActor
+  func testCollapsibleTimelineUsesCompactWindowAndCalculatedDetent() throws {
+    guard #available(iOS 17.0, *) else {
+      throw XCTSkip("Collapsible native timeline requires iOS 17 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "title": "Timeline",
+      "sections": [
+        [
+          "title": "Aktueller Status",
+          "rows": [
+            [
+              "type": "timeline",
+              "title": "Aktueller Status",
+              "currentStepIndex": 2,
+              "collapsedStepLimit": 3,
+              "initiallyExpanded": false,
+              "expandLabel": "Alle Schritte anzeigen",
+              "collapseLabel": "Weniger anzeigen",
+              "steps": [
+                ["title": "Angefragt"],
+                ["title": "Bestätigt"],
+                ["title": "Unterwegs"],
+                ["title": "In Arbeit"],
+                ["title": "Erledigt"]
+              ]
+            ],
+            [
+              "type": "button",
+              "title": "Öffnen",
+              "buttonActionId": "timeline-layout-button"
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.rowKinds, ["timeline", "button"])
+    XCTAssertEqual(snapshot.timelineCollapsedStepLimits, [3])
+    XCTAssertEqual(snapshot.timelineInitiallyExpandedValues, [false])
+    XCTAssertEqual(snapshot.timelineExpandLabels, ["Alle Schritte anzeigen"])
+    XCTAssertEqual(snapshot.timelineCollapseLabels, ["Weniger anzeigen"])
+    XCTAssertEqual(
+      snapshot.timelineCollapsedVisibleStepTitles,
+      [["Bestätigt", "Unterwegs", "In Arbeit"]]
+    )
+    XCTAssertEqual(snapshot.timelineExpandedVisibleStepCounts, [5])
+    XCTAssertGreaterThan(
+      try XCTUnwrap(snapshot.timelineExpandedHeights.first),
+      try XCTUnwrap(snapshot.timelineCollapsedHeights.first)
+    )
+
+    let host = UIHostingController(
+      rootView: AppleLiquidSheetLayoutTestSupport.makePresentedSheet(
+        contentValue: content
+      )
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+    let sheetController = try XCTUnwrap(host.presentedViewController)
+    sheetController.view.layoutIfNeeded()
+    let collectionView: UICollectionView = try XCTUnwrap(
+      firstSubview(of: UICollectionView.self, in: sheetController.view)
+    )
+    collectionView.collectionViewLayout.prepare()
+
+    let lastSection = collectionView.numberOfSections - 1
+    let lastItem = collectionView.numberOfItems(inSection: lastSection) - 1
+    let lastRowAttributes = try XCTUnwrap(
+      collectionView.collectionViewLayout.layoutAttributesForItem(
+        at: IndexPath(item: lastItem, section: lastSection)
+      )
+    )
+    let renderedBottom = collectionView.convert(
+      lastRowAttributes.frame,
+      to: sheetController.view
+    ).maxY
+    let resolvedDetentHeight = sheetController.view.bounds.height -
+      sheetController.view.safeAreaInsets.bottom
+
+    XCTAssertLessThanOrEqual(
+      renderedBottom,
+      resolvedDetentHeight + 1,
+      "The collapsed timeline and toggle must fit the calculated detent."
+    )
+    XCTAssertEqual(
+      resolvedDetentHeight,
+      snapshot.preferredDetentHeight,
+      accuracy: 1
+    )
+
+    withExtendedLifetime(window) {}
+  }
+
+  @MainActor
   func testExactButtonSpacingRenderedHeightMatchesDetent() throws {
     guard #available(iOS 17.0, *) else {
       throw XCTSkip("Exact native section spacing requires iOS 17 or newer.")
