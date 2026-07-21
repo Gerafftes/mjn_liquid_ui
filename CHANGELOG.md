@@ -1,3 +1,10 @@
+## 0.2.25
+
+- Added optional internal expand/collapse state to
+  `AppleLiquidSheetRow.timeline` with a configurable collapsed step limit,
+  initial state, labels, dynamic native detent updates, and responsive
+  reduce-motion-aware transitions.
+
 ## 0.2.24
 
 - Added highlighted `AppleLiquidSheetRow.identity` headers with role, activity

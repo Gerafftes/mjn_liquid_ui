@@ -1026,6 +1026,10 @@ class AppleLiquidSheetRow {
     List<AppleLiquidSheetTimelineStep> timelineSteps =
         const <AppleLiquidSheetTimelineStep>[],
     this.currentStepIndex,
+    this.collapsedStepLimit,
+    this.initiallyExpanded = false,
+    this.expandLabel = 'Alle Schritte anzeigen',
+    this.collapseLabel = 'Weniger anzeigen',
     List<AppleLiquidSheetFact> facts = const <AppleLiquidSheetFact>[],
     this.columns,
     this.chevronColor,
@@ -1312,20 +1316,33 @@ class AppleLiquidSheetRow {
   /// Creates a connected status timeline.
   ///
   /// Steps before [currentStepIndex] are rendered as completed, the indexed
-  /// step is highlighted, and later steps remain subdued.
+  /// step is highlighted, and later steps remain subdued. Set
+  /// [collapsedStepLimit] to add a native expand/collapse control whose state
+  /// remains internal to SwiftUI while the sheet is presented.
   factory AppleLiquidSheetRow.timeline({
     required String title,
     required List<AppleLiquidSheetTimelineStep> steps,
     required int currentStepIndex,
+    int? collapsedStepLimit,
+    bool initiallyExpanded = false,
+    String expandLabel = 'Alle Schritte anzeigen',
+    String collapseLabel = 'Weniger anzeigen',
     Color? tintColor,
   }) {
     assert(steps.isNotEmpty);
     assert(currentStepIndex >= 0 && currentStepIndex < steps.length);
+    assert(collapsedStepLimit == null || collapsedStepLimit > 0);
+    assert(collapsedStepLimit == null || expandLabel.isNotEmpty);
+    assert(collapsedStepLimit == null || collapseLabel.isNotEmpty);
     return AppleLiquidSheetRow._(
       type: AppleLiquidSheetRowType.timeline,
       title: title,
       timelineSteps: steps,
       currentStepIndex: currentStepIndex,
+      collapsedStepLimit: collapsedStepLimit,
+      initiallyExpanded: initiallyExpanded,
+      expandLabel: expandLabel,
+      collapseLabel: collapseLabel,
       tintColor: tintColor,
     );
   }
@@ -1472,6 +1489,21 @@ class AppleLiquidSheetRow {
   /// Index of the active step in [timelineSteps].
   final int? currentStepIndex;
 
+  /// Maximum number of steps shown while the timeline is collapsed.
+  ///
+  /// Leave this null to keep the timeline permanently expanded. When the
+  /// timeline contains no more steps than this limit, no toggle is rendered.
+  final int? collapsedStepLimit;
+
+  /// Whether a collapsible timeline starts in its expanded state.
+  final bool initiallyExpanded;
+
+  /// Button label used to reveal all timeline steps.
+  final String expandLabel;
+
+  /// Button label used to collapse the timeline.
+  final String collapseLabel;
+
   final List<AppleLiquidSheetFact> _facts;
 
   /// Items rendered by [AppleLiquidSheetRow.factsGrid].
@@ -1565,6 +1597,13 @@ class AppleLiquidSheetRow {
             .map((AppleLiquidSheetTimelineStep step) => step.toMap())
             .toList(growable: false),
       if (currentStepIndex != null) 'currentStepIndex': currentStepIndex,
+      if (type == AppleLiquidSheetRowType.timeline &&
+          collapsedStepLimit != null) ...<String, Object?>{
+        'collapsedStepLimit': collapsedStepLimit,
+        'initiallyExpanded': initiallyExpanded,
+        'expandLabel': expandLabel,
+        'collapseLabel': collapseLabel,
+      },
       if (facts.isNotEmpty)
         'facts': facts
             .map((AppleLiquidSheetFact fact) => fact.toMap())

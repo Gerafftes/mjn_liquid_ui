@@ -53,6 +53,10 @@ void main() {
     final AppleLiquidSheetRow row = AppleLiquidSheetRow.timeline(
       title: 'Status',
       currentStepIndex: 1,
+      collapsedStepLimit: 2,
+      initiallyExpanded: false,
+      expandLabel: 'Alle Schritte anzeigen',
+      collapseLabel: 'Weniger anzeigen',
       tintColor: Color(0xFF34C759),
       steps: <AppleLiquidSheetTimelineStep>[
         AppleLiquidSheetTimelineStep(
@@ -80,6 +84,10 @@ void main() {
         <String, Object?>{'title': 'Erledigt'},
       ],
       'currentStepIndex': 1,
+      'collapsedStepLimit': 2,
+      'initiallyExpanded': false,
+      'expandLabel': 'Alle Schritte anzeigen',
+      'collapseLabel': 'Weniger anzeigen',
     });
   });
 
@@ -142,6 +150,30 @@ void main() {
           AppleLiquidSheetFact(label: 'Ort', value: 'Berlin'),
         ],
         columns: 5,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.timeline(
+        title: 'Status',
+        steps: const <AppleLiquidSheetTimelineStep>[
+          AppleLiquidSheetTimelineStep(title: 'Start'),
+        ],
+        currentStepIndex: 0,
+        collapsedStepLimit: 0,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.timeline(
+        title: 'Status',
+        steps: const <AppleLiquidSheetTimelineStep>[
+          AppleLiquidSheetTimelineStep(title: 'Start'),
+          AppleLiquidSheetTimelineStep(title: 'Ende'),
+        ],
+        currentStepIndex: 0,
+        collapsedStepLimit: 1,
+        expandLabel: '',
       ),
       throwsAssertionError,
     );
