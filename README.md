@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.22
+  mjn_liquid_ui: ^0.2.27
 ```
 
 Then import the package:
@@ -399,10 +399,12 @@ AppleLiquidSheetSection(
 `collapsedStepLimit` enables the native expand/collapse control. The collapsed
 window always includes the current step and the nearest surrounding steps.
 SwiftUI keeps the expanded state internally and updates the content-sized sheet
-detent when the visible timeline height changes. The limit is configured per
-timeline and accepts any positive integer; `3` above is only an example. Omit
-`collapsedStepLimit` to keep the timeline permanently expanded as before. If
-the limit is greater than or equal to the number of steps, no toggle is shown.
+detent before the visible timeline height changes. Timeline rows expand and
+collapse with a damped native spring while the sheet resizes in sync; Reduce
+Motion remains respected. The limit is configured per timeline and accepts any
+positive integer; `3` above is only an example. Omit `collapsedStepLimit` to
+keep the timeline permanently expanded as before. If the limit is greater than
+or equal to the number of steps, no toggle is shown.
 
 | API | Purpose |
 | --- | --- |
@@ -821,9 +823,12 @@ detents are supplied and the estimated active form content is taller than the
 normal sheet height, iOS also gets an automatic second higher detent so the user
 can pull the sheet up. Set `allowsAutomaticExpansion: false` to keep only the
 configured initial detent. When native navigation pushes another content page,
-the sheet animates to that page's detents and restores the previous page's
-height when navigating back. The form scroll background stays hidden so the
-Liquid Glass sheet remains visible behind the form content.
+the sheet activates that page's detents before inserting it into the navigation
+path. When navigating back, it restores the previous page's detents before
+removing the current page. This keeps the destination content correctly laid
+out from its first frame while preserving the native resize animation in both
+directions. The form scroll background stays hidden so the Liquid Glass sheet
+remains visible behind the form content.
 `showTemplateSheet()` and `AppleLiquidSheetController.showTemplateSheet()` are
 kept as compatibility aliases for older code.
 The earlier bottom search bar option has been removed from the sheet API.

@@ -88,6 +88,36 @@ final class RunnerTests: XCTestCase {
     XCTAssertNil(singleDetentSnapshot.preferredExpandedDetentHeight)
   }
 
+  func testNavigationActivatesDetentsBeforeChangingPath() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet navigation requires iOS 16 or newer.")
+    }
+
+    let rootContent: [String: Any] = [
+      "title": "Auftrag",
+      "detents": [
+        "initialHeight": 430.0,
+        "expandedHeight": 660.0
+      ]
+    ]
+    let destinationContent: [String: Any] = [
+      "title": "Auftragsdetails",
+      "detents": [
+        "initialHeight": 300.0,
+        "expandedHeight": 520.0
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport
+      .navigationTransitionSnapshot(
+        rootContentValue: rootContent,
+        destinationContentValue: destinationContent
+      )
+
+    XCTAssertEqual(snapshot.events, ["detents", "path", "detents", "path"])
+    XCTAssertEqual(snapshot.pathCounts, [1, 0])
+    XCTAssertEqual(snapshot.activatedSelectedDetentHeights, [300, 660])
+  }
+
   @MainActor
   func testStructuredRowsRenderWithinCalculatedDetent() throws {
     guard #available(iOS 17.0, *) else {

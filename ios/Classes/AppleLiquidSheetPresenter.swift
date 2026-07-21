@@ -2653,6 +2653,8 @@ private final class AppleLiquidSheetSession: NSObject,
   private var keyboardTransitionWorkItem: DispatchWorkItem?
   private var dismissalCallbacks: [() -> Void] = []
   private var isDismissing = false
+  private var expandedDetentIdentifier:
+    UISheetPresentationController.Detent.Identifier?
 
   init(
     configuration: AppleLiquidSheetConfiguration,
@@ -2729,8 +2731,11 @@ private final class AppleLiquidSheetSession: NSObject,
 
         self.onMultiSelectionAction(actionId, selectedOptions)
       },
-      onDetentHeightsChange: { [weak self] detentHeights in
-        self?.updateSheetDetents(detentHeights, animated: true)
+      currentDetentSelection: { [weak self] in
+        self?.currentDetentSelection() ?? .primary
+      },
+      onPresentationChange: { [weak self] presentation in
+        self?.updateSheetPresentation(presentation, animated: true)
       },
       onDismissRequest: { [weak self] in
         self?.dismissFromControl()
@@ -2760,16 +2765,19 @@ private final class AppleLiquidSheetSession: NSObject,
       return
     }
 
-    let detentHeights = configuration.content.preferredDetentHeights
+    let presentation = AppleLiquidSheetPagePresentation(
+      detentHeights: configuration.content.preferredDetentHeights,
+      selection: .primary
+    )
     sheetPresentationController.delegate = self
     sheetPresentationController.largestUndimmedDetentIdentifier = nil
     sheetPresentationController.prefersGrabberVisible = true
     sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = true
-    applySheetDetents(detentHeights, to: sheetPresentationController)
+    applySheetPresentation(presentation, to: sheetPresentationController)
   }
 
-  private func updateSheetDetents(
-    _ detentHeights: AppleLiquidSheetDetentHeights,
+  private func updateSheetPresentation(
+    _ presentation: AppleLiquidSheetPagePresentation,
     animated: Bool
   ) {
     guard let sheetPresentationController =
@@ -2783,8 +2791,8 @@ private final class AppleLiquidSheetSession: NSObject,
         return
       }
 
-      self.applySheetDetents(
-        detentHeights,
+      self.applySheetPresentation(
+        presentation,
         to: sheetPresentationController
       )
     }
@@ -2796,10 +2804,11 @@ private final class AppleLiquidSheetSession: NSObject,
     }
   }
 
-  private func applySheetDetents(
-    _ detentHeights: AppleLiquidSheetDetentHeights,
+  private func applySheetPresentation(
+    _ presentation: AppleLiquidSheetPagePresentation,
     to sheetPresentationController: UISheetPresentationController
   ) {
+    let detentHeights = presentation.detentHeights
     let primaryIdentifier = detentIdentifier(
       role: "primary",
       height: detentHeights.primary
@@ -2810,20 +2819,41 @@ private final class AppleLiquidSheetSession: NSObject,
       }
     ]
 
+    var selectedIdentifier = primaryIdentifier
+    var expandedIdentifier:
+      UISheetPresentationController.Detent.Identifier?
     if let expandedHeight = detentHeights.expanded {
-      let expandedIdentifier = detentIdentifier(
+      let identifier = detentIdentifier(
         role: "expanded",
         height: expandedHeight
       )
+      expandedIdentifier = identifier
       detents.append(
-        .custom(identifier: expandedIdentifier) { _ in
+        .custom(identifier: identifier) { _ in
           expandedHeight
         }
       )
+      if presentation.selection == .expanded {
+        selectedIdentifier = identifier
+      }
     }
 
+    self.expandedDetentIdentifier = expandedIdentifier
     sheetPresentationController.detents = detents
-    sheetPresentationController.selectedDetentIdentifier = primaryIdentifier
+    sheetPresentationController.selectedDetentIdentifier = selectedIdentifier
+  }
+
+  private func currentDetentSelection() -> AppleLiquidSheetDetentSelection {
+    guard let sheetPresentationController =
+      hostController?.sheetPresentationController,
+      let expandedDetentIdentifier,
+      sheetPresentationController.selectedDetentIdentifier ==
+        expandedDetentIdentifier
+    else {
+      return .primary
+    }
+
+    return .expanded
   }
 
   private func detentIdentifier(
@@ -3128,17 +3158,142 @@ private final class AppleLiquidSheetSession: NSObject,
 }
 
 @available(iOS 16.0, *)
+private enum AppleLiquidSheetDetentSelection {
+  case primary
+  case expanded
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetPagePresentation {
+  var detentHeights: AppleLiquidSheetDetentHeights
+  var selection: AppleLiquidSheetDetentSelection
+
+  var selectedHeight: CGFloat {
+    if selection == .expanded, let expanded = detentHeights.expanded {
+      return expanded
+    }
+
+    return detentHeights.primary
+  }
+
+  mutating func updateDetentHeights(
+    _ updatedDetentHeights: AppleLiquidSheetDetentHeights
+  ) {
+    detentHeights = updatedDetentHeights
+    if updatedDetentHeights.expanded == nil {
+      selection = .primary
+    }
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetNavigationRoute: Hashable {
+  let id = UUID()
+  let content: AppleLiquidSheetContentConfiguration
+
+  static func == (
+    lhs: AppleLiquidSheetNavigationRoute,
+    rhs: AppleLiquidSheetNavigationRoute
+  ) -> Bool {
+    lhs.id == rhs.id
+  }
+
+  func hash(into hasher: inout Hasher) {
+    hasher.combine(id)
+  }
+}
+
+@available(iOS 16.0, *)
+private final class AppleLiquidSheetNavigationModel: ObservableObject {
+  @Published private(set) var path: [AppleLiquidSheetNavigationRoute] = []
+  private var rootPresentation: AppleLiquidSheetPagePresentation
+  private var routePresentations: [UUID: AppleLiquidSheetPagePresentation] = [:]
+
+  init(rootContent: AppleLiquidSheetContentConfiguration) {
+    self.rootPresentation = AppleLiquidSheetPagePresentation(
+      detentHeights: rootContent.preferredDetentHeights,
+      selection: .primary
+    )
+  }
+
+  func updateVisibleDetentHeights(
+    _ detentHeights: AppleLiquidSheetDetentHeights
+  ) -> AppleLiquidSheetPagePresentation {
+    if let routeID = path.last?.id {
+      var presentation = routePresentations[routeID] ??
+        AppleLiquidSheetPagePresentation(
+          detentHeights: detentHeights,
+          selection: .primary
+        )
+      presentation.updateDetentHeights(detentHeights)
+      routePresentations[routeID] = presentation
+      return presentation
+    } else {
+      rootPresentation.updateDetentHeights(detentHeights)
+      return rootPresentation
+    }
+  }
+
+  func updateVisibleSelection(_ selection: AppleLiquidSheetDetentSelection) {
+    if let routeID = path.last?.id,
+      var presentation = routePresentations[routeID]
+    {
+      presentation.selection = selection
+      routePresentations[routeID] = presentation
+    } else {
+      rootPresentation.selection = selection
+    }
+  }
+
+  func push(
+    _ content: AppleLiquidSheetContentConfiguration,
+    activatePresentation: (AppleLiquidSheetPagePresentation) -> Void
+  ) {
+    let route = AppleLiquidSheetNavigationRoute(content: content)
+    let presentation = AppleLiquidSheetPagePresentation(
+      detentHeights: content.preferredDetentHeights,
+      selection: .primary
+    )
+    activatePresentation(presentation)
+    routePresentations[route.id] = presentation
+    path.append(route)
+  }
+
+  func replacePath(
+    with newPath: [AppleLiquidSheetNavigationRoute],
+    activatePresentation: (AppleLiquidSheetPagePresentation) -> Void
+  ) {
+    guard newPath.count < path.count else {
+      path = newPath
+      return
+    }
+
+    let targetPresentation = presentation(for: newPath)
+    activatePresentation(targetPresentation)
+    path = newPath
+  }
+
+  private func presentation(
+    for path: [AppleLiquidSheetNavigationRoute]
+  ) -> AppleLiquidSheetPagePresentation {
+    path.last.flatMap { routePresentations[$0.id] } ?? rootPresentation
+  }
+}
+
+@available(iOS 16.0, *)
 private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
   let onFrameChange: (CGRect, CGRect) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
-  let onDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let currentDetentSelection: () -> AppleLiquidSheetDetentSelection
+  let onPresentationChange: (AppleLiquidSheetPagePresentation) -> Void
   let onDismissRequest: () -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
   @State private var expandedDetentHeight: CGFloat?
+  @StateObject private var navigationModel: AppleLiquidSheetNavigationModel
 
   init(
     configuration: AppleLiquidSheetConfiguration,
@@ -3149,8 +3304,9 @@ private struct AppleLiquidSettingsSheetView: View {
       AppleLiquidSheetRowConfiguration,
       [String]
     ) -> Void,
-    onDetentHeightsChange: @escaping (
-      AppleLiquidSheetDetentHeights
+    currentDetentSelection: @escaping () -> AppleLiquidSheetDetentSelection,
+    onPresentationChange: @escaping (
+      AppleLiquidSheetPagePresentation
     ) -> Void,
     onDismissRequest: @escaping () -> Void
   ) {
@@ -3159,26 +3315,55 @@ private struct AppleLiquidSettingsSheetView: View {
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
-    self.onDetentHeightsChange = onDetentHeightsChange
+    self.currentDetentSelection = currentDetentSelection
+    self.onPresentationChange = onPresentationChange
     self.onDismissRequest = onDismissRequest
 
     let detentHeights = configuration.content.preferredDetentHeights
     self._selectedDetent = State(initialValue: .height(detentHeights.primary))
     self._contentDetentHeight = State(initialValue: detentHeights.primary)
     self._expandedDetentHeight = State(initialValue: detentHeights.expanded)
+    self._navigationModel = StateObject(
+      wrappedValue: AppleLiquidSheetNavigationModel(
+        rootContent: configuration.content
+      )
+    )
   }
 
   var body: some View {
-    NavigationStack {
+    NavigationStack(path: navigationPath) {
       AppleLiquidSheetFormScreen(
         content: configuration.content,
         showsToolbarActions: true,
-        onPreferredDetentHeightsChange: setPreferredDetentHeights,
+        onPreferredDetentHeightsChange: updateVisibleDetentHeights,
+        onNavigate: navigate,
         onControlInteractionChanged: onControlInteractionChanged,
         onButtonAction: onButtonAction,
         onMultiSelectionAction: onMultiSelectionAction,
         onToolbarAction: onDismissRequest
       )
+      .navigationDestination(for: AppleLiquidSheetNavigationRoute.self) {
+        route in
+        AppleLiquidSheetFormScreen(
+          content: route.content,
+          showsToolbarActions: false,
+          onPreferredDetentHeightsChange: updateVisibleDetentHeights,
+          onNavigate: navigate,
+          onControlInteractionChanged: onControlInteractionChanged,
+          onButtonAction: onButtonAction,
+          onMultiSelectionAction: onMultiSelectionAction,
+          onToolbarAction: nil
+        )
+        .navigationBarBackButtonHidden(true)
+        .toolbar {
+          ToolbarItem(placement: .navigationBarLeading) {
+            Button(action: navigateBack) {
+              Image(systemName: "chevron.left")
+            }
+            .accessibilityLabel("Back")
+          }
+        }
+      }
     }
     .appleLiquidSheetBackground(
       configuration.resolvedSheetSwiftUIColor,
@@ -3188,12 +3373,29 @@ private struct AppleLiquidSettingsSheetView: View {
     .presentationDetents(presentationDetents, selection: $selectedDetent)
     .presentationDragIndicator(.visible)
     .background(
-      AppleLiquidSheetFrameObserver(onFrameChange: onFrameChange)
+      AppleLiquidSheetFrameObserver { sheetFrame, windowBounds in
+        onFrameChange(sheetFrame, windowBounds)
+      }
     )
+    .onChange(of: selectedDetent) { updatedDetent in
+      updateVisibleSelection(for: updatedDetent)
+    }
   }
 
   private var contentDetent: PresentationDetent {
     .height(contentDetentHeight)
+  }
+
+  private var navigationPath: Binding<[AppleLiquidSheetNavigationRoute]> {
+    Binding(
+      get: { navigationModel.path },
+      set: { newPath in
+        navigationModel.replacePath(
+          with: newPath,
+          activatePresentation: setPreferredPresentation
+        )
+      }
+    )
   }
 
   private var presentationDetents: Set<PresentationDetent> {
@@ -3206,9 +3408,13 @@ private struct AppleLiquidSettingsSheetView: View {
     return detents
   }
 
-  private func setPreferredDetentHeights(
-    _ detentHeights: AppleLiquidSheetDetentHeights
+  private func setPreferredPresentation(
+    _ presentation: AppleLiquidSheetPagePresentation
   ) {
+    let detentHeights = presentation.detentHeights
+    let preferredDetent = PresentationDetent.height(
+      presentation.selectedHeight
+    )
     let shouldUpdatePrimary = abs(
       contentDetentHeight - detentHeights.primary
     ) > 0.5
@@ -3216,18 +3422,61 @@ private struct AppleLiquidSettingsSheetView: View {
       expandedDetentHeight,
       equals: detentHeights.expanded
     )
+    let shouldUpdateSelection = selectedDetent != preferredDetent
 
-    guard shouldUpdatePrimary || shouldUpdateExpanded else {
+    guard shouldUpdatePrimary || shouldUpdateExpanded ||
+      shouldUpdateSelection
+    else {
       return
     }
 
     contentDetentHeight = detentHeights.primary
     expandedDetentHeight = detentHeights.expanded
-    onDetentHeightsChange(detentHeights)
-    let preferredDetent = PresentationDetent.height(detentHeights.primary)
-    DispatchQueue.main.async {
-      selectedDetent = preferredDetent
+    onPresentationChange(presentation)
+    selectedDetent = preferredDetent
+  }
+
+  private func navigate(to content: AppleLiquidSheetContentConfiguration) {
+    navigationModel.updateVisibleSelection(currentDetentSelection())
+    navigationModel.push(
+      content,
+      activatePresentation: setPreferredPresentation
+    )
+  }
+
+  private func navigateBack() {
+    guard !navigationModel.path.isEmpty else {
+      return
     }
+
+    navigationModel.updateVisibleSelection(currentDetentSelection())
+    navigationModel.replacePath(
+      with: Array(navigationModel.path.dropLast()),
+      activatePresentation: setPreferredPresentation
+    )
+  }
+
+  private func updateVisibleDetentHeights(
+    _ detentHeights: AppleLiquidSheetDetentHeights
+  ) {
+    navigationModel.updateVisibleSelection(currentDetentSelection())
+    let presentation = navigationModel.updateVisibleDetentHeights(
+      detentHeights
+    )
+    setPreferredPresentation(presentation)
+  }
+
+  private func updateVisibleSelection(for detent: PresentationDetent) {
+    let selection: AppleLiquidSheetDetentSelection
+    if let expandedDetentHeight,
+      detent == .height(expandedDetentHeight)
+    {
+      selection = .expanded
+    } else {
+      selection = .primary
+    }
+
+    navigationModel.updateVisibleSelection(selection)
   }
 
   private static func optionalCGFloat(
@@ -3299,6 +3548,7 @@ private struct AppleLiquidSheetFormScreen: View {
   let content: AppleLiquidSheetContentConfiguration
   let showsToolbarActions: Bool
   let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onNavigate: (AppleLiquidSheetContentConfiguration) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
@@ -3316,7 +3566,7 @@ private struct AppleLiquidSheetFormScreen: View {
           {
             AppleLiquidSheetStyledFormGroup(
               group: group,
-              onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+              onNavigate: onNavigate,
               onControlInteractionChanged: onControlInteractionChanged,
               onButtonAction: onButtonAction,
               onMultiSelectionAction: onMultiSelectionAction,
@@ -3326,7 +3576,7 @@ private struct AppleLiquidSheetFormScreen: View {
             ForEach(group.rows) { row in
               AppleLiquidSheetRowView(
                 row: row,
-                onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+                onNavigate: onNavigate,
                 onControlInteractionChanged: onControlInteractionChanged,
                 onButtonAction: onButtonAction,
                 onMultiSelectionAction: onMultiSelectionAction,
@@ -3415,9 +3665,6 @@ private struct AppleLiquidSheetFormScreen: View {
     }
     .scrollContentBackground(formBackgroundVisibility)
     .appleLiquidNavigationContainerBackground()
-    .onAppear {
-      onPreferredDetentHeightsChange(content.preferredDetentHeights)
-    }
   }
 
   private var formBackgroundVisibility: Visibility {
@@ -3480,6 +3727,13 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let estimatedDetentHeight: CGFloat
   let preferredDetentHeight: CGFloat
   let preferredExpandedDetentHeight: CGFloat?
+}
+
+@available(iOS 16.0, *)
+struct AppleLiquidSheetNavigationTestSnapshot {
+  let events: [String]
+  let pathCounts: [Int]
+  let activatedSelectedDetentHeights: [CGFloat]
 }
 
 @available(iOS 16.0, *)
@@ -3584,6 +3838,52 @@ enum AppleLiquidSheetLayoutTestSupport {
     )
   }
 
+  static func navigationTransitionSnapshot(
+    rootContentValue: Any?,
+    destinationContentValue: Any?
+  ) -> AppleLiquidSheetNavigationTestSnapshot {
+    let rootContent = AppleLiquidSheetContentConfiguration(
+      value: rootContentValue
+    )
+    let destinationContent = AppleLiquidSheetContentConfiguration(
+      value: destinationContentValue
+    )
+    let navigationModel = AppleLiquidSheetNavigationModel(
+      rootContent: rootContent
+    )
+    var events: [String] = []
+    var pathCounts: [Int] = []
+    var selectedDetentHeights: [CGFloat] = []
+    let pathObservation = navigationModel.$path
+      .dropFirst()
+      .sink { path in
+        events.append("path")
+        pathCounts.append(path.count)
+      }
+    let activatePresentation = {
+      (presentation: AppleLiquidSheetPagePresentation) in
+      events.append("detents")
+      selectedDetentHeights.append(presentation.selectedHeight)
+    }
+    navigationModel.updateVisibleSelection(.expanded)
+
+    navigationModel.push(
+      destinationContent,
+      activatePresentation: activatePresentation
+    )
+    navigationModel.replacePath(
+      with: [],
+      activatePresentation: activatePresentation
+    )
+    withExtendedLifetime(pathObservation) {}
+
+    return AppleLiquidSheetNavigationTestSnapshot(
+      events: events,
+      pathCounts: pathCounts,
+      activatedSelectedDetentHeights: selectedDetentHeights
+    )
+  }
+
   @MainActor
   static func makePresentedSheet(contentValue: Any?) -> AnyView {
     let configuration = AppleLiquidSheetConfiguration(
@@ -3613,7 +3913,8 @@ private struct AppleLiquidSheetLayoutTestHost: View {
           onControlInteractionChanged: { _ in },
           onButtonAction: { _ in },
           onMultiSelectionAction: { _, _ in },
-          onDetentHeightsChange: { _ in },
+          currentDetentSelection: { .primary },
+          onPresentationChange: { _ in },
           onDismissRequest: {}
         )
       }
@@ -3624,7 +3925,7 @@ private struct AppleLiquidSheetLayoutTestHost: View {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetRowView: View {
   let row: AppleLiquidSheetRowConfiguration
-  let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onNavigate: (AppleLiquidSheetContentConfiguration) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
@@ -3638,9 +3939,7 @@ private struct AppleLiquidSheetRowView: View {
 
   init(
     row: AppleLiquidSheetRowConfiguration,
-    onPreferredDetentHeightsChange: @escaping (
-      AppleLiquidSheetDetentHeights
-    ) -> Void,
+    onNavigate: @escaping (AppleLiquidSheetContentConfiguration) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
     onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void,
     onMultiSelectionAction: @escaping (
@@ -3653,7 +3952,7 @@ private struct AppleLiquidSheetRowView: View {
     ) -> Void
   ) {
     self.row = row
-    self.onPreferredDetentHeightsChange = onPreferredDetentHeightsChange
+    self.onNavigate = onNavigate
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
@@ -3753,17 +4052,27 @@ private struct AppleLiquidSheetRowView: View {
     case .navigation:
       if let content = row.content {
         if row.chevronARGB != nil {
-          customChevronNavigationRow {
-            navigationDestination(content: content)
+          customChevronButton {
+            onNavigate(content)
           } label: {
             AppleLiquidSheetRowLabel(row: row)
           }
         } else {
-          NavigationLink {
-            navigationDestination(content: content)
+          Button {
+            onNavigate(content)
           } label: {
-            AppleLiquidSheetRowLabel(row: row)
+            HStack(spacing: 8) {
+              AppleLiquidSheetRowLabel(row: row)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+              Image(systemName: "chevron.forward")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            }
+            .contentShape(Rectangle())
           }
+          .buttonStyle(.plain)
         }
       }
 
@@ -3871,27 +4180,31 @@ private struct AppleLiquidSheetRowView: View {
     }
   }
 
-  private func navigationDestination(
-    content: AppleLiquidSheetContentConfiguration
-  ) -> some View {
-    AppleLiquidSheetFormScreen(
-      content: content,
-      showsToolbarActions: false,
-      onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
-      onControlInteractionChanged: onControlInteractionChanged,
-      onButtonAction: onButtonAction,
-      onMultiSelectionAction: onMultiSelectionAction,
-      onToolbarAction: nil
-    )
-  }
-
   private func customChevronNavigationRow<Destination: View, Label: View>(
     @ViewBuilder destination: @escaping () -> Destination,
     @ViewBuilder label: () -> Label
   ) -> some View {
-    Button {
+    customChevronButton {
       isCustomNavigationActive = true
     } label: {
+      label()
+    }
+    .background {
+      NavigationLink(
+        destination: destination(),
+        isActive: $isCustomNavigationActive
+      ) {
+        EmptyView()
+      }
+      .hidden()
+    }
+  }
+
+  private func customChevronButton<Label: View>(
+    action: @escaping () -> Void,
+    @ViewBuilder label: () -> Label
+  ) -> some View {
+    Button(action: action) {
       HStack(spacing: 8) {
         label()
           .frame(maxWidth: .infinity, alignment: .leading)
@@ -3906,15 +4219,6 @@ private struct AppleLiquidSheetRowView: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-    .background {
-      NavigationLink(
-        destination: destination(),
-        isActive: $isCustomNavigationActive
-      ) {
-        EmptyView()
-      }
-      .hidden()
-    }
   }
 
   @ViewBuilder
@@ -4176,8 +4480,9 @@ private struct AppleLiquidSheetTimelineRow: View {
         .font(.headline)
 
       VStack(alignment: .leading, spacing: 0) {
-        ForEach(visibleStepIndices, id: \.self) { index in
+        ForEach(row.timelineSteps.indices, id: \.self) { index in
           let step = row.timelineSteps[index]
+          let isVisible = visibleStepIndices.contains(index)
           HStack(alignment: .top, spacing: 11) {
             markerColumn(for: step, at: index)
 
@@ -4201,16 +4506,26 @@ private struct AppleLiquidSheetTimelineRow: View {
 
             Spacer(minLength: 0)
           }
-          .transition(.opacity)
+          .frame(
+            maxHeight: isVisible ? step.estimatedHeight : 0,
+            alignment: .top
+          )
+          .clipped()
+          .opacity(isVisible ? 1 : 0)
+          .offset(y: isVisible ? 0 : -5)
+          .allowsHitTesting(isVisible)
+          .accessibilityHidden(!isVisible)
         }
       }
-      .animation(expansionAnimation, value: visibleStepIndices)
 
       if row.canCollapseTimeline {
         Button(action: toggleExpanded) {
           HStack(spacing: 6) {
             Text(isExpanded ? row.timelineCollapseLabel : row.timelineExpandLabel)
               .font(.subheadline.weight(.semibold))
+              .transaction { transaction in
+                transaction.animation = nil
+              }
 
             Image(systemName: "chevron.down")
               .font(.caption.weight(.semibold))
@@ -4301,7 +4616,11 @@ private struct AppleLiquidSheetTimelineRow: View {
       return nil
     }
 
-    return .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.22)
+    return .spring(
+      response: 0.38,
+      dampingFraction: 0.92,
+      blendDuration: 0.12
+    )
   }
 
   private var chevronAnimation: Animation? {
@@ -4309,15 +4628,15 @@ private struct AppleLiquidSheetTimelineRow: View {
       return nil
     }
 
-    return .timingCurve(0.2, 0.8, 0.2, 1, duration: 0.14)
+    return .timingCurve(0.32, 0.72, 0, 1, duration: 0.24)
   }
 
   private func toggleExpanded() {
     let nextValue = !isExpanded
 
-    isExpanded = nextValue
+    onExpansionChanged(nextValue)
     withAnimation(expansionAnimation) {
-      onExpansionChanged(nextValue)
+      isExpanded = nextValue
     }
   }
 }
@@ -4815,7 +5134,7 @@ private struct AppleLiquidSheetRowLabel: View {
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetStyledFormGroup: View {
   let group: AppleLiquidSheetFormGroup
-  let onPreferredDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
+  let onNavigate: (AppleLiquidSheetContentConfiguration) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
@@ -4826,7 +5145,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
       ForEach(group.rows) { row in
         AppleLiquidSheetRowView(
           row: row,
-          onPreferredDetentHeightsChange: onPreferredDetentHeightsChange,
+          onNavigate: onNavigate,
           onControlInteractionChanged: onControlInteractionChanged,
           onButtonAction: onButtonAction,
           onMultiSelectionAction: onMultiSelectionAction,

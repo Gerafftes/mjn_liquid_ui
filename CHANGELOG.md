@@ -1,3 +1,12 @@
+## 0.2.27
+
+- Fixed nested sheet navigation to activate the destination detents before a
+  push and restore the previous page's detents before a pop, preventing
+  transiently clipped or misplaced content while preserving the resize
+  animation.
+- Smoothed collapsible timeline transitions with coordinated sheet resizing,
+  spring-based row expansion, and stable expand/collapse labels.
+
 ## 0.2.26
 
 - Added `AppleLiquidSheetDetents.allowsAutomaticExpansion` so compact root or
