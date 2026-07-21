@@ -250,15 +250,20 @@ class AppleLiquidSheetDetents {
   ///
   /// Heights are native iOS points. Omit [initialHeight] to keep the automatic
   /// content-sized starting detent. Omit [expandedHeight] to keep the automatic
-  /// second detent behavior for oversized content.
-  const AppleLiquidSheetDetents({this.initialHeight, this.expandedHeight})
-    : assert(initialHeight == null || initialHeight > 0),
-      assert(expandedHeight == null || expandedHeight > 0),
-      assert(
-        initialHeight == null ||
-            expandedHeight == null ||
-            expandedHeight > initialHeight,
-      );
+  /// second detent behavior for oversized content. Set
+  /// [allowsAutomaticExpansion] to false to keep a single detent when no
+  /// [expandedHeight] is supplied.
+  const AppleLiquidSheetDetents({
+    this.initialHeight,
+    this.expandedHeight,
+    this.allowsAutomaticExpansion = true,
+  }) : assert(initialHeight == null || initialHeight > 0),
+       assert(expandedHeight == null || expandedHeight > 0),
+       assert(
+         initialHeight == null ||
+             expandedHeight == null ||
+             expandedHeight > initialHeight,
+       );
 
   /// Starting sheet height in native iOS points.
   final double? initialHeight;
@@ -266,10 +271,14 @@ class AppleLiquidSheetDetents {
   /// Optional second, higher sheet height in native iOS points.
   final double? expandedHeight;
 
+  /// Whether iOS may add a second detent for content it estimates as oversized.
+  final bool allowsAutomaticExpansion;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
       if (initialHeight != null) 'initialHeight': initialHeight,
       if (expandedHeight != null) 'expandedHeight': expandedHeight,
+      if (!allowsAutomaticExpansion) 'allowsAutomaticExpansion': false,
     };
   }
 }

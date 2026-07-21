@@ -489,6 +489,13 @@ private struct AppleLiquidSheetContentConfiguration {
       }
     }
 
+    guard configuration.allowsAutomaticExpansion else {
+      return AppleLiquidSheetDetentHeights(
+        primary: primaryHeight,
+        expanded: nil
+      )
+    }
+
     let automaticExpandedHeight = min(
       max(roundedHeight, primaryHeight + 96),
       expandedMaximumHeight
@@ -771,23 +778,34 @@ private struct AppleLiquidSheetDetentHeights {
 private struct AppleLiquidSheetDetentConfiguration {
   static let automatic = AppleLiquidSheetDetentConfiguration(
     initialHeight: nil,
-    expandedHeight: nil
+    expandedHeight: nil,
+    allowsAutomaticExpansion: true
   )
 
   let initialHeight: CGFloat?
   let expandedHeight: CGFloat?
+  let allowsAutomaticExpansion: Bool
 
   init(value: Any?) {
     let dictionary = value as? [String: Any] ?? [:]
     self.init(
       initialHeight: Self.height(dictionary["initialHeight"]),
-      expandedHeight: Self.height(dictionary["expandedHeight"])
+      expandedHeight: Self.height(dictionary["expandedHeight"]),
+      allowsAutomaticExpansion: Self.bool(
+        dictionary["allowsAutomaticExpansion"],
+        defaultValue: true
+      )
     )
   }
 
-  private init(initialHeight: CGFloat?, expandedHeight: CGFloat?) {
+  private init(
+    initialHeight: CGFloat?,
+    expandedHeight: CGFloat?,
+    allowsAutomaticExpansion: Bool
+  ) {
     self.initialHeight = initialHeight
     self.expandedHeight = expandedHeight
+    self.allowsAutomaticExpansion = allowsAutomaticExpansion
   }
 
   private static func height(_ value: Any?) -> CGFloat? {
@@ -805,6 +823,18 @@ private struct AppleLiquidSheetDetentConfiguration {
     }
 
     return CGFloat(doubleValue)
+  }
+
+  private static func bool(_ value: Any?, defaultValue: Bool) -> Bool {
+    if let value = value as? Bool {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.boolValue
+    }
+
+    return defaultValue
   }
 }
 
@@ -2699,6 +2729,9 @@ private final class AppleLiquidSheetSession: NSObject,
 
         self.onMultiSelectionAction(actionId, selectedOptions)
       },
+      onDetentHeightsChange: { [weak self] detentHeights in
+        self?.updateSheetDetents(detentHeights, animated: true)
+      },
       onDismissRequest: { [weak self] in
         self?.dismissFromControl()
       }
@@ -2728,11 +2761,48 @@ private final class AppleLiquidSheetSession: NSObject,
     }
 
     let detentHeights = configuration.content.preferredDetentHeights
-    let primaryIdentifier = UISheetPresentationController.Detent.Identifier(
-      "appleLiquidPrimary"
-    )
-    let expandedIdentifier = UISheetPresentationController.Detent.Identifier(
-      "appleLiquidExpanded"
+    sheetPresentationController.delegate = self
+    sheetPresentationController.largestUndimmedDetentIdentifier = nil
+    sheetPresentationController.prefersGrabberVisible = true
+    sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = true
+    applySheetDetents(detentHeights, to: sheetPresentationController)
+  }
+
+  private func updateSheetDetents(
+    _ detentHeights: AppleLiquidSheetDetentHeights,
+    animated: Bool
+  ) {
+    guard let sheetPresentationController =
+      hostController?.sheetPresentationController
+    else {
+      return
+    }
+
+    let updates = { [weak self, weak sheetPresentationController] in
+      guard let self, let sheetPresentationController else {
+        return
+      }
+
+      self.applySheetDetents(
+        detentHeights,
+        to: sheetPresentationController
+      )
+    }
+
+    if animated {
+      sheetPresentationController.animateChanges(updates)
+    } else {
+      updates()
+    }
+  }
+
+  private func applySheetDetents(
+    _ detentHeights: AppleLiquidSheetDetentHeights,
+    to sheetPresentationController: UISheetPresentationController
+  ) {
+    let primaryIdentifier = detentIdentifier(
+      role: "primary",
+      height: detentHeights.primary
     )
     var detents: [UISheetPresentationController.Detent] = [
       .custom(identifier: primaryIdentifier) { _ in
@@ -2741,6 +2811,10 @@ private final class AppleLiquidSheetSession: NSObject,
     ]
 
     if let expandedHeight = detentHeights.expanded {
+      let expandedIdentifier = detentIdentifier(
+        role: "expanded",
+        height: expandedHeight
+      )
       detents.append(
         .custom(identifier: expandedIdentifier) { _ in
           expandedHeight
@@ -2748,12 +2822,17 @@ private final class AppleLiquidSheetSession: NSObject,
       )
     }
 
-    sheetPresentationController.delegate = self
     sheetPresentationController.detents = detents
     sheetPresentationController.selectedDetentIdentifier = primaryIdentifier
-    sheetPresentationController.largestUndimmedDetentIdentifier = nil
-    sheetPresentationController.prefersGrabberVisible = true
-    sheetPresentationController.prefersScrollingExpandsWhenScrolledToEdge = true
+  }
+
+  private func detentIdentifier(
+    role: String,
+    height: CGFloat
+  ) -> UISheetPresentationController.Detent.Identifier {
+    UISheetPresentationController.Detent.Identifier(
+      "appleLiquid-\(role)-\(Int(height.rounded()))"
+    )
   }
 
   private func disablePresentingViewInteraction() {
@@ -3055,6 +3134,7 @@ private struct AppleLiquidSettingsSheetView: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onDetentHeightsChange: (AppleLiquidSheetDetentHeights) -> Void
   let onDismissRequest: () -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
@@ -3069,6 +3149,9 @@ private struct AppleLiquidSettingsSheetView: View {
       AppleLiquidSheetRowConfiguration,
       [String]
     ) -> Void,
+    onDetentHeightsChange: @escaping (
+      AppleLiquidSheetDetentHeights
+    ) -> Void,
     onDismissRequest: @escaping () -> Void
   ) {
     self.configuration = configuration
@@ -3076,6 +3159,7 @@ private struct AppleLiquidSettingsSheetView: View {
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
+    self.onDetentHeightsChange = onDetentHeightsChange
     self.onDismissRequest = onDismissRequest
 
     let detentHeights = configuration.content.preferredDetentHeights
@@ -3139,7 +3223,11 @@ private struct AppleLiquidSettingsSheetView: View {
 
     contentDetentHeight = detentHeights.primary
     expandedDetentHeight = detentHeights.expanded
-    selectedDetent = .height(detentHeights.primary)
+    onDetentHeightsChange(detentHeights)
+    let preferredDetent = PresentationDetent.height(detentHeights.primary)
+    DispatchQueue.main.async {
+      selectedDetent = preferredDetent
+    }
   }
 
   private static func optionalCGFloat(
@@ -3391,6 +3479,7 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let removesBottomContentMargin: Bool
   let estimatedDetentHeight: CGFloat
   let preferredDetentHeight: CGFloat
+  let preferredExpandedDetentHeight: CGFloat?
 }
 
 @available(iOS 16.0, *)
@@ -3490,7 +3579,8 @@ enum AppleLiquidSheetLayoutTestSupport {
       lastButtonBottomInset: lastButton?.buttonStyle.rowBottomInset,
       removesBottomContentMargin: groups.last?.endsWithButton == true,
       estimatedDetentHeight: content.estimatedDetentHeight,
-      preferredDetentHeight: content.preferredDetentHeight
+      preferredDetentHeight: content.preferredDetentHeight,
+      preferredExpandedDetentHeight: content.preferredDetentHeights.expanded
     )
   }
 
@@ -3523,6 +3613,7 @@ private struct AppleLiquidSheetLayoutTestHost: View {
           onControlInteractionChanged: { _ in },
           onButtonAction: { _ in },
           onMultiSelectionAction: { _, _ in },
+          onDetentHeightsChange: { _ in },
           onDismissRequest: {}
         )
       }

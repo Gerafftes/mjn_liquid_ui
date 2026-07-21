@@ -1,3 +1,10 @@
+## 0.2.26
+
+- Added `AppleLiquidSheetDetents.allowsAutomaticExpansion` so compact root or
+  nested pages can keep exactly one detent without iOS adding a larger fallback.
+- Fixed nested sheet navigation to animate to the destination page's detents
+  and restore the previous page's height when navigating back.
+
 ## 0.2.25
 
 - Added optional internal expand/collapse state to
