@@ -1,3 +1,9 @@
+## 0.2.28
+
+- Kept already visible timeline steps stationary during expand and collapse.
+- Preserved the order of newly revealed timeline steps throughout the native
+  spring animation so adjacent rows no longer appear to swap places.
+
 ## 0.2.27
 
 - Fixed nested sheet navigation to activate the destination detents before a
