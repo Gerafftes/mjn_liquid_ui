@@ -4482,7 +4482,9 @@ private struct AppleLiquidSheetTimelineRow: View {
       VStack(alignment: .leading, spacing: 0) {
         ForEach(row.timelineSteps.indices, id: \.self) { index in
           let step = row.timelineSteps[index]
-          let isVisible = visibleStepIndices.contains(index)
+          let remainsVisibleWhenCollapsed =
+            collapsedStepIndices.contains(index)
+          let isVisible = isExpanded || remainsVisibleWhenCollapsed
           HStack(alignment: .top, spacing: 11) {
             markerColumn(for: step, at: index)
 
@@ -4512,9 +4514,20 @@ private struct AppleLiquidSheetTimelineRow: View {
           )
           .clipped()
           .opacity(isVisible ? 1 : 0)
-          .offset(y: isVisible ? 0 : -5)
+          .offset(
+            y: isVisible ? 0 : collapsedOffset(for: index) - 5
+          )
           .allowsHitTesting(isVisible)
           .accessibilityHidden(!isVisible)
+          .transaction { transaction in
+            if remainsVisibleWhenCollapsed {
+              transaction.disablesAnimations = true
+            }
+          }
+          .animation(
+            remainsVisibleWhenCollapsed ? nil : expansionAnimation,
+            value: isVisible
+          )
         }
       }
 
@@ -4607,8 +4620,22 @@ private struct AppleLiquidSheetTimelineRow: View {
     Color(appleLiquidARGB: row.tintColor) ?? .accentColor
   }
 
+  private var collapsedStepIndices: [Int] {
+    row.timelineVisibleStepIndices(isExpanded: false)
+  }
+
   private var visibleStepIndices: [Int] {
     row.timelineVisibleStepIndices(isExpanded: isExpanded)
+  }
+
+  private func collapsedOffset(for index: Int) -> CGFloat {
+    row.timelineSteps.indices
+      .filter {
+        $0 < index && !collapsedStepIndices.contains($0)
+      }
+      .reduce(CGFloat.zero) { partial, precedingIndex in
+        partial + row.timelineSteps[precedingIndex].estimatedHeight
+      }
   }
 
   private var expansionAnimation: Animation? {
@@ -4635,9 +4662,7 @@ private struct AppleLiquidSheetTimelineRow: View {
     let nextValue = !isExpanded
 
     onExpansionChanged(nextValue)
-    withAnimation(expansionAnimation) {
-      isExpanded = nextValue
-    }
+    isExpanded = nextValue
   }
 }
 

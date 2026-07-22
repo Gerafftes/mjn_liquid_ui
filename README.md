@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.27
+  mjn_liquid_ui: ^0.2.28
 ```
 
 Then import the package:
@@ -401,10 +401,12 @@ window always includes the current step and the nearest surrounding steps.
 SwiftUI keeps the expanded state internally and updates the content-sized sheet
 detent before the visible timeline height changes. Timeline rows expand and
 collapse with a damped native spring while the sheet resizes in sync; Reduce
-Motion remains respected. The limit is configured per timeline and accepts any
-positive integer; `3` above is only an example. Omit `collapsedStepLimit` to
-keep the timeline permanently expanded as before. If the limit is greater than
-or equal to the number of steps, no toggle is shown.
+Motion remains respected. Already visible rows stay stationary, while newly
+revealed rows keep their timeline order throughout the transition. The limit is
+configured per timeline and accepts any positive integer; `3` above is only an
+example. Omit `collapsedStepLimit` to keep the timeline permanently expanded as
+before. If the limit is greater than or equal to the number of steps, no toggle
+is shown.
 
 | API | Purpose |
 | --- | --- |
