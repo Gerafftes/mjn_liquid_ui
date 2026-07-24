@@ -663,6 +663,48 @@ class AppleLiquidSheetSegmentedStyle {
   }
 }
 
+/// Visual configuration for [AppleLiquidSheetRow.identity].
+class AppleLiquidSheetIdentityStyle {
+  /// Creates a native identity-card style.
+  const AppleLiquidSheetIdentityStyle({
+    this.avatarSize = 44,
+    this.iconSize = 20,
+    this.cardPadding = 10,
+    this.cornerRadius = 14,
+    this.backgroundOpacity = 0.12,
+  }) : assert(avatarSize > 0),
+       assert(iconSize > 0),
+       assert(iconSize <= avatarSize),
+       assert(cardPadding >= 0),
+       assert(cornerRadius >= 0),
+       assert(backgroundOpacity >= 0 && backgroundOpacity <= 1);
+
+  /// Diameter of the remote avatar or SF Symbol background in iOS points.
+  final double avatarSize;
+
+  /// SF Symbol size used by the identity fallback avatar in iOS points.
+  final double iconSize;
+
+  /// Padding between the identity content and card edges in iOS points.
+  final double cardPadding;
+
+  /// Identity-card corner radius in iOS points.
+  final double cornerRadius;
+
+  /// Opacity applied to the tint-derived identity-card background.
+  final double backgroundOpacity;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      'avatarSize': avatarSize,
+      'iconSize': iconSize,
+      'cardPadding': cardPadding,
+      'cornerRadius': cornerRadius,
+      'backgroundOpacity': backgroundOpacity,
+    };
+  }
+}
+
 /// Horizontal label alignment for [AppleLiquidSheetButtonStyle].
 enum AppleLiquidSheetButtonAlignment {
   /// Aligns the icon and text to the leading edge.
@@ -1031,7 +1073,9 @@ class AppleLiquidSheetRow {
     this.systemImage,
     this.role,
     this.activityType,
+    this.description,
     this.avatarUrl,
+    this.identityStyle,
     List<AppleLiquidSheetTimelineStep> timelineSteps =
         const <AppleLiquidSheetTimelineStep>[],
     this.currentStepIndex,
@@ -1068,7 +1112,8 @@ class AppleLiquidSheetRow {
              step <= (max ?? 1) - (min ?? 0),
        ),
        assert(
-         type != AppleLiquidSheetRowType.slider ||
+         (type != AppleLiquidSheetRowType.slider &&
+                 type != AppleLiquidSheetRowType.identity) ||
              rowHorizontalInset == null ||
              (rowHorizontalInset >= 0 && rowHorizontalInset <= 80),
        ),
@@ -1098,6 +1143,11 @@ class AppleLiquidSheetRow {
        assert(type != AppleLiquidSheetRowType.identity || role != ''),
        assert(type != AppleLiquidSheetRowType.identity || activityType != null),
        assert(type != AppleLiquidSheetRowType.identity || activityType != ''),
+       assert(
+         type != AppleLiquidSheetRowType.identity ||
+             description == null ||
+             description != '',
+       ),
        assert(
          type != AppleLiquidSheetRowType.identity ||
              avatarUrl == null ||
@@ -1305,21 +1355,29 @@ class AppleLiquidSheetRow {
   ///
   /// [systemImage] is used as the avatar fallback. When [avatarUrl] is set and
   /// the image can be loaded, the remote avatar is shown instead.
+  /// [description] is rendered below the activity type inside the same card.
+  /// [style] configures the card geometry and avatar presentation.
   const AppleLiquidSheetRow.identity({
     required String title,
     required String role,
     required String activityType,
+    String? description,
     String? systemImage,
     String? avatarUrl,
     Color? tintColor,
+    double? rowHorizontalInset,
+    AppleLiquidSheetIdentityStyle? style,
   }) : this._(
          type: AppleLiquidSheetRowType.identity,
          title: title,
          role: role,
          activityType: activityType,
+         description: description,
          systemImage: systemImage,
          avatarUrl: avatarUrl,
          tintColor: tintColor,
+         rowHorizontalInset: rowHorizontalInset,
+         identityStyle: style,
        );
 
   /// Creates a connected status timeline.
@@ -1452,11 +1510,10 @@ class AppleLiquidSheetRow {
   /// Placement for the slider value text.
   final AppleLiquidSheetSliderValuePlacement sliderValuePlacement;
 
-  /// Optional absolute horizontal form-row inset for slider content.
+  /// Optional absolute horizontal form-row inset for slider or identity content.
   ///
-  /// The value uses native iOS points. Set it to `0` to align the slider row
-  /// with the section edge, or leave it null to preserve SwiftUI's system
-  /// inset.
+  /// The value uses native iOS points. Set it to `0` to align the supported row
+  /// with the section edge, or leave it null to preserve SwiftUI's system inset.
   final double? rowHorizontalInset;
 
   /// Optional absolute leading form-row inset for slider content.
@@ -1486,8 +1543,14 @@ class AppleLiquidSheetRow {
   /// Activity type shown by [AppleLiquidSheetRow.identity].
   final String? activityType;
 
+  /// Optional description shown inside [AppleLiquidSheetRow.identity].
+  final String? description;
+
   /// Optional remote avatar URL for [AppleLiquidSheetRow.identity].
   final String? avatarUrl;
+
+  /// Visual style for [AppleLiquidSheetRow.identity].
+  final AppleLiquidSheetIdentityStyle? identityStyle;
 
   final List<AppleLiquidSheetTimelineStep> _timelineSteps;
 
@@ -1583,7 +1646,9 @@ class AppleLiquidSheetRow {
           sliderValuePlacement !=
               AppleLiquidSheetSliderValuePlacement.topTrailing)
         'sliderValuePlacement': sliderValuePlacement.platformValue,
-      if (type == AppleLiquidSheetRowType.slider && rowHorizontalInset != null)
+      if ((type == AppleLiquidSheetRowType.slider ||
+              type == AppleLiquidSheetRowType.identity) &&
+          rowHorizontalInset != null)
         'rowHorizontalInset': rowHorizontalInset,
       if (type == AppleLiquidSheetRowType.slider && rowLeadingInset != null)
         'rowLeadingInset': rowLeadingInset,
@@ -1600,7 +1665,9 @@ class AppleLiquidSheetRow {
       if (systemImage != null) 'systemImage': systemImage,
       if (role != null) 'role': role,
       if (activityType != null) 'activityType': activityType,
+      if (description != null) 'description': description,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (identityStyle != null) 'identityStyle': identityStyle!.toMap(),
       if (timelineSteps.isNotEmpty)
         'steps': timelineSteps
             .map((AppleLiquidSheetTimelineStep step) => step.toMap())

@@ -1,3 +1,12 @@
+## 0.2.29
+
+- Added optional descriptions and horizontal form-row insets to
+  `AppleLiquidSheetRow.identity`.
+- Added `AppleLiquidSheetIdentityStyle` for configurable identity-card avatar
+  and SF Symbol sizes, padding, corner radius, and background opacity.
+- Aligned identity cards and segmented button rows with matching horizontal
+  insets, including the selected button's visible shadow bounds.
+
 ## 0.2.28
 
 - Kept already visible timeline steps stationary during expand and collapse.

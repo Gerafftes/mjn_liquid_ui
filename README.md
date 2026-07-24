@@ -348,9 +348,18 @@ AppleLiquidSheetSection(
       title: 'Du',
       role: 'Helfer',
       activityType: 'Gartenarbeit',
+      description: 'Unterstützt den Auftrag vor Ort.',
       systemImage: 'person.crop.circle.fill',
       // avatarUrl: 'https://example.com/avatar.jpg',
       tintColor: Color(0xFF0A84FF),
+      rowHorizontalInset: 8,
+      style: AppleLiquidSheetIdentityStyle(
+        avatarSize: 48,
+        iconSize: 22,
+        cardPadding: 12,
+        cornerRadius: 16,
+        backgroundOpacity: 0.14,
+      ),
     ),
     AppleLiquidSheetRow.factsGrid(
       title: 'Auftrag',
@@ -396,6 +405,13 @@ AppleLiquidSheetSection(
 );
 ```
 
+Set `description` to show up to two lines of supporting text inside the identity
+card. `rowHorizontalInset` controls the card's horizontal form inset in native
+iOS points. Omit it to preserve SwiftUI's system inset.
+`AppleLiquidSheetIdentityStyle` configures the avatar diameter, fallback
+SF Symbol size, inner padding, corner radius, and tint-derived background
+opacity. Its defaults preserve the original native appearance.
+
 `collapsedStepLimit` enables the native expand/collapse control. The collapsed
 window always includes the current step and the nearest surrounding steps.
 SwiftUI keeps the expanded state internally and updates the content-sized sheet
@@ -424,7 +440,8 @@ is shown.
 | `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, value placement, and horizontal row inset |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
-| `AppleLiquidSheetRow.identity` | Highlighted identity header with role, activity type, SF Symbol fallback, and optional remote avatar |
+| `AppleLiquidSheetRow.identity` | Highlighted identity header with role, activity type, optional description, SF Symbol fallback, remote avatar, and horizontal inset |
+| `AppleLiquidSheetIdentityStyle` | Identity-card avatar and icon sizes, padding, corner radius, and background opacity |
 | `AppleLiquidSheetRow.timeline` | Connected status history with completed, current, and upcoming steps |
 | `AppleLiquidSheetTimelineStep` | Typed title, optional subtitle, and optional SF Symbol for one timeline step |
 | `AppleLiquidSheetRow.factsGrid` | Compact one-to-four-column grid for short facts |

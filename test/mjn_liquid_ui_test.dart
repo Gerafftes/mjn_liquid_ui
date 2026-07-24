@@ -28,14 +28,23 @@ void main() {
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAFgwJ/lv5Q9wAAAABJRU5ErkJggg==',
   );
 
-  test('identity row serializes role, activity, icon, and avatar', () {
+  test('identity row serializes content, inset, and visual style', () {
     const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
       title: 'Du',
       role: 'Helfer',
       activityType: 'Gartenarbeit',
+      description: 'Unterstützt den Auftrag vor Ort.',
       systemImage: 'person.fill',
       avatarUrl: 'https://example.com/avatar.jpg',
       tintColor: Color(0xFF0A84FF),
+      rowHorizontalInset: 8,
+      style: AppleLiquidSheetIdentityStyle(
+        avatarSize: 48,
+        iconSize: 22,
+        cardPadding: 12,
+        cornerRadius: 16,
+        backgroundOpacity: 0.14,
+      ),
     );
 
     expect(row.toMap(), <String, Object?>{
@@ -45,8 +54,28 @@ void main() {
       'systemImage': 'person.fill',
       'role': 'Helfer',
       'activityType': 'Gartenarbeit',
+      'description': 'Unterstützt den Auftrag vor Ort.',
       'avatarUrl': 'https://example.com/avatar.jpg',
+      'rowHorizontalInset': 8.0,
+      'identityStyle': <String, Object?>{
+        'avatarSize': 48.0,
+        'iconSize': 22.0,
+        'cardPadding': 12.0,
+        'cornerRadius': 16.0,
+        'backgroundOpacity': 0.14,
+      },
     });
+  });
+
+  test('identity row keeps its original payload when style is omitted', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
+      title: 'Du',
+      role: 'Helfer',
+      activityType: 'Gartenarbeit',
+    );
+
+    expect(row.identityStyle, isNull);
+    expect(row.toMap().containsKey('identityStyle'), isFalse);
   });
 
   test('timeline row serializes typed steps and current index', () {
@@ -770,6 +799,63 @@ void main() {
     );
     expect(
       () => AppleLiquidSheetRow.slider(title: 'Distance', rowTrailingInset: 81),
+      throwsAssertionError,
+    );
+  });
+
+  test('sheet identity row inset stays within native bounds', () {
+    expect(
+      () => AppleLiquidSheetRow.identity(
+        title: 'Du',
+        role: 'Helfer',
+        activityType: 'Gartenarbeit',
+        rowHorizontalInset: -1,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.identity(
+        title: 'Du',
+        role: 'Helfer',
+        activityType: 'Gartenarbeit',
+        rowHorizontalInset: 81,
+      ),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetRow.identity(
+        title: 'Du',
+        role: 'Helfer',
+        activityType: 'Gartenarbeit',
+        description: '',
+      ),
+      throwsAssertionError,
+    );
+  });
+
+  test('identity style validates native dimensions and opacity', () {
+    expect(
+      () => AppleLiquidSheetIdentityStyle(avatarSize: 0),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(iconSize: 0),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(avatarSize: 20, iconSize: 21),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(cardPadding: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(cornerRadius: -1),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(backgroundOpacity: 1.01),
       throwsAssertionError,
     );
   });

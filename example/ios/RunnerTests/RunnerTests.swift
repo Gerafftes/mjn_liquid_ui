@@ -118,6 +118,158 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(snapshot.activatedSelectedDetentHeights, [300, 660])
   }
 
+  func testEqualRowInsetsResolveToEqualStandardFormSpacing() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "activityType": "Gartenarbeit",
+              "rowHorizontalInset": 8.0
+            ],
+            [
+              "type": "segmented",
+              "title": "Layout",
+              "options": ["List", "Grid"],
+              "selectedOption": "List",
+              "segmentedStyle": ["rowHorizontalInset": 8.0]
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.standardFormRowHorizontalInsets, [8, 8])
+    XCTAssertEqual(snapshot.identityAvatarSizes, [44])
+    XCTAssertEqual(snapshot.identityIconSizes, [20])
+    XCTAssertEqual(snapshot.identityCardPaddings, [10])
+    XCTAssertEqual(snapshot.identityCornerRadii, [14])
+    XCTAssertEqual(snapshot.identityBackgroundOpacities, [0.12])
+  }
+
+  @MainActor
+  func testEqualInsetsKeepRenderedContentWithinSameHorizontalBounds() throws {
+    guard #available(iOS 17.0, *) else {
+      throw XCTSkip("Native sheet layout requires iOS 17 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "title": "Inset comparison",
+      "detents": ["initialHeight": 500.0],
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "activityType": "Gartenarbeit",
+              "description": "Unterstützt den Auftrag vor Ort.",
+              "tintColor": 0xFF0A84FF,
+              "rowHorizontalInset": 8.0,
+              "identityStyle": [
+                "avatarSize": 48.0,
+                "iconSize": 22.0,
+                "cardPadding": 12.0,
+                "cornerRadius": 16.0,
+                "backgroundOpacity": 0.14
+              ]
+            ]
+          ]
+        ],
+        [
+          "rows": [
+            [
+              "type": "segmented",
+              "title": "Layout",
+              "options": ["List", "Grid"],
+              "selectedOption": "List",
+              "segmentedStyle": [
+                "selectedBackgroundColor": 0x2634C759,
+                "selectedTextColor": 0xFF34C759,
+                "selectedBorderColor": 0x9934C759,
+                "selectedShadowColor": 0x0AFFFFFF,
+                "buttonHeight": 48.0,
+                "cornerRadius": 16.0,
+                "rowHorizontalInset": 8.0,
+                "selectedShadowRadius": 8.0,
+                "selectedShadowOffsetY": 2.0
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+    let host = UIHostingController(
+      rootView: AppleLiquidSheetLayoutTestSupport.makePresentedSheet(
+        contentValue: content
+      )
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+    let sheetController = try XCTUnwrap(host.presentedViewController)
+    sheetController.view.layoutIfNeeded()
+    let collectionView: UICollectionView = try XCTUnwrap(
+      firstSubview(of: UICollectionView.self, in: sheetController.view)
+    )
+    collectionView.collectionViewLayout.prepare()
+
+    let rendererFormat = UIGraphicsImageRendererFormat()
+    rendererFormat.scale = 1
+    rendererFormat.preferredRange = .standard
+    let renderer = UIGraphicsImageRenderer(
+      bounds: sheetController.view.bounds,
+      format: rendererFormat
+    )
+    let image = renderer.image { _ in
+      sheetController.view.drawHierarchy(
+        in: sheetController.view.bounds,
+        afterScreenUpdates: true
+      )
+    }
+    let renderedRowBounds = wideVisibleHorizontalBounds(
+      in: image,
+      minimumComponent: 5,
+      minimumWidth: 300,
+      minimumConsecutiveRows: 20
+    )
+    XCTAssertEqual(renderedRowBounds.count, 2)
+    let identityBounds = try XCTUnwrap(renderedRowBounds.first)
+    let segmentedBounds = try XCTUnwrap(renderedRowBounds.last)
+
+    XCTAssertEqual(
+      identityBounds.lowerBound,
+      segmentedBounds.lowerBound,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
+      identityBounds.upperBound,
+      segmentedBounds.upperBound,
+      accuracy: 0.5
+    )
+
+    let attachment = XCTAttachment(image: image)
+    attachment.name = "identity-segmented-inset-comparison"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+
+    withExtendedLifetime(window) {}
+  }
+
   @MainActor
   func testStructuredRowsRenderWithinCalculatedDetent() throws {
     guard #available(iOS 17.0, *) else {
@@ -126,6 +278,7 @@ final class RunnerTests: XCTestCase {
 
     let content: [String: Any] = [
       "title": "Auftrag",
+      "detents": ["initialHeight": 600.0],
       "sections": [
         [
           "title": "Übersicht",
@@ -135,8 +288,17 @@ final class RunnerTests: XCTestCase {
               "title": "Du",
               "role": "Helfer",
               "activityType": "Gartenarbeit",
+              "description": "Unterstützt den Auftrag vor Ort.",
               "systemImage": "person.fill",
-              "tintColor": 0xFF0A84FF
+              "tintColor": 0xFF0A84FF,
+              "rowHorizontalInset": 8,
+              "identityStyle": [
+                "avatarSize": 48.0,
+                "iconSize": 22.0,
+                "cardPadding": 12.0,
+                "cornerRadius": 16.0,
+                "backgroundOpacity": 0.14
+              ]
             ],
             [
               "type": "factsGrid",
@@ -174,6 +336,17 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(snapshot.rowCounts, [3, 1])
     XCTAssertEqual(snapshot.rowKinds, ["identity", "factsGrid", "timeline", "button"])
     XCTAssertEqual(snapshot.identityRoles, ["Helfer"])
+    XCTAssertEqual(
+      snapshot.identityDescriptions,
+      ["Unterstützt den Auftrag vor Ort."]
+    )
+    XCTAssertEqual(snapshot.identityRowHorizontalInsets, [8])
+    XCTAssertEqual(snapshot.identityAvatarSizes, [48])
+    XCTAssertEqual(snapshot.identityIconSizes, [22])
+    XCTAssertEqual(snapshot.identityCardPaddings, [12])
+    XCTAssertEqual(snapshot.identityCornerRadii, [16])
+    XCTAssertEqual(snapshot.identityBackgroundOpacities, [0.14])
+    XCTAssertEqual(snapshot.estimatedRowHeights.first, 136)
     XCTAssertEqual(snapshot.timelineCurrentStepIndices, [1])
     XCTAssertEqual(snapshot.factColumnCounts, [3])
 
@@ -218,6 +391,11 @@ final class RunnerTests: XCTestCase {
       }
     }
 
+    XCTAssertLessThanOrEqual(
+      try XCTUnwrap(renderedRowHeights.first),
+      try XCTUnwrap(snapshot.estimatedRowHeights.first),
+      "The estimated identity height must contain its rendered description."
+    )
     XCTAssertLessThanOrEqual(
       renderedBottom,
       resolvedDetentHeight + 1,
@@ -657,5 +835,77 @@ final class RunnerTests: XCTestCase {
 
   private func allSubviews(of view: UIView) -> [UIView] {
     view.subviews + view.subviews.flatMap(allSubviews)
+  }
+
+  private func wideVisibleHorizontalBounds(
+    in image: UIImage,
+    minimumComponent: UInt8,
+    minimumWidth: Int,
+    minimumConsecutiveRows: Int
+  ) -> [ClosedRange<CGFloat>] {
+    guard let sourceImage = image.cgImage else {
+      return []
+    }
+
+    let width = sourceImage.width
+    let height = sourceImage.height
+    let bytesPerPixel = 4
+    let bytesPerRow = width * bytesPerPixel
+    var pixels = [UInt8](
+      repeating: 0,
+      count: height * bytesPerRow
+    )
+    guard let context = CGContext(
+      data: &pixels,
+      width: width,
+      height: height,
+      bitsPerComponent: 8,
+      bytesPerRow: bytesPerRow,
+      space: CGColorSpaceCreateDeviceRGB(),
+      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+    ) else {
+      return []
+    }
+
+    context.draw(
+      sourceImage,
+      in: CGRect(x: 0, y: 0, width: width, height: height)
+    )
+    var consecutiveBounds: [(firstX: Int, lastX: Int)] = []
+    var groups: [[(firstX: Int, lastX: Int)]] = []
+
+    for pixelY in 0..<height {
+      let rowStart = pixelY * bytesPerRow
+      let visibleXs = (0..<width).filter { x in
+        let pixelStart = rowStart + (x * bytesPerPixel)
+        return pixels[pixelStart] >= minimumComponent ||
+          pixels[pixelStart + 1] >= minimumComponent ||
+          pixels[pixelStart + 2] >= minimumComponent
+      }
+
+      if let firstX = visibleXs.first,
+        let lastX = visibleXs.last,
+        lastX - firstX >= minimumWidth
+      {
+        consecutiveBounds.append((firstX, lastX))
+      } else if !consecutiveBounds.isEmpty {
+        groups.append(consecutiveBounds)
+        consecutiveBounds = []
+      }
+    }
+
+    if !consecutiveBounds.isEmpty {
+      groups.append(consecutiveBounds)
+    }
+
+    return groups.compactMap { group in
+      guard group.count >= minimumConsecutiveRows else {
+        return nil
+      }
+
+      let firstX = group.map(\.firstX).min() ?? 0
+      let lastX = group.map(\.lastX).max() ?? 0
+      return CGFloat(firstX)...CGFloat(lastX)
+    }
   }
 }
