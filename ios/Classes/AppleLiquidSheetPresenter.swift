@@ -1752,6 +1752,100 @@ private struct AppleLiquidSheetButtonStyleConfiguration {
   }
 }
 
+private struct AppleLiquidSheetIdentityStyleConfiguration {
+  let avatarSize: CGFloat
+  let iconSize: CGFloat
+  let cardPadding: CGFloat
+  let cornerRadius: CGFloat
+  let backgroundOpacity: Double
+
+  init(value: Any?) {
+    let dictionary = value as? [String: Any] ?? [:]
+    let avatarSize = Self.clampedCGFloat(
+      dictionary["avatarSize"],
+      defaultValue: 44,
+      minValue: 8,
+      maxValue: 160
+    )
+    self.avatarSize = avatarSize
+    self.iconSize = min(
+      Self.clampedCGFloat(
+        dictionary["iconSize"],
+        defaultValue: 20,
+        minValue: 8,
+        maxValue: 72
+      ),
+      avatarSize
+    )
+    self.cardPadding = Self.clampedCGFloat(
+      dictionary["cardPadding"],
+      defaultValue: 10,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.cornerRadius = Self.clampedCGFloat(
+      dictionary["cornerRadius"],
+      defaultValue: 14,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.backgroundOpacity = Self.clampedDouble(
+      dictionary["backgroundOpacity"],
+      defaultValue: 0.12,
+      minValue: 0,
+      maxValue: 1
+    )
+  }
+
+  func estimatedHeight(hasDescription: Bool) -> CGFloat {
+    let defaultEstimatedHeight: CGFloat = hasDescription ? 132 : 94
+    let estimatedTextHeight: CGFloat = hasDescription ? 78 : 44
+    let defaultContentHeight =
+      max(44, estimatedTextHeight) + (10 * 2)
+    let styledContentHeight =
+      max(avatarSize, estimatedTextHeight) + (cardPadding * 2)
+
+    return defaultEstimatedHeight + styledContentHeight - defaultContentHeight
+  }
+
+  private static func clampedCGFloat(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> CGFloat {
+    CGFloat(
+      clampedDouble(
+        value,
+        defaultValue: defaultValue,
+        minValue: minValue,
+        maxValue: maxValue
+      )
+    )
+  }
+
+  private static func clampedDouble(
+    _ value: Any?,
+    defaultValue: Double,
+    minValue: Double,
+    maxValue: Double
+  ) -> Double {
+    min(max(double(value) ?? defaultValue, minValue), maxValue)
+  }
+
+  private static func double(_ value: Any?) -> Double? {
+    if let value = value as? Double {
+      return value
+    }
+
+    if let value = value as? NSNumber {
+      return value.doubleValue
+    }
+
+    return nil
+  }
+}
+
 private struct AppleLiquidSheetTimelineStepConfiguration: Identifiable {
   let id: String
   let title: String
@@ -1846,7 +1940,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let systemImage: String?
   let role: String?
   let activityType: String?
+  let identityDescription: String?
   let avatarURL: URL?
+  let identityStyle: AppleLiquidSheetIdentityStyleConfiguration
   let timelineSteps: [AppleLiquidSheetTimelineStepConfiguration]
   let currentStepIndex: Int
   let timelineCollapsedStepLimit: Int?
@@ -1996,7 +2092,11 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.systemImage = Self.optionalString(dictionary["systemImage"])
     self.role = role
     self.activityType = activityType
+    self.identityDescription = Self.optionalString(dictionary["description"])
     self.avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    self.identityStyle = AppleLiquidSheetIdentityStyleConfiguration(
+      value: dictionary["identityStyle"]
+    )
     self.timelineSteps = timelineSteps
     self.currentStepIndex = Self.clampedInt(
       dictionary["currentStepIndex"],
@@ -2082,7 +2182,10 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     systemImage: String? = nil,
     role: String? = nil,
     activityType: String? = nil,
+    identityDescription: String? = nil,
     avatarURL: URL? = nil,
+    identityStyle: AppleLiquidSheetIdentityStyleConfiguration =
+      AppleLiquidSheetIdentityStyleConfiguration(value: nil),
     timelineSteps: [AppleLiquidSheetTimelineStepConfiguration] = [],
     currentStepIndex: Int = 0,
     timelineCollapsedStepLimit: Int? = nil,
@@ -2132,7 +2235,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.systemImage = systemImage
     self.role = role
     self.activityType = activityType
+    self.identityDescription = identityDescription
     self.avatarURL = avatarURL
+    self.identityStyle = identityStyle
     self.timelineSteps = timelineSteps
     self.currentStepIndex = currentStepIndex
     self.timelineCollapsedStepLimit = timelineCollapsedStepLimit
@@ -2325,6 +2430,17 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     return options.first ?? ""
   }
 
+  var standardFormHorizontalInset: CGFloat? {
+    switch kind {
+    case .segmented:
+      return segmentedStyle.rowHorizontalInset
+    case .slider, .identity:
+      return rowHorizontalInset
+    default:
+      return nil
+    }
+  }
+
   var estimatedHeight: CGFloat {
     let baseHeight: CGFloat
 
@@ -2348,7 +2464,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     case .textField:
       baseHeight = 54
     case .identity:
-      baseHeight = 94
+      baseHeight = identityStyle.estimatedHeight(
+        hasDescription: identityDescription != nil
+      )
     case .timeline:
       baseHeight = timelineEstimatedHeight(
         isExpanded: timelineInitiallyExpanded
@@ -3582,10 +3700,8 @@ private struct AppleLiquidSheetFormScreen: View {
                 onMultiSelectionAction: onMultiSelectionAction,
                 onTimelineExpansionChanged: handleTimelineExpansionChange
               )
-              .appleLiquidSliderRowInsets(
-                horizontal: row.kind == .slider
-                  ? row.rowHorizontalInset
-                  : nil,
+              .appleLiquidFormRowInsets(
+                horizontal: row.standardFormHorizontalInset,
                 leading: row.kind == .slider ? row.rowLeadingInset : nil,
                 trailing: row.kind == .slider ? row.rowTrailingInset : nil
               )
@@ -3709,6 +3825,14 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let rowKinds: [String]
   let estimatedRowHeights: [CGFloat]
   let identityRoles: [String]
+  let identityDescriptions: [String]
+  let identityRowHorizontalInsets: [CGFloat]
+  let identityAvatarSizes: [CGFloat]
+  let identityIconSizes: [CGFloat]
+  let identityCardPaddings: [CGFloat]
+  let identityCornerRadii: [CGFloat]
+  let identityBackgroundOpacities: [Double]
+  let standardFormRowHorizontalInsets: [CGFloat]
   let timelineCurrentStepIndices: [Int]
   let timelineCollapsedStepLimits: [Int]
   let timelineInitiallyExpandedValues: [Bool]
@@ -3762,6 +3886,44 @@ enum AppleLiquidSheetLayoutTestSupport {
         group.rows.compactMap { row in
           row.kind == .identity ? row.role : nil
         }
+      },
+      identityDescriptions: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityDescription : nil
+        }
+      },
+      identityRowHorizontalInsets: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.rowHorizontalInset : nil
+        }
+      },
+      identityAvatarSizes: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStyle.avatarSize : nil
+        }
+      },
+      identityIconSizes: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStyle.iconSize : nil
+        }
+      },
+      identityCardPaddings: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStyle.cardPadding : nil
+        }
+      },
+      identityCornerRadii: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStyle.cornerRadius : nil
+        }
+      },
+      identityBackgroundOpacities: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStyle.backgroundOpacity : nil
+        }
+      },
+      standardFormRowHorizontalInsets: groups.flatMap { group in
+        group.rows.compactMap(\.standardFormHorizontalInset)
       },
       timelineCurrentStepIndices: groups.flatMap { group in
         group.rows.compactMap { row in
@@ -4223,14 +4385,16 @@ private struct AppleLiquidSheetRowView: View {
 
   @ViewBuilder
   private var segmentedRow: some View {
-    if let horizontalInset = row.segmentedStyle.rowHorizontalInset {
+    if row.segmentedStyle.rowHorizontalInset != nil {
+      let nativeHorizontalInset =
+        AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
       segmentedRowContent
         .listRowInsets(
           EdgeInsets(
             top: row.segmentedStyle.verticalPadding,
-            leading: horizontalInset,
+            leading: nativeHorizontalInset,
             bottom: row.segmentedStyle.verticalPadding,
-            trailing: horizontalInset
+            trailing: nativeHorizontalInset
           )
         )
     } else {
@@ -4261,7 +4425,19 @@ private struct AppleLiquidSheetRowView: View {
           )
         }
       }
+      .padding(.vertical, segmentedButtonShadowVerticalOverflow)
+      .clipped()
+      .padding(.vertical, -segmentedButtonShadowVerticalOverflow)
     }
+  }
+
+  private var segmentedButtonShadowVerticalOverflow: CGFloat {
+    guard row.segmentedStyle.selectedShadowRadius > 0 else {
+      return 0
+    }
+
+    return (row.segmentedStyle.selectedShadowRadius * 2) +
+      abs(row.segmentedStyle.selectedShadowOffsetY)
   }
 
   @ViewBuilder
@@ -4413,14 +4589,25 @@ private struct AppleLiquidSheetIdentityRow: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
         }
+
+        if let description = row.identityDescription {
+          Text(description)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .fixedSize(horizontal: false, vertical: true)
+        }
       }
 
       Spacer(minLength: 0)
     }
-    .padding(10)
+    .padding(row.identityStyle.cardPadding)
     .background(
-      tintColor.opacity(0.12),
-      in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+      tintColor.opacity(row.identityStyle.backgroundOpacity),
+      in: RoundedRectangle(
+        cornerRadius: row.identityStyle.cornerRadius,
+        style: .continuous
+      )
     )
     .accessibilityElement(children: .combine)
   }
@@ -4438,7 +4625,10 @@ private struct AppleLiquidSheetIdentityRow: View {
           avatarFallback
         }
       }
-      .frame(width: 44, height: 44)
+      .frame(
+        width: row.identityStyle.avatarSize,
+        height: row.identityStyle.avatarSize
+      )
       .clipShape(Circle())
     } else {
       avatarFallback
@@ -4447,9 +4637,12 @@ private struct AppleLiquidSheetIdentityRow: View {
 
   private var avatarFallback: some View {
     Image(systemName: row.systemImage ?? "person.fill")
-      .font(.system(size: 20, weight: .semibold))
+      .font(.system(size: row.identityStyle.iconSize, weight: .semibold))
       .foregroundStyle(tintColor)
-      .frame(width: 44, height: 44)
+      .frame(
+        width: row.identityStyle.avatarSize,
+        height: row.identityStyle.avatarSize
+      )
       .background(tintColor.opacity(0.16), in: Circle())
   }
 
@@ -5242,6 +5435,15 @@ private struct AppleLiquidSheetStyledFormGroup: View {
       )
     }
 
+    if row.kind == .identity, let horizontalInset = row.rowHorizontalInset {
+      return EdgeInsets(
+        top: 0,
+        leading: horizontalInset,
+        bottom: 0,
+        trailing: horizontalInset
+      )
+    }
+
     let nativeInset =
       AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
     return EdgeInsets(
@@ -5400,7 +5602,7 @@ private extension View {
   }
 
   @ViewBuilder
-  func appleLiquidSliderRowInsets(
+  func appleLiquidFormRowInsets(
     horizontal: CGFloat?,
     leading: CGFloat?,
     trailing: CGFloat?
