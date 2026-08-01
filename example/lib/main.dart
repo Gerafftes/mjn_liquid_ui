@@ -492,6 +492,10 @@ class _DemoScaffold extends StatelessWidget {
             child: AppleLiquidTabBar(
               currentIndex: currentIndex,
               selectedTintColor: const Color(0xFF007AFF),
+              minimizeBehavior: AppleLiquidTabBarMinimizeBehavior.onScrollDown,
+              minimizeTrigger: const AppleLiquidTabBarMinimizeTrigger.pixels(
+                48,
+              ),
               onChanged: onChanged,
               items: const <AppleLiquidTabItem>[
                 AppleLiquidTabItem(

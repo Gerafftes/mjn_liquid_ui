@@ -23,7 +23,7 @@ final class AppleLiquidTabbarHostingController<Content: View>: UIHostingControll
   override func viewDidLayoutSubviews() {
     super.viewDidLayoutSubviews()
     view.appleLiquidClearWrapperBackgrounds()
-    view.appleLiquidApplyTabNotificationDots(from: model.allItems)
+    view.appleLiquidApplyTabNotificationDots(from: model.displayedItems)
   }
 }
 
@@ -125,6 +125,9 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
     model.onSelectionChanged = { [weak self] index in
       self?.sendSelectionChanged(index)
     }
+    model.onExpansionRequested = { [weak self] in
+      self?.sendExpansionRequested()
+    }
 
     installNativeView()
     channel.setMethodCallHandler(handle)
@@ -133,6 +136,7 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
   deinit {
     channel.setMethodCallHandler(nil)
     model.onSelectionChanged = nil
+    model.onExpansionRequested = nil
     fallbackView?.removeFromSuperview()
     containerView.disposeHostedViewController()
   }
@@ -181,10 +185,25 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
       fallbackView?.refresh()
       result(nil)
 
+    case "setMinimized":
+      if #available(iOS 26.0, *) {
+        let arguments = call.arguments as? [String: Any]
+        let isMinimized =
+          AppleLiquidTabbarConfiguration.boolValue(
+            arguments?["isMinimized"]
+          ) ?? false
+        model.setMinimized(
+          isMinimized,
+          animated: !UIAccessibility.isReduceMotionEnabled
+        )
+        containerView.setNeedsLayout()
+      }
+      result(nil)
+
     case "updateConfiguration":
       let configuration = AppleLiquidTabbarConfiguration(arguments: call.arguments)
       model.update(configuration: configuration)
-      containerView.appleLiquidApplyTabNotificationDots(from: model.allItems)
+      containerView.appleLiquidApplyTabNotificationDots(from: model.displayedItems)
       fallbackView?.refresh()
       result(nil)
 
@@ -195,5 +214,9 @@ final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {
 
   private func sendSelectionChanged(_ index: Int) {
     channel.invokeMethod("tabSelected", arguments: ["index": index])
+  }
+
+  private func sendExpansionRequested() {
+    channel.invokeMethod("tabExpanded", arguments: nil)
   }
 }

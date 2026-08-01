@@ -278,6 +278,39 @@ void main() {
     });
   });
 
+  test('AppleLiquidTabBar keeps the full presentation by default', () {
+    final AppleLiquidTabBar tabBar = AppleLiquidTabBar(
+      currentIndex: 0,
+      onChanged: (int _) {},
+      items: const <AppleLiquidTabItem>[
+        AppleLiquidTabItem(title: 'Home', systemImage: 'house.fill'),
+      ],
+      searchItem: const AppleLiquidTabItem(
+        title: 'Add',
+        systemImage: 'plus',
+        isSearch: true,
+      ),
+    );
+
+    expect(tabBar.minimizeBehavior, AppleLiquidTabBarMinimizeBehavior.never);
+    expect(
+      tabBar.minimizeTrigger,
+      const AppleLiquidTabBarMinimizeTrigger.contentScroll(),
+    );
+  });
+
+  test('AppleLiquidTabBar accepts a pixel minimization trigger', () {
+    const AppleLiquidTabBarMinimizeTrigger trigger =
+        AppleLiquidTabBarMinimizeTrigger.pixels(72);
+
+    expect(trigger.followsContentScroll, isFalse);
+    expect(trigger.pixelDistance, 72);
+    expect(
+      () => AppleLiquidTabBarMinimizeTrigger.pixels(-1),
+      throwsAssertionError,
+    );
+  });
+
   test('AppleLiquidSheetContent serializes to platform arguments', () {
     const AppleLiquidSheetContent content = AppleLiquidSheetContent(
       title: 'Project',
