@@ -98,7 +98,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.28
+  mjn_liquid_ui: ^0.2.30
 ```
 
 Then import the package:
@@ -113,6 +113,8 @@ import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 AppleLiquidTabBar(
   currentIndex: currentIndex,
   selectedTintColor: const Color(0xFF007AFF),
+  minimizeBehavior: AppleLiquidTabBarMinimizeBehavior.onScrollDown,
+  minimizeTrigger: const AppleLiquidTabBarMinimizeTrigger.pixels(48),
   onChanged: (int index) {
     setState(() => currentIndex = index);
   },
@@ -185,6 +187,20 @@ Scaffold(
 `searchItem` is created as a separate native search-role tab.
 Use `selectedTintColor` to customize the selected icon and label tint while
 keeping the native Liquid Glass tab bar rendering intact.
+Set `minimizeBehavior` to `AppleLiquidTabBarMinimizeBehavior.onScrollDown` to
+compact the regular tabs to the selected icon while scrolling down and expand
+them again while scrolling up on iOS 26 and newer. The native transition first
+compresses the full bar, then springs to separate icon and search-action glass
+buttons. The default
+`AppleLiquidTabBarMinimizeBehavior.never` preserves the full tab bar. A
+`Scaffold` supplies the required scroll observer automatically; for other
+layouts, place the scrolling content and tab bar below a shared
+`ScrollNotificationObserver`.
+Use `AppleLiquidTabBarMinimizeTrigger.contentScroll()` to minimize with the
+first downward content movement, which is the default. To require a fixed
+downward scroll distance instead, use for example
+`AppleLiquidTabBarMinimizeTrigger.pixels(48)`. The measured distance resets
+when scrolling up or when a compact button expands the tab bar.
 Use `symbolWeight` and `activeSymbolWeight` on `AppleLiquidTabItem` to tune the
 normal and selected SF Symbol stroke weights for individual icons.
 Set `notificationDotColor` on any `AppleLiquidTabItem` to show a notification

@@ -7,6 +7,47 @@ import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_tab_bar_channel.dart';
 import 'apple_liquid_tab_item.dart';
 
+/// Controls whether an [AppleLiquidTabBar] compacts while content scrolls.
+enum AppleLiquidTabBarMinimizeBehavior {
+  /// Keeps the full tab bar visible, matching the original behavior.
+  never,
+
+  /// Compacts to the selected regular tab when content scrolls down.
+  ///
+  /// Scrolling back up expands the tab bar again. On iOS this behavior uses
+  /// the native Liquid Glass tab presentation and requires iOS 26 or newer.
+  onScrollDown,
+}
+
+/// Controls when downward scrolling minimizes an [AppleLiquidTabBar].
+@immutable
+class AppleLiquidTabBarMinimizeTrigger {
+  /// Minimizes as soon as scrollable content starts moving down.
+  const AppleLiquidTabBarMinimizeTrigger.contentScroll() : pixelDistance = null;
+
+  /// Minimizes after [pixelDistance] logical pixels have been scrolled down.
+  const AppleLiquidTabBarMinimizeTrigger.pixels(double pixels)
+    : assert(pixels >= 0),
+      pixelDistance = pixels;
+
+  /// Downward scroll distance required before minimizing.
+  ///
+  /// A `null` value represents the immediate content-scroll trigger.
+  final double? pixelDistance;
+
+  /// Whether minimization starts with the first downward content movement.
+  bool get followsContentScroll => pixelDistance == null;
+
+  @override
+  bool operator ==(Object other) {
+    return other is AppleLiquidTabBarMinimizeTrigger &&
+        other.pixelDistance == pixelDistance;
+  }
+
+  @override
+  int get hashCode => pixelDistance.hashCode;
+}
+
 /// A bottom tab bar that uses Apple's Liquid Glass tab styling on iOS.
 class AppleLiquidTabBar extends StatefulWidget {
   /// Creates a Liquid Glass tab bar with regular tabs and a search item.
@@ -18,6 +59,10 @@ class AppleLiquidTabBar extends StatefulWidget {
     required this.searchItem,
     this.height,
     this.selectedTintColor,
+    this.minimizeBehavior = AppleLiquidTabBarMinimizeBehavior.never,
+    this.minimizeTrigger =
+        const AppleLiquidTabBarMinimizeTrigger.contentScroll(),
+    this.scrollNotificationPredicate = defaultScrollNotificationPredicate,
   }) : assert(items.length > 0);
 
   /// Index of the currently selected item.
@@ -38,6 +83,24 @@ class AppleLiquidTabBar extends StatefulWidget {
   /// Optional tint color for the selected item.
   final Color? selectedTintColor;
 
+  /// Controls whether scrolling compacts the native tab bar.
+  ///
+  /// The default keeps the original full-width presentation. When using
+  /// [AppleLiquidTabBarMinimizeBehavior.onScrollDown], place the tab bar in a
+  /// [Scaffold] or below a [ScrollNotificationObserver] so it can observe the
+  /// page's scroll notifications.
+  final AppleLiquidTabBarMinimizeBehavior minimizeBehavior;
+
+  /// Controls whether minimization follows the first content movement or a
+  /// configurable downward pixel distance.
+  final AppleLiquidTabBarMinimizeTrigger minimizeTrigger;
+
+  /// Selects which scroll notifications may minimize the tab bar.
+  ///
+  /// The default reacts only to the nearest vertical scrollable. Supply a
+  /// custom predicate for nested scroll views.
+  final ScrollNotificationPredicate scrollNotificationPredicate;
+
   @override
   State<AppleLiquidTabBar> createState() => _AppleLiquidTabBarState();
 }
@@ -46,10 +109,34 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
   static const double _defaultHeight = 86;
 
   AppleLiquidTabBarChannel? _channel;
+  ScrollNotificationObserverState? _scrollNotificationObserver;
+  bool _isMinimized = false;
+  ScrollDirection _userScrollDirection = ScrollDirection.idle;
+  double _downwardScrollDistance = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scrollNotificationObserver?.removeListener(_handleScrollNotification);
+    _scrollNotificationObserver = ScrollNotificationObserver.maybeOf(context);
+    _scrollNotificationObserver?.addListener(_handleScrollNotification);
+  }
 
   @override
   void didUpdateWidget(covariant AppleLiquidTabBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    if (oldWidget.minimizeBehavior != widget.minimizeBehavior) {
+      _resetMinimizeTriggerProgress();
+      if (widget.minimizeBehavior == AppleLiquidTabBarMinimizeBehavior.never) {
+        _setMinimized(false);
+      }
+    }
+
+    if (oldWidget.minimizeTrigger != widget.minimizeTrigger) {
+      _resetMinimizeTriggerProgress();
+      _setMinimized(false);
+    }
 
     final AppleLiquidTabBarChannel? channel = _channel;
     if (channel == null) {
@@ -74,6 +161,8 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
 
   @override
   void dispose() {
+    _scrollNotificationObserver?.removeListener(_handleScrollNotification);
+    _scrollNotificationObserver = null;
     _channel?.dispose();
     super.dispose();
   }
@@ -123,7 +212,70 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
           widget.onChanged(index);
         }
       },
+      onExpanded: () {
+        if (mounted) {
+          _isMinimized = false;
+          _resetMinimizeTriggerProgress();
+        }
+      },
     );
+    _channel?.setMinimized(_isMinimized);
+  }
+
+  void _handleScrollNotification(ScrollNotification notification) {
+    if (widget.minimizeBehavior !=
+            AppleLiquidTabBarMinimizeBehavior.onScrollDown ||
+        !widget.scrollNotificationPredicate(notification) ||
+        notification.metrics.axis != Axis.vertical) {
+      return;
+    }
+
+    if (notification is UserScrollNotification) {
+      final ScrollDirection direction = notification.direction;
+      _userScrollDirection = direction;
+
+      switch (direction) {
+        case ScrollDirection.reverse:
+          if (notification.metrics.extentBefore > 0 &&
+              (widget.minimizeTrigger.followsContentScroll ||
+                  widget.minimizeTrigger.pixelDistance == 0)) {
+            _setMinimized(true);
+          }
+        case ScrollDirection.forward:
+          _resetMinimizeTriggerProgress();
+          _setMinimized(false);
+        case ScrollDirection.idle:
+          break;
+      }
+      return;
+    }
+
+    final double? pixelDistance = widget.minimizeTrigger.pixelDistance;
+    if (pixelDistance != null &&
+        notification is ScrollUpdateNotification &&
+        _userScrollDirection == ScrollDirection.reverse) {
+      final double scrollDelta = notification.scrollDelta ?? 0;
+      if (scrollDelta > 0) {
+        _downwardScrollDistance += scrollDelta;
+        if (_downwardScrollDistance >= pixelDistance) {
+          _setMinimized(true);
+        }
+      }
+    }
+  }
+
+  void _resetMinimizeTriggerProgress() {
+    _userScrollDirection = ScrollDirection.idle;
+    _downwardScrollDistance = 0;
+  }
+
+  void _setMinimized(bool isMinimized) {
+    if (_isMinimized == isMinimized) {
+      return;
+    }
+
+    _isMinimized = isMinimized;
+    _channel?.setMinimized(isMinimized);
   }
 }
 

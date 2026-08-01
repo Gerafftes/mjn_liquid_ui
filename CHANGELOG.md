@@ -1,3 +1,14 @@
+## 0.2.30
+
+- Added opt-in scroll minimization for `AppleLiquidTabBar` on iOS 26 and newer,
+  compacting regular tabs before a spring transition to the selected icon while
+  keeping the trailing search-role action separate. The smaller compact buttons
+  stay aligned with the expanded bar and use a single glass layer without
+  repeating the expanded selection background. Tapping either compact button
+  restores the full tab bar.
+- Added configurable content-scroll and logical-pixel minimization triggers.
+- Preserved the existing full tab bar as the default behavior.
+
 ## 0.2.29
 
 - Added optional descriptions and horizontal form-row insets to

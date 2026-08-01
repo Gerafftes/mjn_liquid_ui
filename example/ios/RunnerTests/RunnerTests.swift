@@ -11,6 +11,85 @@ final class RunnerTests: XCTestCase {
     XCTAssertNotNil(plugin)
   }
 
+  func testTabBarCompactionKeepsSelectedRegularTabAndSearchAction() {
+    let configuration = AppleLiquidTabbarConfiguration(arguments: [
+      "currentIndex": 2,
+      "items": [
+        ["title": "Overview", "systemImage": "house.fill"],
+        ["title": "Journal", "systemImage": "book.closed.fill"],
+        ["title": "Fitness", "systemImage": "figure.run"],
+      ],
+      "searchItem": [
+        "title": "Add", "systemImage": "plus", "isSearch": true,
+      ],
+    ])
+    let model = AppleLiquidTabbarModel(configuration: configuration)
+
+    XCTAssertEqual(model.displayedRegularIndices, [0, 1, 2])
+    XCTAssertEqual(
+      model.displayedItems.map(\.title),
+      ["Overview", "Journal", "Fitness", "Add"]
+    )
+
+    model.setMinimized(true)
+
+    XCTAssertTrue(model.isCompressing)
+    XCTAssertFalse(model.isMinimized)
+
+    model.setMinimized(true, animated: false)
+
+    XCTAssertFalse(model.isCompressing)
+    XCTAssertTrue(model.isMinimized)
+    XCTAssertEqual(model.displayedRegularIndices, [2])
+    XCTAssertEqual(model.displayedItems.map(\.title), ["Fitness", "Add"])
+
+    model.setMinimized(false)
+
+    XCTAssertEqual(model.displayedRegularIndices, [0, 1, 2])
+  }
+
+  func testTabBarCompactionCanBeCancelledDuringLeadIn() {
+    let configuration = AppleLiquidTabbarConfiguration(arguments: [
+      "currentIndex": 0,
+      "items": [["title": "Overview", "systemImage": "house.fill"]],
+      "searchItem": ["title": "Add", "systemImage": "plus"],
+    ])
+    let model = AppleLiquidTabbarModel(configuration: configuration)
+
+    model.setMinimized(true)
+    model.setMinimized(false)
+
+    XCTAssertFalse(model.isCompressing)
+    XCTAssertFalse(model.isMinimized)
+  }
+
+  func testSelectingEitherCompactButtonExpandsTabBar() {
+    let configuration = AppleLiquidTabbarConfiguration(arguments: [
+      "currentIndex": 0,
+      "items": [["title": "Overview", "systemImage": "house.fill"]],
+      "searchItem": ["title": "Add", "systemImage": "plus"],
+    ])
+    let model = AppleLiquidTabbarModel(configuration: configuration)
+    var expansionRequestCount = 0
+    model.onExpansionRequested = {
+      expansionRequestCount += 1
+    }
+
+    model.setMinimized(true, animated: false)
+    model.selectCompactItem(at: 0)
+
+    XCTAssertFalse(model.isMinimized)
+    XCTAssertEqual(model.selectedIndex, 0)
+    XCTAssertEqual(expansionRequestCount, 1)
+
+    model.setMinimized(true, animated: false)
+    model.selectCompactItem(at: model.searchIndex)
+
+    XCTAssertFalse(model.isMinimized)
+    XCTAssertEqual(model.selectedIndex, model.searchIndex)
+    XCTAssertEqual(expansionRequestCount, 2)
+  }
+
   func testCustomChevronColorsReachNativeNavigationRows() throws {
     guard #available(iOS 16.0, *) else {
       throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")

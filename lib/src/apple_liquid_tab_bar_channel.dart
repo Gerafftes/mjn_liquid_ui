@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'apple_liquid_tab_item.dart';
 
 typedef AppleLiquidNativeTabChanged = void Function(int index);
+typedef AppleLiquidNativeTabExpanded = void Function();
 
 class AppleLiquidTabBarChannel {
-  AppleLiquidTabBarChannel._(this._channel, this._onChanged) {
+  AppleLiquidTabBarChannel._(this._channel, this._onChanged, this._onExpanded) {
     _channel.setMethodCallHandler(_handleMethodCall);
   }
 
@@ -13,21 +14,30 @@ class AppleLiquidTabBarChannel {
 
   final MethodChannel _channel;
   final AppleLiquidNativeTabChanged _onChanged;
+  final AppleLiquidNativeTabExpanded _onExpanded;
   bool _disposed = false;
 
   static AppleLiquidTabBarChannel attach({
     required int viewId,
     required AppleLiquidNativeTabChanged onChanged,
+    required AppleLiquidNativeTabExpanded onExpanded,
   }) {
     return AppleLiquidTabBarChannel._(
       MethodChannel('$viewType/$viewId'),
       onChanged,
+      onExpanded,
     );
   }
 
   Future<void> setCurrentIndex(int index) {
     return _invokeMethod('setCurrentIndex', <String, Object?>{
       'currentIndex': index,
+    });
+  }
+
+  Future<void> setMinimized(bool isMinimized) {
+    return _invokeMethod('setMinimized', <String, Object?>{
+      'isMinimized': isMinimized,
     });
   }
 
@@ -83,6 +93,9 @@ class AppleLiquidTabBarChannel {
         throw MissingPluginException(
           'Invalid tabSelected arguments on ${_channel.name}',
         );
+      case 'tabExpanded':
+        _onExpanded();
+        return;
       default:
         throw MissingPluginException(
           'No handler for ${call.method} on ${_channel.name}',
