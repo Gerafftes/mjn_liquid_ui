@@ -90,6 +90,25 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(expansionRequestCount, 2)
   }
 
+  func testTappingCompactGapExpandsTabBar() {
+    let configuration = AppleLiquidTabbarConfiguration(arguments: [
+      "currentIndex": 0,
+      "items": [["title": "Overview", "systemImage": "house.fill"]],
+      "searchItem": ["title": "Add", "systemImage": "plus"],
+    ])
+    let model = AppleLiquidTabbarModel(configuration: configuration)
+    var expansionRequestCount = 0
+    model.onExpansionRequested = {
+      expansionRequestCount += 1
+    }
+
+    model.setMinimized(true, animated: false)
+    model.expandFromCompactGap()
+
+    XCTAssertFalse(model.isMinimized)
+    XCTAssertEqual(expansionRequestCount, 1)
+  }
+
   func testCustomChevronColorsReachNativeNavigationRows() throws {
     guard #available(iOS 16.0, *) else {
       throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
