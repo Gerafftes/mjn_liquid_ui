@@ -10,10 +10,12 @@ class _AppleLiquidToastActionRegistration {
   const _AppleLiquidToastActionRegistration({
     required this.callback,
     required this.dismissesToast,
+    required this.toastId,
   });
 
   final AppleLiquidToastActionCallback callback;
   final bool dismissesToast;
+  final String toastId;
 }
 
 /// Action button configuration for [AppleLiquidToast.show].
@@ -49,22 +51,26 @@ class AppleLiquidToast {
   static bool _handlerAttached = false;
   static int _nextActionId = 0;
   static String? _activeActionId;
+  static String? _activeToastId;
   static Timer? _activeActionCleanupTimer;
 
   /// Shows a native iOS Liquid Glass toast.
+  ///
+  /// The default duration is three seconds. Pass `null` to keep the toast
+  /// visible until its action, a downward swipe, or [dismiss] closes it.
   ///
   /// Returns `false` on unsupported platforms or when the native overlay cannot
   /// be attached to the active iOS window.
   static Future<bool> show({
     required String title,
-    Duration duration = const Duration(seconds: 3),
+    Duration? duration = const Duration(seconds: 3),
     double placementOffset = -60,
     double transitionOffset = 100,
     String? systemImage,
     AppleLiquidToastAction? action,
   }) async {
     assert(title.isNotEmpty);
-    assert(duration > Duration.zero);
+    assert(duration == null || duration > Duration.zero);
     assert(placementOffset.isFinite);
     assert(transitionOffset.isFinite);
 
@@ -74,11 +80,15 @@ class AppleLiquidToast {
 
     _ensureHandlerAttached();
 
-    final String? actionId = _registerAction(action, duration);
+    final String toastId = DateTime.now().microsecondsSinceEpoch.toString();
+    final String? actionId = _registerAction(action, duration, toastId);
+    _activeToastId = toastId;
     final Map<String, Object?> arguments = <String, Object?>{
-      'id': DateTime.now().microsecondsSinceEpoch.toString(),
+      'id': toastId,
       'title': title,
-      'duration': duration.inMicroseconds / Duration.microsecondsPerSecond,
+      'duration': duration == null
+          ? null
+          : duration.inMicroseconds / Duration.microsecondsPerSecond,
       'placementOffset': placementOffset,
       'transitionOffset': transitionOffset,
       if (systemImage != null) 'systemImage': systemImage,
@@ -91,19 +101,24 @@ class AppleLiquidToast {
     };
 
     try {
-      return await _channel.invokeMethod<bool>('show', arguments) ?? false;
+      final bool shown =
+          await _channel.invokeMethod<bool>('show', arguments) ?? false;
+      if (!shown) {
+        _clearActiveToast(toastId, actionId);
+      }
+      return shown;
     } on MissingPluginException {
-      _removeAction(actionId);
+      _clearActiveToast(toastId, actionId);
       return false;
     } on PlatformException {
-      _removeAction(actionId);
+      _clearActiveToast(toastId, actionId);
       return false;
     }
   }
 
   /// Dismisses the currently visible native toast.
   static Future<bool> dismiss() async {
-    _clearActiveAction();
+    _clearActiveToast();
 
     if (!_isNativeToastSupported) {
       return false;
@@ -140,6 +155,13 @@ class AppleLiquidToast {
           return;
         }
         throw MissingPluginException('Invalid toast actionInvoked payload.');
+      case 'toastDismissed':
+        final Object? arguments = call.arguments;
+        if (arguments is Map && arguments['toastId'] is String) {
+          _clearActiveToast(arguments['toastId'] as String);
+          return;
+        }
+        throw MissingPluginException('Invalid toastDismissed payload.');
       default:
         throw MissingPluginException('No handler for ${call.method}.');
     }
@@ -147,9 +169,10 @@ class AppleLiquidToast {
 
   static String? _registerAction(
     AppleLiquidToastAction? action,
-    Duration duration,
+    Duration? duration,
+    String toastId,
   ) {
-    _clearActiveAction();
+    _clearActiveToast();
 
     if (action == null) {
       return null;
@@ -164,13 +187,16 @@ class AppleLiquidToast {
     _actions[actionId] = _AppleLiquidToastActionRegistration(
       callback: callback,
       dismissesToast: action.dismissesToast,
+      toastId: toastId,
     );
     _activeActionId = actionId;
 
-    _activeActionCleanupTimer = Timer(
-      duration + const Duration(seconds: 2),
-      () => _removeAction(actionId),
-    );
+    if (duration != null) {
+      _activeActionCleanupTimer = Timer(
+        duration + const Duration(seconds: 2),
+        () => _removeAction(actionId),
+      );
+    }
 
     return actionId;
   }
@@ -182,15 +208,22 @@ class AppleLiquidToast {
       return;
     }
 
-    registration.callback();
-
-    if (registration.dismissesToast) {
-      _removeAction(actionId);
+    try {
+      registration.callback();
+    } finally {
+      if (registration.dismissesToast) {
+        _clearActiveToast(registration.toastId, actionId);
+      }
     }
   }
 
-  static void _clearActiveAction() {
-    _removeAction(_activeActionId);
+  static void _clearActiveToast([String? toastId, String? actionId]) {
+    if (toastId != null && toastId != _activeToastId) {
+      return;
+    }
+
+    _removeAction(actionId ?? _activeActionId);
+    _activeToastId = null;
   }
 
   static void _removeAction(String? actionId) {

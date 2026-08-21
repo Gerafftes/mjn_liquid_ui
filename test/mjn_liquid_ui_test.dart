@@ -1357,6 +1357,180 @@ void main() {
     }
   });
 
+  test('AppleLiquidToast keeps the three-second default duration', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          return true;
+        });
+
+    try {
+      expect(await AppleLiquidToast.show(title: 'Saved'), isTrue);
+
+      final Map<Object?, Object?> arguments =
+          calls.single.arguments as Map<Object?, Object?>;
+      expect(arguments, containsPair('duration', 3.0));
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast supports an indefinite native duration', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    String? actionId;
+    String? toastId;
+    int actionTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionId = arguments['actionId'] as String?;
+            toastId = arguments['id'] as String?;
+            expect(arguments['duration'], isNull);
+          }
+
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Needs attention',
+          duration: null,
+          action: AppleLiquidToastAction(
+            title: 'Undo',
+            dismissesToast: false,
+            onPressed: () {
+              actionTapCount += 1;
+            },
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(actionId, isNotNull);
+      expect(toastId, isNotNull);
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'toastDismissed',
+        <String, Object?>{'toastId': toastId},
+      );
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+
+      expect(actionTapCount, 0);
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast.dismiss clears persistent action callbacks', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    String? actionId;
+    int actionTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionId = arguments['actionId'] as String?;
+          }
+
+          return true;
+        });
+
+    try {
+      await AppleLiquidToast.show(
+        title: 'Needs attention',
+        duration: null,
+        action: AppleLiquidToastAction(
+          title: 'Undo',
+          dismissesToast: false,
+          onPressed: () {
+            actionTapCount += 1;
+          },
+        ),
+      );
+
+      await AppleLiquidToast.dismiss();
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+
+      expect(actionTapCount, 0);
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast action dismissal clears its callback', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    String? actionId;
+    int actionTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionId = arguments['actionId'] as String?;
+          }
+
+          return true;
+        });
+
+    try {
+      await AppleLiquidToast.show(
+        title: 'Saved',
+        action: AppleLiquidToastAction(
+          title: 'Undo',
+          onPressed: () {
+            actionTapCount += 1;
+          },
+        ),
+      );
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+
+      expect(actionTapCount, 1);
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
   test('AppleLiquidToast routes native action callbacks', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
 

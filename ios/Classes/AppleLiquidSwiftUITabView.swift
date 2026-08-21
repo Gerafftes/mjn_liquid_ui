@@ -87,13 +87,27 @@ struct AppleLiquidSwiftUITabView: View {
           compactButton(for: model.items[index], index: index)
         }
 
-        Spacer(minLength: 24)
+        compactExpansionButton
 
         compactButton(for: model.searchItem, index: model.searchIndex)
       }
     }
     .padding(.horizontal, Layout.compactHorizontalInset)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+  }
+
+  @available(iOS 26.0, *)
+  private var compactExpansionButton: some View {
+    Button {
+      model.expandFromCompactGap()
+    } label: {
+      Color.clear
+        .frame(maxWidth: .infinity)
+        .frame(height: Layout.compactButtonSize)
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .accessibilityLabel(Text("Show tabs"))
   }
 
   @available(iOS 26.0, *)

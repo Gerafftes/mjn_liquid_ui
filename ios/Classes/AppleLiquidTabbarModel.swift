@@ -97,6 +97,15 @@ final class AppleLiquidTabbarModel: ObservableObject {
     setSelectedIndex(index, notifyFlutter: true)
   }
 
+  func expandFromCompactGap() {
+    guard isMinimized else {
+      return
+    }
+
+    setMinimized(false)
+    onExpansionRequested?()
+  }
+
   func setMinimized(_ shouldMinimize: Bool, animated: Bool = true) {
     if shouldMinimize {
       if !animated {

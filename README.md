@@ -99,7 +99,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.30
+  mjn_liquid_ui: ^0.2.31
 ```
 
 Then import the package:
@@ -192,7 +192,8 @@ Set `minimizeBehavior` to `AppleLiquidTabBarMinimizeBehavior.onScrollDown` to
 compact the regular tabs to the selected icon while scrolling down and expand
 them again while scrolling up on iOS 26 and newer. The native transition first
 compresses the full bar, then springs to separate icon and search-action glass
-buttons. The default
+buttons. Tapping either compact button or the space between them expands the
+full tab bar again. The default
 `AppleLiquidTabBarMinimizeBehavior.never` preserves the full tab bar. A
 `Scaffold` supplies the required scroll observer automatically; for other
 layouts, place the scrolling content and tab bar below a shared
@@ -302,6 +303,15 @@ await AppleLiquidToast.show(
 attached, including unsupported platforms. Native toasts require iOS 16 or
 newer; iOS 26 uses the system Liquid Glass effect, while older supported iOS
 versions use a native rounded fallback.
+The default duration is three seconds. Pass `duration: null` to keep a toast
+visible until its action, a downward swipe, or `AppleLiquidToast.dismiss()`.
+
+```dart
+await AppleLiquidToast.show(
+  title: 'Fenster putzen · Fertig gemeldet',
+  duration: null,
+);
+```
 
 ### Native sheet
 

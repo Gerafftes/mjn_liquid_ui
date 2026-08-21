@@ -1,3 +1,11 @@
+## 0.2.31
+
+- Expanded the minimized Liquid tab bar when tapping the space between the
+  selected tab and the trailing search-role action.
+- Added indefinite native toasts with `duration: null`. Such toasts stay
+  visible until an action, downward swipe, or explicit dismissal and clean up
+  their Dart action callbacks on every dismissal path.
+
 ## 0.2.30
 
 - Added opt-in scroll minimization for `AppleLiquidTabBar` on iOS 26 and newer,

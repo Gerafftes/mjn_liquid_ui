@@ -115,18 +115,32 @@ private final class AppleLiquidToastSession {
     self.overlayWindow = overlayWindow
     self.model = model
     self.hostingController = UIHostingController(
-      rootView: AppleLiquidToastHostView(model: model) { toast in
-        if let actionId = toast.actionId {
+      rootView: AppleLiquidToastHostView(
+        model: model,
+        onAction: { toast in
+          if let actionId = toast.actionId {
+            channel.invokeMethod(
+              "actionInvoked",
+              arguments: ["actionId": actionId]
+            )
+          }
+
+          if toast.dismissesOnAction {
+            model.dismiss()
+            channel.invokeMethod(
+              "toastDismissed",
+              arguments: ["toastId": toast.id]
+            )
+          }
+        },
+        onSwipeDismiss: { toast in
+          model.dismiss()
           channel.invokeMethod(
-            "actionInvoked",
-            arguments: ["actionId": actionId]
+            "toastDismissed",
+            arguments: ["toastId": toast.id]
           )
         }
-
-        if toast.dismissesOnAction {
-          model.dismiss()
-        }
-      }
+      )
     )
 
     overlayWindow.windowLevel = UIWindow.Level(
@@ -166,6 +180,7 @@ private final class AppleLiquidToastSession {
   }
 
   func dispose() {
+    model.dismiss()
     cancellables.removeAll()
     overlayWindow.isHidden = true
     overlayWindow.rootViewController = nil
@@ -224,9 +239,13 @@ private final class AppleLiquidToastModel: ObservableObject {
     damping: 28
   )
   private var dismissWorkItem: DispatchWorkItem?
+  private var presentWorkItem: DispatchWorkItem?
 
   func show(_ toast: AppleLiquidToastConfiguration) {
     dismissWorkItem?.cancel()
+    dismissWorkItem = nil
+    presentWorkItem?.cancel()
+    presentWorkItem = nil
 
     guard activeToast != nil else {
       present(toast)
@@ -237,12 +256,21 @@ private final class AppleLiquidToastModel: ObservableObject {
       activeToast = nil
     }
 
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.17) { [weak self] in
+    let presentWorkItem = DispatchWorkItem { [weak self] in
+      self?.presentWorkItem = nil
       self?.present(toast)
     }
+    self.presentWorkItem = presentWorkItem
+    DispatchQueue.main.asyncAfter(
+      deadline: .now() + 0.17,
+      execute: presentWorkItem
+    )
   }
 
   func dismiss() {
+    presentWorkItem?.cancel()
+    presentWorkItem = nil
+
     withAnimation(animation) {
       activeToast = nil
     }
@@ -252,8 +280,14 @@ private final class AppleLiquidToastModel: ObservableObject {
   }
 
   private func present(_ toast: AppleLiquidToastConfiguration) {
+    presentWorkItem = nil
+
     withAnimation(animation) {
       activeToast = toast
+    }
+
+    guard let duration = toast.duration else {
+      return
     }
 
     let dismissWorkItem = DispatchWorkItem { [weak self] in
@@ -262,7 +296,7 @@ private final class AppleLiquidToastModel: ObservableObject {
 
     self.dismissWorkItem = dismissWorkItem
     DispatchQueue.main.asyncAfter(
-      deadline: .now() + max(toast.duration, 1),
+      deadline: .now() + max(duration, 1),
       execute: dismissWorkItem
     )
   }
@@ -272,6 +306,7 @@ private final class AppleLiquidToastModel: ObservableObject {
 private struct AppleLiquidToastHostView: View {
   @ObservedObject var model: AppleLiquidToastModel
   let onAction: (AppleLiquidToastConfiguration) -> Void
+  let onSwipeDismiss: (AppleLiquidToastConfiguration) -> Void
 
   var body: some View {
     ZStack(alignment: .bottom) {
@@ -286,7 +321,10 @@ private struct AppleLiquidToastHostView: View {
             DragGesture()
               .onEnded { value in
                 if value.translation.height > 30 {
-                  model.dismiss()
+                  guard let activeToast = model.activeToast else {
+                    return
+                  }
+                  onSwipeDismiss(activeToast)
                 }
               }
           )
@@ -385,7 +423,7 @@ private struct AppleLiquidGlassToastView: View {
 private struct AppleLiquidToastConfiguration: Identifiable {
   let id: String
   let title: String
-  let duration: TimeInterval
+  let duration: TimeInterval?
   let placementOffset: CGFloat
   let transitionOffset: CGFloat
   let systemImage: String?
@@ -403,7 +441,7 @@ private struct AppleLiquidToastConfiguration: Identifiable {
 
     self.id = Self.optionalString(dictionary["id"]) ?? UUID().uuidString
     self.title = title
-    self.duration = Self.double(dictionary["duration"], defaultValue: 3)
+    self.duration = Self.duration(dictionary["duration"])
     self.placementOffset = CGFloat(
       Self.double(dictionary["placementOffset"], defaultValue: -60)
     )
@@ -443,6 +481,18 @@ private struct AppleLiquidToastConfiguration: Identifiable {
     }
 
     return defaultValue
+  }
+
+  private static func duration(_ value: Any?) -> TimeInterval? {
+    guard let value else {
+      return 3
+    }
+
+    if value is NSNull {
+      return nil
+    }
+
+    return double(value, defaultValue: 3)
   }
 
   private static func optionalInt(_ value: Any?) -> Int? {
