@@ -1329,6 +1329,7 @@ void main() {
             title: 'Undo',
             tintColor: const Color(0xFFFF9500),
             dismissesToast: false,
+            isWholeToastTappable: true,
             onPressed: () {},
           ),
         ),
@@ -1348,6 +1349,7 @@ void main() {
       expect(arguments, containsPair('actionTitle', 'Undo'));
       expect(arguments, containsPair('actionTintColor', 0xFFFF9500));
       expect(arguments, containsPair('dismissesOnAction', false));
+      expect(arguments, containsPair('isWholeToastTappable', true));
       expect(arguments['actionId'], isA<String>());
     } finally {
       await AppleLiquidToast.dismiss();

@@ -255,6 +255,37 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(snapshot.identityBackgroundOpacities, [0.12])
   }
 
+  func testIdentityAndActionRowsUseTheSameDefaultOuterInset() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "activityType": "Gartenarbeit"
+            ],
+            [
+              "type": "button",
+              "title": "Öffnen",
+              "buttonActionId": "open"
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.resolvedFormRowHorizontalInsets, [16, 16])
+  }
+
   @MainActor
   func testEqualInsetsKeepRenderedContentWithinSameHorizontalBounds() throws {
     guard #available(iOS 17.0, *) else {
@@ -369,6 +400,111 @@ final class RunnerTests: XCTestCase {
   }
 
   @MainActor
+  func testIdentityAndActionRowsKeepRenderedContentWithinSameHorizontalBounds() throws {
+    guard #available(iOS 17.0, *) else {
+      throw XCTSkip("Native sheet layout requires iOS 17 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "title": "Identity and action",
+      "detents": ["initialHeight": 500.0],
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "activityType": "Gartenarbeit",
+              "rowHorizontalInset": 8.0,
+              "identityStyle": [
+                "avatarSize": 48.0,
+                "iconSize": 22.0,
+                "cardPadding": 12.0,
+                "cornerRadius": 16.0,
+                "backgroundOpacity": 0.14
+              ]
+            ]
+          ]
+        ],
+        [
+          "rows": [
+            [
+              "type": "button",
+              "title": "Öffnen",
+              "buttonActionId": "open",
+              "tintColor": 0xFF0A84FF,
+              "buttonStyle": [
+                "backgroundColor": 0xFF0A84FF,
+                "foregroundColor": 0xFFFFFFFF,
+                "borderColor": 0xFF0A84FF,
+                "buttonHeight": 48.0,
+                "cornerRadius": 16.0,
+                "rowHorizontalInset": 8.0,
+                "rowTopInset": 0.0,
+                "rowBottomInset": 0.0
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+    let host = UIHostingController(
+      rootView: AppleLiquidSheetLayoutTestSupport.makePresentedSheet(
+        contentValue: content
+      )
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+
+    let sheetController = try XCTUnwrap(host.presentedViewController)
+    sheetController.view.layoutIfNeeded()
+    let rendererFormat = UIGraphicsImageRendererFormat()
+    rendererFormat.scale = 1
+    rendererFormat.preferredRange = .standard
+    let renderer = UIGraphicsImageRenderer(
+      bounds: sheetController.view.bounds,
+      format: rendererFormat
+    )
+    let image = renderer.image { _ in
+      sheetController.view.drawHierarchy(
+        in: sheetController.view.bounds,
+        afterScreenUpdates: true
+      )
+    }
+    let renderedRowBounds = wideVisibleHorizontalBounds(
+      in: image,
+      minimumComponent: 5,
+      minimumWidth: 300,
+      minimumConsecutiveRows: 20
+    )
+    XCTAssertEqual(renderedRowBounds.count, 2)
+    let identityBounds = try XCTUnwrap(renderedRowBounds.first)
+    let actionBounds = try XCTUnwrap(renderedRowBounds.last)
+
+    XCTAssertEqual(
+      identityBounds.lowerBound,
+      actionBounds.lowerBound,
+      accuracy: 0.5
+    )
+    XCTAssertEqual(
+      identityBounds.upperBound,
+      actionBounds.upperBound,
+      accuracy: 0.5
+    )
+
+    let attachment = XCTAttachment(image: image)
+    attachment.name = "identity-action-inset-comparison"
+    attachment.lifetime = .keepAlways
+    add(attachment)
+
+    withExtendedLifetime(window) {}
+  }
+
+  @MainActor
   func testStructuredRowsRenderWithinCalculatedDetent() throws {
     guard #available(iOS 17.0, *) else {
       throw XCTSkip("Structured native sheet layout requires iOS 17 or newer.")
@@ -444,6 +580,10 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(snapshot.identityCardPaddings, [12])
     XCTAssertEqual(snapshot.identityCornerRadii, [16])
     XCTAssertEqual(snapshot.identityBackgroundOpacities, [0.14])
+    XCTAssertEqual(
+      snapshot.resolvedFormRowHorizontalInsets,
+      [8, 16, 16, 16]
+    )
     XCTAssertEqual(snapshot.estimatedRowHeights.first, 136)
     XCTAssertEqual(snapshot.timelineCurrentStepIndices, [1])
     XCTAssertEqual(snapshot.factColumnCounts, [3])

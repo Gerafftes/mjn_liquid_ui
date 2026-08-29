@@ -212,6 +212,8 @@ private struct AppleLiquidSheetContentConfiguration {
   static let nativeSectionTitleContentSpacing: CGFloat = 10
   static let nativeSectionTitleHorizontalInset: CGFloat = 16
   static let nativeFormRowHorizontalInset: CGFloat = 16
+  static let sharedStructuredRowHorizontalInset: CGFloat =
+    nativeFormRowHorizontalInset
 
   private static var exactTitledSectionHeaderHeight: CGFloat {
     40 + (1 / max(UIScreen.main.scale, 1))
@@ -2434,11 +2436,24 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     switch kind {
     case .segmented:
       return segmentedStyle.rowHorizontalInset
-    case .slider, .identity:
+    case .slider:
       return rowHorizontalInset
+    case .identity:
+      return rowHorizontalInset ??
+        AppleLiquidSheetContentConfiguration.sharedStructuredRowHorizontalInset
+    case .timeline, .factsGrid:
+      return AppleLiquidSheetContentConfiguration
+        .sharedStructuredRowHorizontalInset
+    case .button:
+      return buttonStyle.rowHorizontalInset
     default:
       return nil
     }
+  }
+
+  var resolvedFormHorizontalInset: CGFloat {
+    standardFormHorizontalInset ??
+      AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
   }
 
   var estimatedHeight: CGFloat {
@@ -3701,9 +3716,13 @@ private struct AppleLiquidSheetFormScreen: View {
                 onTimelineExpansionChanged: handleTimelineExpansionChange
               )
               .appleLiquidFormRowInsets(
-                horizontal: row.standardFormHorizontalInset,
+                horizontal: row.resolvedFormHorizontalInset,
                 leading: row.kind == .slider ? row.rowLeadingInset : nil,
-                trailing: row.kind == .slider ? row.rowTrailingInset : nil
+                trailing: row.kind == .slider ? row.rowTrailingInset : nil,
+                top: row.kind == .button ? row.buttonStyle.rowTopInset : nil,
+                bottom: row.kind == .button
+                  ? row.buttonStyle.rowBottomInset
+                  : nil
               )
               .appleLiquidFormRowBackground(
                 isVisible: group.sectionStyle.resolvesBackgroundVisibility(
@@ -3833,6 +3852,7 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let identityCornerRadii: [CGFloat]
   let identityBackgroundOpacities: [Double]
   let standardFormRowHorizontalInsets: [CGFloat]
+  let resolvedFormRowHorizontalInsets: [CGFloat]
   let timelineCurrentStepIndices: [Int]
   let timelineCollapsedStepLimits: [Int]
   let timelineInitiallyExpandedValues: [Bool]
@@ -3924,6 +3944,9 @@ enum AppleLiquidSheetLayoutTestSupport {
       },
       standardFormRowHorizontalInsets: groups.flatMap { group in
         group.rows.compactMap(\.standardFormHorizontalInset)
+      },
+      resolvedFormRowHorizontalInsets: groups.flatMap { group in
+        group.rows.map(\.resolvedFormHorizontalInset)
       },
       timelineCurrentStepIndices: groups.flatMap { group in
         group.rows.compactMap { row in
@@ -4194,14 +4217,6 @@ private struct AppleLiquidSheetRowView: View {
         onTap: {
           onButtonAction(row)
         }
-      )
-      .listRowInsets(
-        EdgeInsets(
-          top: row.buttonStyle.rowTopInset,
-          leading: row.buttonStyle.rowHorizontalInset,
-          bottom: row.buttonStyle.rowBottomInset,
-          trailing: row.buttonStyle.rowHorizontalInset
-        )
       )
       .listRowSeparator(row.buttonStyle.showsSeparator ? .visible : .hidden)
       .appleLiquidFormRowBackground(
@@ -4868,39 +4883,120 @@ private struct AppleLiquidSheetFactsGridRow: View {
       Text(row.title)
         .font(.headline)
 
-      LazyVGrid(columns: gridColumns, alignment: .leading, spacing: 12) {
-        ForEach(row.facts) { fact in
-          VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
-              if let systemImage = fact.systemImage {
-                Image(systemName: systemImage)
-                  .font(.caption.weight(.semibold))
-                  .foregroundStyle(tintColor)
-              }
-
-              Text(fact.label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            }
-
-            Text(fact.value)
-              .font(.subheadline.weight(.semibold))
-              .foregroundStyle(.primary)
-              .lineLimit(2)
-              .minimumScaleFactor(0.8)
-          }
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .accessibilityElement(children: .combine)
-        }
-      }
+      factsLayout
+        .frame(maxWidth: .infinity)
     }
     .padding(.vertical, 4)
   }
 
+  @ViewBuilder
+  private var factsLayout: some View {
+    if row.facts.count <= row.factColumns {
+      HStack(alignment: .top, spacing: 0) {
+        ForEach(Array(row.facts.enumerated()), id: \.element.id) { index, fact in
+          factView(fact, alignment: factAlignment(at: index))
+        }
+      }
+    } else {
+      LazyVGrid(columns: gridColumns, alignment: .center, spacing: 12) {
+        ForEach(row.facts) { fact in
+          factView(fact, alignment: .center)
+        }
+      }
+    }
+  }
+
+  private func factView(
+    _ fact: AppleLiquidSheetFactConfiguration,
+    alignment: FactAlignment
+  ) -> some View {
+    VStack(alignment: alignment.horizontal, spacing: 3) {
+      HStack(alignment: .firstTextBaseline, spacing: 4) {
+        if let systemImage = fact.systemImage {
+          Image(systemName: systemImage)
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(tintColor)
+        }
+
+        Text(fact.label)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+          .multilineTextAlignment(alignment.text)
+          .fixedSize(horizontal: false, vertical: true)
+          .minimumScaleFactor(0.75)
+      }
+      .frame(maxWidth: .infinity, alignment: alignment.frame)
+
+      Text(fact.value)
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(.primary)
+        .multilineTextAlignment(alignment.text)
+        .fixedSize(horizontal: false, vertical: true)
+        .minimumScaleFactor(0.8)
+        .frame(maxWidth: .infinity, alignment: alignment.frame)
+    }
+    .frame(maxWidth: .infinity, alignment: alignment.frame)
+    .accessibilityElement(children: .combine)
+  }
+
+  private func factAlignment(at index: Int) -> FactAlignment {
+    guard row.facts.count > 1 else {
+      return .center
+    }
+
+    if index == 0 {
+      return .leading
+    }
+
+    if index == row.facts.count - 1 {
+      return .trailing
+    }
+
+    return .center
+  }
+
+  private enum FactAlignment {
+    case leading
+    case center
+    case trailing
+
+    var horizontal: HorizontalAlignment {
+      switch self {
+      case .leading:
+        return .leading
+      case .center:
+        return .center
+      case .trailing:
+        return .trailing
+      }
+    }
+
+    var frame: Alignment {
+      switch self {
+      case .leading:
+        return .leading
+      case .center:
+        return .center
+      case .trailing:
+        return .trailing
+      }
+    }
+
+    var text: TextAlignment {
+      switch self {
+      case .leading:
+        return .leading
+      case .center:
+        return .center
+      case .trailing:
+        return .trailing
+      }
+    }
+  }
+
   private var gridColumns: [GridItem] {
     Array(
-      repeating: GridItem(.flexible(), spacing: 10, alignment: .topLeading),
+      repeating: GridItem(.flexible(), spacing: 12, alignment: .top),
       count: row.factColumns
     )
   }
@@ -5409,48 +5505,18 @@ private struct AppleLiquidSheetStyledFormGroup: View {
   private func horizontalInsets(
     for row: AppleLiquidSheetRowConfiguration
   ) -> EdgeInsets {
-    if row.kind == .segmented,
-      let rowHorizontalInset = row.segmentedStyle.rowHorizontalInset
-    {
-      return EdgeInsets(
-        top: 0,
-        leading: rowHorizontalInset,
-        bottom: 0,
-        trailing: rowHorizontalInset
-      )
-    }
-
-    if row.kind == .slider {
-      let nativeInset =
-        AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
-      let leadingInset =
-        row.rowLeadingInset ?? row.rowHorizontalInset ?? nativeInset
-      let trailingInset =
-        row.rowTrailingInset ?? row.rowHorizontalInset ?? nativeInset
-      return EdgeInsets(
-        top: 0,
-        leading: leadingInset,
-        bottom: 0,
-        trailing: trailingInset
-      )
-    }
-
-    if row.kind == .identity, let horizontalInset = row.rowHorizontalInset {
-      return EdgeInsets(
-        top: 0,
-        leading: horizontalInset,
-        bottom: 0,
-        trailing: horizontalInset
-      )
-    }
-
-    let nativeInset =
-      AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+    let horizontalInset = row.resolvedFormHorizontalInset
+    let leadingInset = row.kind == .slider
+      ? row.rowLeadingInset ?? horizontalInset
+      : horizontalInset
+    let trailingInset = row.kind == .slider
+      ? row.rowTrailingInset ?? horizontalInset
+      : horizontalInset
     return EdgeInsets(
       top: 0,
-      leading: nativeInset,
+      leading: leadingInset,
       bottom: 0,
-      trailing: nativeInset
+      trailing: trailingInset
     )
   }
 
@@ -5605,16 +5671,20 @@ private extension View {
   func appleLiquidFormRowInsets(
     horizontal: CGFloat?,
     leading: CGFloat?,
-    trailing: CGFloat?
+    trailing: CGFloat?,
+    top: CGFloat? = nil,
+    bottom: CGFloat? = nil
   ) -> some View {
-    if horizontal != nil || leading != nil || trailing != nil {
+    if horizontal != nil || leading != nil || trailing != nil || top != nil ||
+      bottom != nil
+    {
       let nativeInset =
         AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
       padding(
         EdgeInsets(
-          top: 0,
+          top: top ?? 0,
           leading: (leading ?? horizontal ?? nativeInset) - nativeInset,
-          bottom: 0,
+          bottom: bottom ?? 0,
           trailing: (trailing ?? horizontal ?? nativeInset) - nativeInset
         )
       )

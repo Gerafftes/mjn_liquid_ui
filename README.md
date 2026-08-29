@@ -114,7 +114,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.31
+  mjn_liquid_ui: ^0.2.32
 ```
 
 Then import the package:
@@ -320,11 +320,19 @@ newer; iOS 26 uses the system Liquid Glass effect, while older supported iOS
 versions use a native rounded fallback.
 The default duration is three seconds. Pass `duration: null` to keep a toast
 visible until its action, a downward swipe, or `AppleLiquidToast.dismiss()`.
+Set `isWholeToastTappable: true` on the action to make the complete toast
+capsule invoke the action. In that mode the action title is rendered as a label
+inside one native button, so no button is nested inside another button.
 
 ```dart
 await AppleLiquidToast.show(
   title: 'Fenster putzen · Fertig gemeldet',
   duration: null,
+  action: AppleLiquidToastAction(
+    title: 'Öffnen',
+    isWholeToastTappable: true,
+    onPressed: openWindow,
+  ),
 );
 ```
 
@@ -453,6 +461,16 @@ iOS points. Omit it to preserve SwiftUI's system inset.
 `AppleLiquidSheetIdentityStyle` configures the avatar diameter, fallback
 SF Symbol size, inner padding, corner radius, and tint-derived background
 opacity. Its defaults preserve the original native appearance.
+
+Identity, timeline, facts-grid, and action-button rows resolve their horizontal
+form width at one shared outer level. This keeps their default content bounds
+aligned; action-button row insets are no longer applied by a second nested
+`listRowInsets` path.
+The facts-grid uses that full width for a flexible facts row: the first, middle,
+and last blocks align leading, centered, and trailing while
+their icon, label, and value stay grouped. Longer labels and values wrap within
+their available space instead of being truncated. When a grid contains more
+facts than configured columns, the same flexible behavior is retained per cell.
 
 `collapsedStepLimit` enables the native expand/collapse control. The collapsed
 window always includes the current step and the nearest surrounding steps.
