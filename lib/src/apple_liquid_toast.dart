@@ -24,6 +24,7 @@ class AppleLiquidToastAction {
     required this.title,
     this.tintColor,
     this.dismissesToast = true,
+    this.isWholeToastTappable = false,
     this.onPressed,
   }) : assert(title != '');
 
@@ -35,6 +36,13 @@ class AppleLiquidToastAction {
 
   /// Whether the native toast should dismiss immediately after tapping.
   final bool dismissesToast;
+
+  /// Whether the complete toast capsule invokes this action.
+  ///
+  /// When enabled, the action title is rendered as a label inside one native
+  /// button that covers the complete toast. The default keeps only the action
+  /// title tappable for backwards compatibility.
+  final bool isWholeToastTappable;
 
   /// Optional Dart callback invoked after the native action button is tapped.
   final AppleLiquidToastActionCallback? onPressed;
@@ -96,6 +104,7 @@ class AppleLiquidToast {
         'actionTitle': action.title,
         'actionTintColor': action.tintColor?.toARGB32(),
         'dismissesOnAction': action.dismissesToast,
+        'isWholeToastTappable': action.isWholeToastTappable,
         if (actionId != null) 'actionId': actionId,
       },
     };

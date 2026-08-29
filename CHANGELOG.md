@@ -1,3 +1,16 @@
+## 0.2.32
+
+- Added optional whole-toast tapping through
+  `AppleLiquidToastAction.isWholeToastTappable`, rendering the action title as
+  a label inside one native button without nested buttons.
+- Kept the toast overlay out of key-window selection and dispatches dismissing
+  action callbacks only after the overlay content has been closed.
+- Unified the outer horizontal form inset resolution for identity, timeline,
+  facts-grid, and action-button rows.
+- Updated the native facts-grid to use the complete available form width with
+  balanced leading, centered, and trailing fact blocks. Icons, labels, and
+  values stay grouped, while longer text wraps instead of being truncated.
+
 ## 0.2.31
 
 - Expanded the minimized Liquid tab bar when tapping the space between the

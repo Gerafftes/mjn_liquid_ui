@@ -118,19 +118,24 @@ private final class AppleLiquidToastSession {
       rootView: AppleLiquidToastHostView(
         model: model,
         onAction: { toast in
-          if let actionId = toast.actionId {
-            channel.invokeMethod(
-              "actionInvoked",
-              arguments: ["actionId": actionId]
-            )
-          }
-
           if toast.dismissesOnAction {
             model.dismiss()
-            channel.invokeMethod(
-              "toastDismissed",
-              arguments: ["toastId": toast.id]
-            )
+          }
+
+          // Let SwiftUI remove the overlay content before Dart gets a chance
+          // to present another native controller from the action callback.
+          DispatchQueue.main.async {
+            if let actionId = toast.actionId {
+              channel.invokeMethod(
+                "actionInvoked",
+                arguments: ["actionId": actionId]
+              )
+            } else if toast.dismissesOnAction {
+              channel.invokeMethod(
+                "toastDismissed",
+                arguments: ["toastId": toast.id]
+              )
+            }
           }
         },
         onSwipeDismiss: { toast in
@@ -195,6 +200,10 @@ private final class AppleLiquidToastOverlayWindow: UIWindow {
   private static let toastHeight: CGFloat = 50
 
   private var toastHitFrame = CGRect.null
+
+  override var canBecomeKey: Bool {
+    false
+  }
 
   func updateLayout(for toast: AppleLiquidToastConfiguration) {
     guard let windowScene else {
@@ -353,6 +362,21 @@ private struct AppleLiquidToastContent: View {
   let onAction: (AppleLiquidToastConfiguration) -> Void
 
   var body: some View {
+    if toast.isWholeToastTappable, toast.actionTitle != nil {
+      Button {
+        onAction(toast)
+      } label: {
+        toastLayout
+      }
+      .buttonStyle(.plain)
+      .contentShape(Capsule())
+    } else {
+      toastLayout
+    }
+  }
+
+  @ViewBuilder
+  private var toastLayout: some View {
     HStack(spacing: 10) {
       if let systemImage = toast.systemImage {
         Image(systemName: systemImage)
@@ -369,14 +393,18 @@ private struct AppleLiquidToastContent: View {
       Spacer(minLength: 0)
 
       if let actionTitle = toast.actionTitle {
-        Button {
-          onAction(toast)
-        } label: {
-          Text(actionTitle)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(toast.actionTintColor ?? Color.accentColor)
+        Group {
+          if toast.isWholeToastTappable {
+            actionLabel(actionTitle)
+          } else {
+            Button {
+              onAction(toast)
+            } label: {
+              actionLabel(actionTitle)
+            }
+            .buttonStyle(.plain)
+          }
         }
-        .buttonStyle(.plain)
         .transition(.identity)
       }
     }
@@ -384,6 +412,12 @@ private struct AppleLiquidToastContent: View {
     .frame(height: 50)
     .clipShape(Capsule())
     .contentShape(Capsule())
+  }
+
+  private func actionLabel(_ title: String) -> some View {
+    Text(title)
+      .font(.body.weight(.semibold))
+      .foregroundStyle(toast.actionTintColor ?? Color.accentColor)
   }
 }
 
@@ -431,6 +465,7 @@ private struct AppleLiquidToastConfiguration: Identifiable {
   let actionTintColor: Color?
   let actionId: String?
   let dismissesOnAction: Bool
+  let isWholeToastTappable: Bool
 
   init?(arguments: Any?) {
     guard let dictionary = arguments as? [String: Any],
@@ -457,6 +492,10 @@ private struct AppleLiquidToastConfiguration: Identifiable {
     self.dismissesOnAction = Self.bool(
       dictionary["dismissesOnAction"],
       defaultValue: true
+    )
+    self.isWholeToastTappable = Self.bool(
+      dictionary["isWholeToastTappable"],
+      defaultValue: false
     )
   }
 
