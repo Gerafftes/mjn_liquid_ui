@@ -1,11 +1,26 @@
-# mjn_liquid_ui
+<h1 align="center">mjn_liquid_ui</h1>
 
-[![Pub Version](https://img.shields.io/pub/v/mjn_liquid_ui)](https://pub.dev/packages/mjn_liquid_ui)
-[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-iOS-lightgrey)](https://flutter.dev)
-[![Pub Downloads](https://img.shields.io/pub/dm/mjn_liquid_ui)](https://pub.dev/packages/mjn_liquid_ui)
+<p align="center">
+  Native-inspired Liquid Glass UI components for Flutter.<br>
+  Native iOS SwiftUI and UIKit controls with Flutter fallbacks.
+</p>
 
-A Flutter plugin for native-inspired liquid glass UI components, focused on iOS.
+<p align="center">
+  <a href="https://pub.dev/packages/mjn_liquid_ui">Pub.dev</a> &middot;
+  <a href="https://github.com/Gerafftes/mjn_liquid_ui">GitHub</a> &middot;
+  <a href="#installation">Install</a> &middot;
+  <a href="#features">Features</a> &middot;
+  <a href="#widgets">Widgets</a> &middot;
+  <a href="#icon-support">Icon support</a> &middot;
+  <a href="CHANGELOG.md">Changelog</a>
+</p>
+
+<p align="center">
+  <a href="https://flutter.dev"><img src="https://img.shields.io/badge/platform-iOS-lightgrey" alt="Platform iOS"></a>
+  <a href="https://pub.dev/packages/mjn_liquid_ui"><img src="https://img.shields.io/pub/v/mjn_liquid_ui" alt="Pub Version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSD--3--Clause-blue.svg" alt="License BSD 3-Clause"></a>
+  <a href="https://pub.dev/packages/mjn_liquid_ui"><img src="https://img.shields.io/pub/dm/mjn_liquid_ui" alt="Pub Downloads"></a>
+</p>
 
 `mjn_liquid_ui` embeds iOS SwiftUI/UIKit controls in Flutter through platform
 views. It is designed for apps that want a native-feeling Liquid Glass tab bar,
