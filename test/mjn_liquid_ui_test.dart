@@ -36,6 +36,7 @@ void main() {
       description: 'Unterstützt den Auftrag vor Ort.',
       systemImage: 'person.fill',
       avatarUrl: 'https://example.com/avatar.jpg',
+      avatarText: 'D',
       tintColor: Color(0xFF0A84FF),
       rowHorizontalInset: 8,
       style: AppleLiquidSheetIdentityStyle(
@@ -44,6 +45,15 @@ void main() {
         cardPadding: 12,
         cornerRadius: 16,
         backgroundOpacity: 0.14,
+        avatarContentSpacing: 11,
+        primaryTextSpacing: 4,
+        relatedTextSpacing: 3,
+        statusContentSpacing: 6,
+        badgeContentSpacing: 2,
+        metadataSeparatorSpacing: 5,
+        metadataSeparator: '•',
+        avatarTextColor: Color(0xFFFFFFFF),
+        avatarBackgroundColor: Color(0xFF0A84FF),
       ),
     );
 
@@ -56,6 +66,7 @@ void main() {
       'activityType': 'Gartenarbeit',
       'description': 'Unterstützt den Auftrag vor Ort.',
       'avatarUrl': 'https://example.com/avatar.jpg',
+      'avatarText': 'D',
       'rowHorizontalInset': 8.0,
       'identityStyle': <String, Object?>{
         'avatarSize': 48.0,
@@ -63,7 +74,124 @@ void main() {
         'cardPadding': 12.0,
         'cornerRadius': 16.0,
         'backgroundOpacity': 0.14,
+        'secondaryAvatarSize': 34.0,
+        'contentSpacing': 10.0,
+        'statusHorizontalPadding': 12.0,
+        'statusVerticalPadding': 6.0,
+        'badgeSpacing': 6.0,
+        'avatarContentSpacing': 11.0,
+        'primaryTextSpacing': 4.0,
+        'relatedTextSpacing': 3.0,
+        'statusContentSpacing': 6.0,
+        'badgeContentSpacing': 2.0,
+        'metadataSeparatorSpacing': 5.0,
+        'metadataSeparator': '•',
+        'avatarTextColor': 0xFFFFFFFF,
+        'avatarBackgroundColor': 0xFF0A84FF,
       },
+    });
+  });
+
+  test('identity row serializes status and related people', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
+      title: 'Du',
+      role: 'Helfer',
+      status: AppleLiquidSheetIdentityStatus(
+        label: 'Anfrage gesendet',
+        systemImage: 'circle.fill',
+        foregroundColor: Color(0xFFBBD7FF),
+        backgroundColor: Color(0x262A82D7),
+        borderColor: Color(0xFF2A6DAD),
+      ),
+      relatedPeople: <AppleLiquidSheetIdentityPerson>[
+        AppleLiquidSheetIdentityPerson(
+          title: 'Mara König',
+          subtitle: 'Auftraggeberin',
+          systemImage: 'person.fill',
+          avatarText: 'M',
+          badges: <AppleLiquidSheetIdentityBadge>[
+            AppleLiquidSheetIdentityBadge(
+              label: 'Verifiziert',
+              systemImage: 'checkmark.seal.fill',
+              foregroundColor: Color(0xFF34C759),
+            ),
+            AppleLiquidSheetIdentityBadge(
+              label: '4,9',
+              systemImage: 'star.fill',
+              foregroundColor: Color(0xFFFFCC00),
+            ),
+          ],
+        ),
+      ],
+    );
+
+    expect(row.toMap(), <String, Object?>{
+      'type': 'identity',
+      'title': 'Du',
+      'role': 'Helfer',
+      'status': <String, Object?>{
+        'label': 'Anfrage gesendet',
+        'systemImage': 'circle.fill',
+        'foregroundColor': 0xFFBBD7FF,
+        'backgroundColor': 0x262A82D7,
+        'borderColor': 0xFF2A6DAD,
+      },
+      'relatedPeople': <Map<String, Object?>>[
+        <String, Object?>{
+          'title': 'Mara König',
+          'subtitle': 'Auftraggeberin',
+          'systemImage': 'person.fill',
+          'avatarText': 'M',
+          'badges': <Map<String, Object?>>[
+            <String, Object?>{
+              'label': 'Verifiziert',
+              'systemImage': 'checkmark.seal.fill',
+              'foregroundColor': 0xFF34C759,
+            },
+            <String, Object?>{
+              'label': '4,9',
+              'systemImage': 'star.fill',
+              'foregroundColor': 0xFFFFCC00,
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  test('identity row serializes selectable card variants', () {
+    const AppleLiquidSheetRow legacy = AppleLiquidSheetRow.identity(
+      title: 'Du',
+      variant: AppleLiquidSheetIdentityVariant.legacy,
+    );
+    const AppleLiquidSheetRow composed = AppleLiquidSheetRow.identity(
+      title: 'Projekt',
+      variant: AppleLiquidSheetIdentityVariant.composed,
+    );
+    const AppleLiquidSheetRow automatic = AppleLiquidSheetRow.identity(
+      title: 'Automatisch',
+      variant: AppleLiquidSheetIdentityVariant.automatic,
+    );
+
+    expect(legacy.toMap()['identityVariant'], 'legacy');
+    expect(composed.toMap()['identityVariant'], 'composed');
+    expect(automatic.toMap()['identityVariant'], 'automatic');
+  });
+
+  test('identity row supports a compact primary-only card', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
+      title: 'Gassi gehen',
+      avatarText: 'G',
+      status: AppleLiquidSheetIdentityStatus(label: 'Offen'),
+    );
+
+    expect(row.role, isNull);
+    expect(row.activityType, isNull);
+    expect(row.toMap(), <String, Object?>{
+      'type': 'identity',
+      'title': 'Gassi gehen',
+      'avatarText': 'G',
+      'status': <String, Object?>{'label': 'Offen'},
     });
   });
 
@@ -75,7 +203,9 @@ void main() {
     );
 
     expect(row.identityStyle, isNull);
+    expect(row.identityVariant, isNull);
     expect(row.toMap().containsKey('identityStyle'), isFalse);
+    expect(row.toMap().containsKey('identityVariant'), isFalse);
   });
 
   test('timeline row serializes typed steps and current index', () {
@@ -864,9 +994,19 @@ void main() {
       ),
       throwsAssertionError,
     );
+    expect(
+      () => AppleLiquidSheetRow.identity(title: 'Du', avatarText: ''),
+      throwsAssertionError,
+    );
   });
 
-  test('identity style validates native dimensions and opacity', () {
+  test('identity style validates dimensions, opacity, and chip spacing', () {
+    const AppleLiquidSheetIdentityStyle defaultStyle =
+        AppleLiquidSheetIdentityStyle();
+    expect(
+      defaultStyle.statusHorizontalPadding,
+      defaultStyle.statusVerticalPadding * 2,
+    );
     expect(
       () => AppleLiquidSheetIdentityStyle(avatarSize: 0),
       throwsAssertionError,
@@ -889,6 +1029,14 @@ void main() {
     );
     expect(
       () => AppleLiquidSheetIdentityStyle(backgroundOpacity: 1.01),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(secondaryAvatarSize: 0),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSheetIdentityStyle(contentSpacing: -1),
       throwsAssertionError,
     );
   });

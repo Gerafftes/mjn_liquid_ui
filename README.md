@@ -388,8 +388,9 @@ the native SwiftUI chevron and system color.
 
 Use the structured identity, timeline, and facts-grid rows for compact job or
 activity summaries. A timeline automatically checks completed steps, highlights
-`currentStepIndex`, and subdues later steps. `avatarUrl` takes precedence over
-the identity row's SF Symbol when the image loads successfully:
+`currentStepIndex`, and subdues later steps. Identity cards can compose a
+primary person, an optional status chip, and any number of related people with
+inline badges:
 
 ```dart
 AppleLiquidSheetSection(
@@ -397,11 +398,31 @@ AppleLiquidSheetSection(
     AppleLiquidSheetRow.identity(
       title: 'Du',
       role: 'Helfer',
-      activityType: 'Gartenarbeit',
-      description: 'Unterstützt den Auftrag vor Ort.',
-      systemImage: 'person.crop.circle.fill',
-      // avatarUrl: 'https://example.com/avatar.jpg',
+      avatarText: 'D',
       tintColor: Color(0xFF0A84FF),
+      status: AppleLiquidSheetIdentityStatus(
+        label: 'Anfrage gesendet',
+      ),
+      variant: AppleLiquidSheetIdentityVariant.composed,
+      relatedPeople: <AppleLiquidSheetIdentityPerson>[
+        AppleLiquidSheetIdentityPerson(
+          title: 'Mara König',
+          subtitle: 'Auftraggeberin',
+          avatarText: 'M',
+          badges: <AppleLiquidSheetIdentityBadge>[
+            AppleLiquidSheetIdentityBadge(
+              label: 'Verifiziert',
+              systemImage: 'checkmark.seal.fill',
+              foregroundColor: Color(0xFF34C759),
+            ),
+            AppleLiquidSheetIdentityBadge(
+              label: '4,9',
+              systemImage: 'star.fill',
+              foregroundColor: Color(0xFFFFCC00),
+            ),
+          ],
+        ),
+      ],
       rowHorizontalInset: 8,
       style: AppleLiquidSheetIdentityStyle(
         avatarSize: 48,
@@ -409,6 +430,8 @@ AppleLiquidSheetSection(
         cardPadding: 12,
         cornerRadius: 16,
         backgroundOpacity: 0.14,
+        statusHorizontalPadding: 12,
+        statusVerticalPadding: 6,
       ),
     ),
     AppleLiquidSheetRow.factsGrid(
@@ -455,12 +478,30 @@ AppleLiquidSheetSection(
 );
 ```
 
-Set `description` to show up to two lines of supporting text inside the identity
-card. `rowHorizontalInset` controls the card's horizontal form inset in native
-iOS points. Omit it to preserve SwiftUI's system inset.
-`AppleLiquidSheetIdentityStyle` configures the avatar diameter, fallback
-SF Symbol size, inner padding, corner radius, and tint-derived background
-opacity. Its defaults preserve the original native appearance.
+`role`, `activityType`, and `description` are optional, so the same row also
+supports a compact primary-only card. `avatarUrl` takes precedence over
+`avatarText`, which takes precedence over the SF Symbol fallback. Set
+`status` with any app-provided label and colors; the plugin does not assume
+specific statuses or business roles. `relatedPeople` accepts any number of
+secondary people or entities, each with its own avatar source and badges.
+Use `AppleLiquidSheetIdentityVariant.legacy` to keep the identity card shipped
+in the published plugin version, or `.composed` for the responsive card with
+status and related people. If `variant` is omitted, existing identity rows keep
+the published layout automatically; rows that provide status, related people,
+or avatar text resolve to the composed layout. An explicit `legacy` variant
+keeps the old layout and ignores composed-only status and related-person
+content.
+Long metadata wraps within the available card width. The separator between
+badges is configurable through `metadataSeparator` (set it to an empty string
+to remove separators), and badge/separator pairs wrap as one unit.
+
+`rowHorizontalInset` controls the card's horizontal form inset in native iOS
+points. Omit it to preserve SwiftUI's system inset.
+`AppleLiquidSheetIdentityStyle` configures the avatar sizes, inner padding,
+corner radius, tint-derived background opacity, metadata spacing, status-chip
+padding, badge/separator spacing, text-group spacing, and optional avatar text
+colors. The default status-chip horizontal padding is twice its vertical
+padding. Its defaults preserve the original native appearance.
 
 Identity, timeline, facts-grid, and action-button rows resolve their horizontal
 form width at one shared outer level. This keeps their default content bounds
@@ -500,8 +541,12 @@ is shown.
 | `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, value placement, and horizontal row inset |
 | `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
-| `AppleLiquidSheetRow.identity` | Highlighted identity header with role, activity type, optional description, SF Symbol fallback, remote avatar, and horizontal inset |
-| `AppleLiquidSheetIdentityStyle` | Identity-card avatar and icon sizes, padding, corner radius, and background opacity |
+| `AppleLiquidSheetRow.identity` | Identity card with selectable legacy or responsive composed layout, optional role, activity, status chip, related people, avatars, badges, and horizontal inset |
+| `AppleLiquidSheetIdentityStatus` | App-provided status-chip label, optional SF Symbol, and colors |
+| `AppleLiquidSheetIdentityPerson` | Related person/entity title, metadata, avatar source, and badges |
+| `AppleLiquidSheetIdentityBadge` | Inline badge label, optional SF Symbol, and colors |
+| `AppleLiquidSheetIdentityVariant` | Automatic, published legacy, or responsive composed identity-card layout |
+| `AppleLiquidSheetIdentityStyle` | Identity-card avatar sizes, padding, corner radius, spacing, status-chip padding, badge spacing, and avatar text colors |
 | `AppleLiquidSheetRow.timeline` | Connected status history with completed, current, and upcoming steps |
 | `AppleLiquidSheetTimelineStep` | Typed title, optional subtitle, and optional SF Symbol for one timeline step |
 | `AppleLiquidSheetRow.factsGrid` | Compact one-to-four-column grid for short facts |
