@@ -253,6 +253,95 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(snapshot.identityCardPaddings, [10])
     XCTAssertEqual(snapshot.identityCornerRadii, [14])
     XCTAssertEqual(snapshot.identityBackgroundOpacities, [0.12])
+    XCTAssertEqual(snapshot.identityVariantValues, ["legacy"])
+  }
+
+  func testIdentityCompositionParsesStatusAndRelatedPeople() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Gassi gehen",
+              "avatarText": "G",
+              "status": [
+                "label": "Anfrage gesendet",
+                "systemImage": "circle.fill",
+                "foregroundColor": 0xFFBBD7FF,
+                "backgroundColor": 0x262A82D7,
+                "borderColor": 0xFF2A6DAD
+              ],
+              "relatedPeople": [
+                [
+                  "title": "Mara König",
+                  "subtitle": "Auftraggeberin",
+                  "avatarText": "M",
+                  "badges": [
+                    [
+                      "label": "Verifiziert",
+                      "systemImage": "checkmark.seal.fill",
+                      "foregroundColor": 0xFF34C759
+                    ]
+                  ]
+                ]
+              ],
+              "identityStyle": [
+                "secondaryAvatarSize": 34.0,
+                "contentSpacing": 12.0,
+                "statusHorizontalPadding": 10.0,
+                "statusVerticalPadding": 5.0,
+                "badgeSpacing": 6.0
+              ]
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.identityStatusLabels, ["Anfrage gesendet"])
+    XCTAssertEqual(snapshot.identityVariantValues, ["composed"])
+    XCTAssertEqual(snapshot.identityRelatedPeopleCounts, [1])
+    XCTAssertEqual(snapshot.estimatedRowHeights, [159])
+  }
+
+  func testIdentityLegacyVariantKeepsThePublishedCardShape() throws {
+    guard #available(iOS 16.0, *) else {
+      throw XCTSkip("Native sheet configuration requires iOS 16 or newer.")
+    }
+
+    let content: [String: Any] = [
+      "sections": [
+        [
+          "rows": [
+            [
+              "type": "identity",
+              "title": "Du",
+              "role": "Helfer",
+              "status": ["label": "Anfrage gesendet"],
+              "relatedPeople": [
+                ["title": "Zusatzinformation"]
+              ],
+              "identityVariant": "legacy"
+            ]
+          ]
+        ]
+      ]
+    ]
+    let snapshot = AppleLiquidSheetLayoutTestSupport.snapshot(
+      contentValue: content
+    )
+
+    XCTAssertEqual(snapshot.identityVariantValues, ["legacy"])
+    XCTAssertEqual(snapshot.identityRelatedPeopleCounts, [1])
+    XCTAssertEqual(snapshot.estimatedRowHeights, [94])
   }
 
   func testIdentityAndActionRowsUseTheSameDefaultOuterInset() throws {

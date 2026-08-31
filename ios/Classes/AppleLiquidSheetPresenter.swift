@@ -1109,6 +1109,12 @@ private enum AppleLiquidSheetMultiPickerLabelPlacement: String {
   case primary
 }
 
+private enum AppleLiquidSheetIdentityVariant: String {
+  case automatic
+  case legacy
+  case composed
+}
+
 private enum AppleLiquidSheetSegmentedAnimationCurve: String {
   case linear
   case easeIn
@@ -1760,6 +1766,20 @@ private struct AppleLiquidSheetIdentityStyleConfiguration {
   let cardPadding: CGFloat
   let cornerRadius: CGFloat
   let backgroundOpacity: Double
+  let secondaryAvatarSize: CGFloat
+  let contentSpacing: CGFloat
+  let statusHorizontalPadding: CGFloat
+  let statusVerticalPadding: CGFloat
+  let badgeSpacing: CGFloat
+  let avatarContentSpacing: CGFloat
+  let primaryTextSpacing: CGFloat
+  let relatedTextSpacing: CGFloat
+  let statusContentSpacing: CGFloat
+  let badgeContentSpacing: CGFloat
+  let metadataSeparatorSpacing: CGFloat
+  let metadataSeparator: String
+  let avatarTextARGB: Int?
+  let avatarBackgroundARGB: Int?
 
   init(value: Any?) {
     let dictionary = value as? [String: Any] ?? [:]
@@ -1797,9 +1817,89 @@ private struct AppleLiquidSheetIdentityStyleConfiguration {
       minValue: 0,
       maxValue: 1
     )
+    self.secondaryAvatarSize = Self.clampedCGFloat(
+      dictionary["secondaryAvatarSize"],
+      defaultValue: 34,
+      minValue: 8,
+      maxValue: 160
+    )
+    self.contentSpacing = Self.clampedCGFloat(
+      dictionary["contentSpacing"],
+      defaultValue: 10,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.statusHorizontalPadding = Self.clampedCGFloat(
+      dictionary["statusHorizontalPadding"],
+      defaultValue: 12,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.statusVerticalPadding = Self.clampedCGFloat(
+      dictionary["statusVerticalPadding"],
+      defaultValue: 6,
+      minValue: 0,
+      maxValue: 40
+    )
+    self.badgeSpacing = Self.clampedCGFloat(
+      dictionary["badgeSpacing"],
+      defaultValue: 6,
+      minValue: 0,
+      maxValue: 40
+    )
+    self.avatarContentSpacing = Self.clampedCGFloat(
+      dictionary["avatarContentSpacing"],
+      defaultValue: 12,
+      minValue: 0,
+      maxValue: 80
+    )
+    self.primaryTextSpacing = Self.clampedCGFloat(
+      dictionary["primaryTextSpacing"],
+      defaultValue: 5,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.relatedTextSpacing = Self.clampedCGFloat(
+      dictionary["relatedTextSpacing"],
+      defaultValue: 4,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.statusContentSpacing = Self.clampedCGFloat(
+      dictionary["statusContentSpacing"],
+      defaultValue: 5,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.badgeContentSpacing = Self.clampedCGFloat(
+      dictionary["badgeContentSpacing"],
+      defaultValue: 3,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.metadataSeparatorSpacing = Self.clampedCGFloat(
+      dictionary["metadataSeparatorSpacing"],
+      defaultValue: 4,
+      minValue: 0,
+      maxValue: 48
+    )
+    self.metadataSeparator = dictionary["metadataSeparator"] as? String ?? "·"
+    self.avatarTextARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["avatarTextColor"]
+    )
+    self.avatarBackgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["avatarBackgroundColor"]
+    )
   }
 
-  func estimatedHeight(hasDescription: Bool) -> CGFloat {
+  var resolvedStatusHorizontalPadding: CGFloat {
+    max(statusHorizontalPadding, statusVerticalPadding * 2)
+  }
+
+  func estimatedHeight(
+    hasDescription: Bool,
+    relatedPeopleCount: Int
+  ) -> CGFloat {
     let defaultEstimatedHeight: CGFloat = hasDescription ? 132 : 94
     let estimatedTextHeight: CGFloat = hasDescription ? 78 : 44
     let defaultContentHeight =
@@ -1807,7 +1907,11 @@ private struct AppleLiquidSheetIdentityStyleConfiguration {
     let styledContentHeight =
       max(avatarSize, estimatedTextHeight) + (cardPadding * 2)
 
-    return defaultEstimatedHeight + styledContentHeight - defaultContentHeight
+    let relatedPeopleHeight = CGFloat(relatedPeopleCount) *
+      (max(secondaryAvatarSize, 40) + 1 + (contentSpacing * 2))
+
+    return defaultEstimatedHeight + styledContentHeight - defaultContentHeight +
+      relatedPeopleHeight
   }
 
   private static func clampedCGFloat(
@@ -1845,6 +1949,135 @@ private struct AppleLiquidSheetIdentityStyleConfiguration {
     }
 
     return nil
+  }
+}
+
+private struct AppleLiquidSheetIdentityStatusConfiguration {
+  let label: String
+  let systemImage: String?
+  let foregroundARGB: Int?
+  let backgroundARGB: Int?
+  let borderARGB: Int?
+
+  init?(value: Any?) {
+    guard let dictionary = value as? [String: Any],
+      let label = Self.optionalString(dictionary["label"])
+    else {
+      return nil
+    }
+
+    self.label = label
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.foregroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["foregroundColor"]
+    )
+    self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["backgroundColor"]
+    )
+    self.borderARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["borderColor"]
+    )
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+}
+
+private struct AppleLiquidSheetIdentityBadgeConfiguration: Identifiable {
+  let id: String
+  let label: String
+  let systemImage: String?
+  let foregroundARGB: Int?
+  let backgroundARGB: Int?
+
+  init?(value: Any?, id: String) {
+    guard let dictionary = value as? [String: Any],
+      let label = Self.optionalString(dictionary["label"])
+    else {
+      return nil
+    }
+
+    self.id = id
+    self.label = label
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.foregroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["foregroundColor"]
+    )
+    self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
+      dictionary["backgroundColor"]
+    )
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+}
+
+private struct AppleLiquidSheetIdentityPersonConfiguration: Identifiable {
+  let id: String
+  let title: String
+  let subtitle: String?
+  let systemImage: String?
+  let avatarURL: URL?
+  let avatarText: String?
+  let badges: [AppleLiquidSheetIdentityBadgeConfiguration]
+
+  init?(value: Any?, id: String) {
+    guard let dictionary = value as? [String: Any],
+      let title = Self.optionalString(dictionary["title"])
+    else {
+      return nil
+    }
+
+    self.id = id
+    self.title = title
+    self.subtitle = Self.optionalString(dictionary["subtitle"])
+    self.systemImage = Self.optionalString(dictionary["systemImage"])
+    self.avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    self.avatarText = Self.optionalString(dictionary["avatarText"])
+    self.badges = (dictionary["badges"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { index, value in
+        AppleLiquidSheetIdentityBadgeConfiguration(
+          value: value,
+          id: "\(id)-badge-\(index)"
+        )
+      }
+  }
+
+  private static func optionalString(_ value: Any?) -> String? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else {
+      return nil
+    }
+
+    return string
+  }
+
+  private static func optionalURL(_ value: Any?) -> URL? {
+    guard let string = optionalString(value),
+      let url = URL(string: string),
+      let scheme = url.scheme?.lowercased(),
+      scheme == "https" || scheme == "http"
+    else {
+      return nil
+    }
+
+    return url
   }
 }
 
@@ -1944,7 +2177,11 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let activityType: String?
   let identityDescription: String?
   let avatarURL: URL?
+  let avatarText: String?
   let identityStyle: AppleLiquidSheetIdentityStyleConfiguration
+  let identityStatus: AppleLiquidSheetIdentityStatusConfiguration?
+  let identityVariant: AppleLiquidSheetIdentityVariant
+  let relatedPeople: [AppleLiquidSheetIdentityPersonConfiguration]
   let timelineSteps: [AppleLiquidSheetTimelineStepConfiguration]
   let currentStepIndex: Int
   let timelineCollapsedStepLimit: Int?
@@ -2009,8 +2246,38 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
 
     let role = Self.optionalString(dictionary["role"])
     let activityType = Self.optionalString(dictionary["activityType"])
-    if kind == .identity && (role == nil || activityType == nil) {
-      return nil
+    let identityDescription = Self.optionalString(dictionary["description"])
+    let avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    let avatarText = Self.optionalString(dictionary["avatarText"])
+    let identityStyle = AppleLiquidSheetIdentityStyleConfiguration(
+      value: dictionary["identityStyle"]
+    )
+    let identityStatus = AppleLiquidSheetIdentityStatusConfiguration(
+      value: dictionary["status"]
+    )
+    let relatedPeople = (dictionary["relatedPeople"] as? [Any] ?? [])
+      .enumerated()
+      .compactMap { index, value in
+        AppleLiquidSheetIdentityPersonConfiguration(
+          value: value,
+          id: "\(id)-person-\(index)"
+        )
+      }
+    let requestedIdentityVariant = AppleLiquidSheetIdentityVariant(
+      rawValue: Self.string(
+        dictionary["identityVariant"],
+        defaultValue: AppleLiquidSheetIdentityVariant.automatic.rawValue
+      )
+    ) ?? .automatic
+    let identityVariant: AppleLiquidSheetIdentityVariant
+    switch requestedIdentityVariant {
+    case .automatic:
+      identityVariant =
+        identityStatus != nil || !relatedPeople.isEmpty || avatarText != nil
+        ? .composed
+        : .legacy
+    case .legacy, .composed:
+      identityVariant = requestedIdentityVariant
     }
 
     if kind == .timeline && timelineSteps.isEmpty {
@@ -2094,11 +2361,13 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.systemImage = Self.optionalString(dictionary["systemImage"])
     self.role = role
     self.activityType = activityType
-    self.identityDescription = Self.optionalString(dictionary["description"])
-    self.avatarURL = Self.optionalURL(dictionary["avatarUrl"])
-    self.identityStyle = AppleLiquidSheetIdentityStyleConfiguration(
-      value: dictionary["identityStyle"]
-    )
+    self.identityDescription = identityDescription
+    self.avatarURL = avatarURL
+    self.avatarText = avatarText
+    self.identityStyle = identityStyle
+    self.identityStatus = identityStatus
+    self.identityVariant = identityVariant
+    self.relatedPeople = relatedPeople
     self.timelineSteps = timelineSteps
     self.currentStepIndex = Self.clampedInt(
       dictionary["currentStepIndex"],
@@ -2186,8 +2455,12 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     activityType: String? = nil,
     identityDescription: String? = nil,
     avatarURL: URL? = nil,
+    avatarText: String? = nil,
     identityStyle: AppleLiquidSheetIdentityStyleConfiguration =
       AppleLiquidSheetIdentityStyleConfiguration(value: nil),
+    identityStatus: AppleLiquidSheetIdentityStatusConfiguration? = nil,
+    identityVariant: AppleLiquidSheetIdentityVariant = .legacy,
+    relatedPeople: [AppleLiquidSheetIdentityPersonConfiguration] = [],
     timelineSteps: [AppleLiquidSheetTimelineStepConfiguration] = [],
     currentStepIndex: Int = 0,
     timelineCollapsedStepLimit: Int? = nil,
@@ -2239,7 +2512,11 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.activityType = activityType
     self.identityDescription = identityDescription
     self.avatarURL = avatarURL
+    self.avatarText = avatarText
     self.identityStyle = identityStyle
+    self.identityStatus = identityStatus
+    self.identityVariant = identityVariant
+    self.relatedPeople = relatedPeople
     self.timelineSteps = timelineSteps
     self.currentStepIndex = currentStepIndex
     self.timelineCollapsedStepLimit = timelineCollapsedStepLimit
@@ -2480,7 +2757,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       baseHeight = 54
     case .identity:
       baseHeight = identityStyle.estimatedHeight(
-        hasDescription: identityDescription != nil
+        hasDescription: identityDescription != nil,
+        relatedPeopleCount: identityVariant == .composed ? relatedPeople.count : 0
       )
     case .timeline:
       baseHeight = timelineEstimatedHeight(
@@ -3845,6 +4123,9 @@ struct AppleLiquidSheetLayoutTestSnapshot {
   let estimatedRowHeights: [CGFloat]
   let identityRoles: [String]
   let identityDescriptions: [String]
+  let identityStatusLabels: [String]
+  let identityVariantValues: [String]
+  let identityRelatedPeopleCounts: [Int]
   let identityRowHorizontalInsets: [CGFloat]
   let identityAvatarSizes: [CGFloat]
   let identityIconSizes: [CGFloat]
@@ -3910,6 +4191,21 @@ enum AppleLiquidSheetLayoutTestSupport {
       identityDescriptions: groups.flatMap { group in
         group.rows.compactMap { row in
           row.kind == .identity ? row.identityDescription : nil
+        }
+      },
+      identityStatusLabels: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityStatus?.label : nil
+        }
+      },
+      identityVariantValues: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.identityVariant.rawValue : nil
+        }
+      },
+      identityRelatedPeopleCounts: groups.flatMap { group in
+        group.rows.compactMap { row in
+          row.kind == .identity ? row.relatedPeople.count : nil
         }
       },
       identityRowHorizontalInsets: groups.flatMap { group in
@@ -4579,12 +4875,21 @@ private struct AppleLiquidSheetRowView: View {
 private struct AppleLiquidSheetIdentityRow: View {
   let row: AppleLiquidSheetRowConfiguration
 
+  @ViewBuilder
   var body: some View {
-    HStack(spacing: 12) {
-      avatar
+    if row.identityVariant == .legacy {
+      legacyCard
+    } else {
+      composedCard
+    }
+  }
 
-      VStack(alignment: .leading, spacing: 5) {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
+  private var legacyCard: some View {
+    HStack(spacing: row.identityStyle.avatarContentSpacing) {
+      primaryAvatar
+
+      VStack(alignment: .leading, spacing: row.identityStyle.primaryTextSpacing) {
+        HStack(alignment: .firstTextBaseline, spacing: row.identityStyle.badgeSpacing) {
           Text(row.title)
             .font(.headline)
             .foregroundStyle(.primary)
@@ -4627,8 +4932,218 @@ private struct AppleLiquidSheetIdentityRow: View {
     .accessibilityElement(children: .combine)
   }
 
+  private var composedCard: some View {
+    VStack(alignment: .leading, spacing: row.identityStyle.contentSpacing) {
+      primaryRow
+
+      ForEach(row.relatedPeople) { person in
+        VStack(alignment: .leading, spacing: row.identityStyle.contentSpacing) {
+          Divider()
+          relatedPersonRow(person)
+        }
+      }
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .padding(row.identityStyle.cardPadding)
+    .background(
+      tintColor.opacity(row.identityStyle.backgroundOpacity),
+      in: RoundedRectangle(
+        cornerRadius: row.identityStyle.cornerRadius,
+        style: .continuous
+      )
+    )
+    .accessibilityElement(children: .combine)
+  }
+
   @ViewBuilder
-  private var avatar: some View {
+  private var primaryRow: some View {
+    HStack(
+      alignment: .top,
+      spacing: row.identityStyle.avatarContentSpacing
+    ) {
+      primaryAvatar
+
+      VStack(
+        alignment: .leading,
+        spacing: row.identityStyle.primaryTextSpacing
+      ) {
+        primaryTitle
+
+        if let activityType = row.activityType {
+          Text(activityType)
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+
+        if let description = row.identityDescription {
+          Text(description)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .layoutPriority(0)
+
+      if let status = row.identityStatus {
+        statusChip(status)
+          .layoutPriority(1)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private var primaryTitle: some View {
+    if let role = row.role {
+      (
+        Text(row.title)
+          .font(.headline)
+          .foregroundColor(.primary)
+        + Text(" · \(role)")
+          .font(.subheadline.weight(.semibold))
+          .foregroundColor(tintColor)
+      )
+      .fixedSize(horizontal: false, vertical: true)
+    } else {
+      Text(row.title)
+        .font(.headline)
+        .foregroundStyle(.primary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private func statusChip(
+    _ status: AppleLiquidSheetIdentityStatusConfiguration
+  ) -> some View {
+    HStack(spacing: row.identityStyle.statusContentSpacing) {
+      if let systemImage = status.systemImage {
+        Image(systemName: systemImage)
+          .font(.caption2.weight(.bold))
+      }
+
+      Text(status.label)
+        .font(.caption.weight(.semibold))
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .foregroundStyle(statusForegroundColor(status))
+    .padding(
+      .horizontal,
+      row.identityStyle.resolvedStatusHorizontalPadding
+    )
+    .padding(.vertical, row.identityStyle.statusVerticalPadding)
+    .background(
+      statusBackgroundColor(status),
+      in: Capsule()
+    )
+    .overlay(
+      Capsule()
+        .stroke(statusBorderColor(status), lineWidth: 1)
+    )
+  }
+
+  private func relatedPersonRow(
+    _ person: AppleLiquidSheetIdentityPersonConfiguration
+  ) -> some View {
+    HStack(
+      alignment: .top,
+      spacing: row.identityStyle.avatarContentSpacing
+    ) {
+      personAvatar(person)
+
+      VStack(
+        alignment: .leading,
+        spacing: row.identityStyle.relatedTextSpacing
+      ) {
+        Text(person.title)
+          .font(.subheadline.weight(.semibold))
+          .foregroundStyle(.primary)
+        .fixedSize(horizontal: false, vertical: true)
+
+        if person.subtitle != nil || !person.badges.isEmpty {
+          metadataContent(for: person)
+        }
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+
+  @ViewBuilder
+  private func metadataContent(
+    for person: AppleLiquidSheetIdentityPersonConfiguration
+  ) -> some View {
+    ViewThatFits(in: .horizontal) {
+      HStack(spacing: row.identityStyle.badgeSpacing) {
+        metadataItems(person, wraps: false)
+      }
+      .fixedSize(horizontal: true, vertical: false)
+
+      AppleLiquidSheetIdentityMetadataLayout(
+        spacing: row.identityStyle.badgeSpacing
+      ) {
+        metadataItems(person, wraps: true)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func metadataItems(
+    _ person: AppleLiquidSheetIdentityPersonConfiguration,
+    wraps: Bool
+  ) -> some View {
+    if let subtitle = person.subtitle {
+      Text(subtitle)
+        .font(.footnote)
+        .foregroundStyle(.secondary)
+        .lineLimit(wraps ? nil : 1)
+        .fixedSize(horizontal: !wraps, vertical: wraps)
+    }
+
+    ForEach(Array(person.badges.enumerated()), id: \.element.id) {
+      index,
+      badge in
+      HStack(spacing: row.identityStyle.metadataSeparatorSpacing) {
+        if !row.identityStyle.metadataSeparator.isEmpty &&
+          (person.subtitle != nil || index > 0)
+        {
+          Text(row.identityStyle.metadataSeparator)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize()
+        }
+        badgeView(badge, singleLine: !wraps)
+      }
+    }
+  }
+
+  @ViewBuilder
+  private func badgeView(
+    _ badge: AppleLiquidSheetIdentityBadgeConfiguration,
+    singleLine: Bool = false
+  ) -> some View {
+    HStack(spacing: row.identityStyle.badgeContentSpacing) {
+      if let systemImage = badge.systemImage {
+        Image(systemName: systemImage)
+          .font(.caption2.weight(.semibold))
+      }
+
+      Text(badge.label)
+        .font(.footnote)
+        .lineLimit(singleLine ? 1 : nil)
+        .fixedSize(horizontal: singleLine, vertical: !singleLine)
+    }
+    .foregroundStyle(Color(appleLiquidARGB: badge.foregroundARGB) ?? .secondary)
+    .padding(.horizontal, badge.backgroundARGB == nil ? 0 : 6)
+    .padding(.vertical, badge.backgroundARGB == nil ? 0 : 3)
+    .background(
+      Color(appleLiquidARGB: badge.backgroundARGB) ?? .clear,
+      in: Capsule()
+    )
+  }
+
+  @ViewBuilder
+  private var primaryAvatar: some View {
     if let avatarURL = row.avatarURL {
       AsyncImage(url: avatarURL) { phase in
         switch phase {
@@ -4637,7 +5152,7 @@ private struct AppleLiquidSheetIdentityRow: View {
             .resizable()
             .scaledToFill()
         default:
-          avatarFallback
+          primaryAvatarFallback
         }
       }
       .frame(
@@ -4646,23 +5161,195 @@ private struct AppleLiquidSheetIdentityRow: View {
       )
       .clipShape(Circle())
     } else {
-      avatarFallback
+      primaryAvatarFallback
     }
   }
 
-  private var avatarFallback: some View {
-    Image(systemName: row.systemImage ?? "person.fill")
-      .font(.system(size: row.identityStyle.iconSize, weight: .semibold))
-      .foregroundStyle(tintColor)
+  @ViewBuilder
+  private func personAvatar(
+    _ person: AppleLiquidSheetIdentityPersonConfiguration
+  ) -> some View {
+    if let avatarURL = person.avatarURL {
+      AsyncImage(url: avatarURL) { phase in
+        switch phase {
+        case .success(let image):
+          image
+            .resizable()
+            .scaledToFill()
+        default:
+          personAvatarFallback(person)
+        }
+      }
       .frame(
-        width: row.identityStyle.avatarSize,
-        height: row.identityStyle.avatarSize
+        width: row.identityStyle.secondaryAvatarSize,
+        height: row.identityStyle.secondaryAvatarSize
       )
-      .background(tintColor.opacity(0.16), in: Circle())
+      .clipShape(Circle())
+    } else {
+      personAvatarFallback(person)
+    }
+  }
+
+  @ViewBuilder
+  private var primaryAvatarFallback: some View {
+    if let avatarText = row.avatarText {
+      avatarTextView(avatarText, size: row.identityStyle.avatarSize)
+    } else {
+      Image(systemName: row.systemImage ?? "person.fill")
+        .font(.system(size: row.identityStyle.iconSize, weight: .semibold))
+        .foregroundStyle(tintColor)
+        .frame(
+          width: row.identityStyle.avatarSize,
+          height: row.identityStyle.avatarSize
+        )
+        .background(tintColor.opacity(0.16), in: Circle())
+    }
+  }
+
+  @ViewBuilder
+  private func personAvatarFallback(
+    _ person: AppleLiquidSheetIdentityPersonConfiguration
+  ) -> some View {
+    if let avatarText = person.avatarText {
+      avatarTextView(avatarText, size: row.identityStyle.secondaryAvatarSize)
+    } else {
+      Image(systemName: person.systemImage ?? "person.fill")
+        .font(
+          .system(
+            size: min(
+              row.identityStyle.iconSize,
+              row.identityStyle.secondaryAvatarSize
+            ),
+            weight: .semibold
+          )
+        )
+        .foregroundStyle(tintColor)
+        .frame(
+          width: row.identityStyle.secondaryAvatarSize,
+          height: row.identityStyle.secondaryAvatarSize
+        )
+        .background(tintColor.opacity(0.16), in: Circle())
+    }
+  }
+
+  private func avatarTextView(_ text: String, size: CGFloat) -> some View {
+    Text(text)
+      .font(.system(size: min(size * 0.42, 24), weight: .semibold))
+      .foregroundStyle(avatarTextColor)
+      .lineLimit(1)
+      .minimumScaleFactor(0.55)
+      .frame(width: size, height: size)
+      .background(avatarBackgroundColor, in: Circle())
+  }
+
+  private func statusForegroundColor(
+    _ status: AppleLiquidSheetIdentityStatusConfiguration
+  ) -> Color {
+    Color(appleLiquidARGB: status.foregroundARGB) ?? tintColor
+  }
+
+  private func statusBackgroundColor(
+    _ status: AppleLiquidSheetIdentityStatusConfiguration
+  ) -> Color {
+    Color(appleLiquidARGB: status.backgroundARGB) ??
+      tintColor.opacity(0.16)
+  }
+
+  private func statusBorderColor(
+    _ status: AppleLiquidSheetIdentityStatusConfiguration
+  ) -> Color {
+    Color(appleLiquidARGB: status.borderARGB) ??
+      tintColor.opacity(0.45)
   }
 
   private var tintColor: Color {
     Color(appleLiquidARGB: row.tintColor) ?? .accentColor
+  }
+
+  private var avatarTextColor: Color {
+    Color(appleLiquidARGB: row.identityStyle.avatarTextARGB) ?? .white
+  }
+
+  private var avatarBackgroundColor: Color {
+    Color(appleLiquidARGB: row.identityStyle.avatarBackgroundARGB) ??
+      tintColor
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidSheetIdentityMetadataLayout: Layout {
+  let spacing: CGFloat
+
+  func sizeThatFits(
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) -> CGSize {
+    frames(
+      for: proposal,
+      subviews: subviews
+    ).size
+  }
+
+  func placeSubviews(
+    in bounds: CGRect,
+    proposal: ProposedViewSize,
+    subviews: Subviews,
+    cache: inout ()
+  ) {
+    let result = frames(
+      for: ProposedViewSize(width: bounds.width, height: bounds.height),
+      subviews: subviews
+    )
+
+    for (subview, frame) in zip(subviews, result.frames) {
+      subview.place(
+        at: CGPoint(x: bounds.minX + frame.minX, y: bounds.minY + frame.minY),
+        anchor: .topLeading,
+        proposal: ProposedViewSize(width: frame.width, height: frame.height)
+      )
+    }
+  }
+
+  private func frames(
+    for proposal: ProposedViewSize,
+    subviews: Subviews
+  ) -> (size: CGSize, frames: [CGRect]) {
+    let availableWidth = proposal.width ?? .greatestFiniteMagnitude
+    var frames: [CGRect] = []
+    var x: CGFloat = 0
+    var y: CGFloat = 0
+    var lineHeight: CGFloat = 0
+    var contentWidth: CGFloat = 0
+
+    for subview in subviews {
+      let intrinsicSize = subview.sizeThatFits(.unspecified)
+      let width = min(intrinsicSize.width, availableWidth)
+      let idealSize = subview.sizeThatFits(
+        ProposedViewSize(width: width, height: nil)
+      )
+
+      if x > 0 && x + spacing + width > availableWidth {
+        y += lineHeight + spacing
+        x = 0
+        lineHeight = 0
+      }
+
+      let frame = CGRect(x: x, y: y, width: width, height: idealSize.height)
+      frames.append(frame)
+      x += width + spacing
+      lineHeight = max(lineHeight, idealSize.height)
+      contentWidth = max(contentWidth, frame.maxX)
+    }
+
+    if !frames.isEmpty {
+      contentWidth = max(0, contentWidth - spacing)
+    }
+
+    return (
+      CGSize(width: contentWidth, height: y + lineHeight),
+      frames
+    )
   }
 }
 

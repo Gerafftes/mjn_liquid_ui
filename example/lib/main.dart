@@ -149,10 +149,34 @@ class _DemoShellState extends State<DemoShell> {
             AppleLiquidSheetRow.identity(
               title: 'Du',
               role: 'Helfer',
-              activityType: 'Gartenarbeit',
-              description: 'Unterstützt den Auftrag vor Ort.',
-              systemImage: 'person.crop.circle.fill',
+              avatarText: 'D',
               tintColor: Color(0xFF0A84FF),
+              status: AppleLiquidSheetIdentityStatus(
+                label: 'Anfrage gesendet',
+                foregroundColor: Color(0xFFBBD7FF),
+                backgroundColor: Color(0x262A82D7),
+                borderColor: Color(0xFF2A6DAD),
+              ),
+              variant: AppleLiquidSheetIdentityVariant.composed,
+              relatedPeople: <AppleLiquidSheetIdentityPerson>[
+                AppleLiquidSheetIdentityPerson(
+                  title: 'Mara König',
+                  subtitle: 'Auftraggeberin',
+                  avatarText: 'M',
+                  badges: <AppleLiquidSheetIdentityBadge>[
+                    AppleLiquidSheetIdentityBadge(
+                      label: 'Verifiziert',
+                      systemImage: 'checkmark.seal.fill',
+                      foregroundColor: Color(0xFF34C759),
+                    ),
+                    AppleLiquidSheetIdentityBadge(
+                      label: '4,9',
+                      systemImage: 'star.fill',
+                      foregroundColor: Color(0xFFFFCC00),
+                    ),
+                  ],
+                ),
+              ],
               rowHorizontalInset: 8,
               style: AppleLiquidSheetIdentityStyle(
                 avatarSize: 48,
@@ -160,6 +184,10 @@ class _DemoShellState extends State<DemoShell> {
                 cardPadding: 12,
                 cornerRadius: 16,
                 backgroundOpacity: 0.14,
+                statusHorizontalPadding: 12,
+                statusVerticalPadding: 6,
+                avatarTextColor: Color(0xFFFFFFFF),
+                avatarBackgroundColor: Color(0xFF0A84FF),
               ),
             ),
           ],

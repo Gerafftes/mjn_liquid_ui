@@ -1,3 +1,18 @@
+## 0.2.33
+
+- Extended `AppleLiquidSheetRow.identity` with optional primary content,
+  configurable status chips, avatar text, related people, and inline badges.
+- Added responsive native layout and identity styling controls so metadata
+  wraps and the card adapts to the available sheet width.
+- Kept metadata separators attached to their following badge during wrapping and
+  exposed the remaining identity spacing values through the style object.
+- Prefer intrinsic metadata widths before wrapping so short badge rows stay
+  compact on both narrow and wide device layouts.
+- Added explicit `legacy` and `composed` identity-card variants; omitting the
+  variant preserves the published card for existing identity content.
+- Refined the default status-chip padding so its horizontal breathing room is
+  twice the vertical padding while remaining configurable.
+
 ## 0.2.32
 
 - Added optional whole-toast tapping through

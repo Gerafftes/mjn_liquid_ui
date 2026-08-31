@@ -663,6 +663,153 @@ class AppleLiquidSheetSegmentedStyle {
   }
 }
 
+/// A trailing status chip for [AppleLiquidSheetRow.identity].
+class AppleLiquidSheetIdentityStatus {
+  /// Creates a configurable identity status chip.
+  const AppleLiquidSheetIdentityStatus({
+    required this.label,
+    this.systemImage,
+    this.foregroundColor,
+    this.backgroundColor,
+    this.borderColor,
+  }) : assert(label != ''),
+       assert(systemImage == null || systemImage != '');
+
+  /// Text shown inside the chip.
+  final String label;
+
+  /// Optional SF Symbol shown before [label].
+  final String? systemImage;
+
+  /// Chip text and icon color. Null derives from the row tint.
+  final Color? foregroundColor;
+
+  /// Chip fill color. Null derives a translucent fill from the row tint.
+  final Color? backgroundColor;
+
+  /// Chip border color. Null derives a translucent border from the row tint.
+  final Color? borderColor;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      'label': label,
+      if (systemImage != null) 'systemImage': systemImage,
+      if (foregroundColor != null)
+        'foregroundColor': foregroundColor!.toARGB32(),
+      if (backgroundColor != null)
+        'backgroundColor': backgroundColor!.toARGB32(),
+      if (borderColor != null) 'borderColor': borderColor!.toARGB32(),
+    };
+  }
+}
+
+/// A compact metadata badge shown for a related identity person.
+class AppleLiquidSheetIdentityBadge {
+  /// Creates a configurable identity metadata badge.
+  const AppleLiquidSheetIdentityBadge({
+    required this.label,
+    this.systemImage,
+    this.foregroundColor,
+    this.backgroundColor,
+  }) : assert(label != ''),
+       assert(systemImage == null || systemImage != '');
+
+  /// Text shown by the badge.
+  final String label;
+
+  /// Optional SF Symbol shown before [label].
+  final String? systemImage;
+
+  /// Badge text and icon color. Null uses the native secondary color.
+  final Color? foregroundColor;
+
+  /// Optional capsule fill. Null keeps the badge inline and unfilled.
+  final Color? backgroundColor;
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      'label': label,
+      if (systemImage != null) 'systemImage': systemImage,
+      if (foregroundColor != null)
+        'foregroundColor': foregroundColor!.toARGB32(),
+      if (backgroundColor != null)
+        'backgroundColor': backgroundColor!.toARGB32(),
+    };
+  }
+}
+
+/// A secondary person or entity rendered below the primary identity row.
+class AppleLiquidSheetIdentityPerson {
+  /// Creates a configurable related identity item.
+  const AppleLiquidSheetIdentityPerson({
+    required this.title,
+    this.subtitle,
+    this.systemImage,
+    this.avatarUrl,
+    this.avatarText,
+    List<AppleLiquidSheetIdentityBadge> badges =
+        const <AppleLiquidSheetIdentityBadge>[],
+  }) : _badges = badges,
+       assert(title != ''),
+       assert(subtitle == null || subtitle != ''),
+       assert(systemImage == null || systemImage != ''),
+       assert(avatarUrl == null || avatarUrl != ''),
+       assert(avatarText == null || avatarText != '');
+
+  /// Primary text for this related person or entity.
+  final String title;
+
+  /// Optional secondary text shown before [badges].
+  final String? subtitle;
+
+  /// Optional SF Symbol used as the avatar fallback.
+  final String? systemImage;
+
+  /// Optional remote avatar URL.
+  final String? avatarUrl;
+
+  /// Optional short text, such as initials, used when [avatarUrl] is absent.
+  final String? avatarText;
+
+  final List<AppleLiquidSheetIdentityBadge> _badges;
+
+  /// Inline metadata badges shown after [subtitle].
+  List<AppleLiquidSheetIdentityBadge> get badges =>
+      List<AppleLiquidSheetIdentityBadge>.unmodifiable(_badges);
+
+  Map<String, Object?> toMap() {
+    return <String, Object?>{
+      'title': title,
+      if (subtitle != null) 'subtitle': subtitle,
+      if (systemImage != null) 'systemImage': systemImage,
+      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (avatarText != null) 'avatarText': avatarText,
+      if (badges.isNotEmpty)
+        'badges': badges
+            .map((AppleLiquidSheetIdentityBadge badge) => badge.toMap())
+            .toList(growable: false),
+    };
+  }
+}
+
+/// Selects the visual composition used by [AppleLiquidSheetRow.identity].
+enum AppleLiquidSheetIdentityVariant {
+  /// Resolves to the released card for legacy content and the composed card
+  /// when status, related people, or avatar text is provided.
+  automatic('automatic'),
+
+  /// Preserves the identity card shipped in the published plugin version.
+  legacy('legacy'),
+
+  /// Uses the responsive card with optional status and related people.
+  composed('composed');
+
+  const AppleLiquidSheetIdentityVariant(this.platformValue);
+
+  /// Value sent to the native SwiftUI implementation.
+  final String platformValue;
+}
+
 /// Visual configuration for [AppleLiquidSheetRow.identity].
 class AppleLiquidSheetIdentityStyle {
   /// Creates a native identity-card style.
@@ -672,12 +819,37 @@ class AppleLiquidSheetIdentityStyle {
     this.cardPadding = 10,
     this.cornerRadius = 14,
     this.backgroundOpacity = 0.12,
+    this.secondaryAvatarSize = 34,
+    this.contentSpacing = 10,
+    this.statusHorizontalPadding = 12,
+    this.statusVerticalPadding = 6,
+    this.badgeSpacing = 6,
+    this.avatarContentSpacing = 12,
+    this.primaryTextSpacing = 5,
+    this.relatedTextSpacing = 4,
+    this.statusContentSpacing = 5,
+    this.badgeContentSpacing = 3,
+    this.metadataSeparatorSpacing = 4,
+    this.metadataSeparator = '·',
+    this.avatarTextColor,
+    this.avatarBackgroundColor,
   }) : assert(avatarSize > 0),
        assert(iconSize > 0),
        assert(iconSize <= avatarSize),
        assert(cardPadding >= 0),
        assert(cornerRadius >= 0),
-       assert(backgroundOpacity >= 0 && backgroundOpacity <= 1);
+       assert(backgroundOpacity >= 0 && backgroundOpacity <= 1),
+       assert(secondaryAvatarSize > 0),
+       assert(contentSpacing >= 0),
+       assert(statusHorizontalPadding >= 0),
+       assert(statusVerticalPadding >= 0),
+       assert(badgeSpacing >= 0),
+       assert(avatarContentSpacing >= 0),
+       assert(primaryTextSpacing >= 0),
+       assert(relatedTextSpacing >= 0),
+       assert(statusContentSpacing >= 0),
+       assert(badgeContentSpacing >= 0),
+       assert(metadataSeparatorSpacing >= 0);
 
   /// Diameter of the remote avatar or SF Symbol background in iOS points.
   final double avatarSize;
@@ -694,6 +866,50 @@ class AppleLiquidSheetIdentityStyle {
   /// Opacity applied to the tint-derived identity-card background.
   final double backgroundOpacity;
 
+  /// Diameter used by related identity avatars in iOS points.
+  final double secondaryAvatarSize;
+
+  /// Vertical spacing between the primary identity and related people.
+  final double contentSpacing;
+
+  /// Horizontal padding inside the optional status chip. The default is twice
+  /// the vertical padding; the native renderer keeps it at least that wide.
+  final double statusHorizontalPadding;
+
+  /// Vertical padding inside the optional status chip. The default is half the
+  /// horizontal padding.
+  final double statusVerticalPadding;
+
+  /// Space between inline metadata badges.
+  final double badgeSpacing;
+
+  /// Horizontal space between an avatar and its text content.
+  final double avatarContentSpacing;
+
+  /// Vertical space between primary title, activity, and description.
+  final double primaryTextSpacing;
+
+  /// Vertical space between a related title and its metadata.
+  final double relatedTextSpacing;
+
+  /// Space between a status icon and its label.
+  final double statusContentSpacing;
+
+  /// Space between a badge icon and its label.
+  final double badgeContentSpacing;
+
+  /// Space between a metadata separator and the following badge.
+  final double metadataSeparatorSpacing;
+
+  /// Separator placed before subsequent metadata badges. Empty disables it.
+  final String? metadataSeparator;
+
+  /// Optional foreground color for avatar text.
+  final Color? avatarTextColor;
+
+  /// Optional fill color for avatar text.
+  final Color? avatarBackgroundColor;
+
   Map<String, Object?> toMap() {
     return <String, Object?>{
       'avatarSize': avatarSize,
@@ -701,6 +917,22 @@ class AppleLiquidSheetIdentityStyle {
       'cardPadding': cardPadding,
       'cornerRadius': cornerRadius,
       'backgroundOpacity': backgroundOpacity,
+      'secondaryAvatarSize': secondaryAvatarSize,
+      'contentSpacing': contentSpacing,
+      'statusHorizontalPadding': statusHorizontalPadding,
+      'statusVerticalPadding': statusVerticalPadding,
+      'badgeSpacing': badgeSpacing,
+      'avatarContentSpacing': avatarContentSpacing,
+      'primaryTextSpacing': primaryTextSpacing,
+      'relatedTextSpacing': relatedTextSpacing,
+      'statusContentSpacing': statusContentSpacing,
+      'badgeContentSpacing': badgeContentSpacing,
+      'metadataSeparatorSpacing': metadataSeparatorSpacing,
+      if (metadataSeparator != null) 'metadataSeparator': metadataSeparator,
+      if (avatarTextColor != null)
+        'avatarTextColor': avatarTextColor!.toARGB32(),
+      if (avatarBackgroundColor != null)
+        'avatarBackgroundColor': avatarBackgroundColor!.toARGB32(),
     };
   }
 }
@@ -1075,7 +1307,12 @@ class AppleLiquidSheetRow {
     this.activityType,
     this.description,
     this.avatarUrl,
+    this.avatarText,
     this.identityStyle,
+    this.status,
+    this.identityVariant,
+    List<AppleLiquidSheetIdentityPerson> relatedPeople =
+        const <AppleLiquidSheetIdentityPerson>[],
     List<AppleLiquidSheetTimelineStep> timelineSteps =
         const <AppleLiquidSheetTimelineStep>[],
     this.currentStepIndex,
@@ -1097,6 +1334,7 @@ class AppleLiquidSheetRow {
        _selectedOptions = selectedOptions,
        _selectionSystemImages = selectionSystemImages,
        _timelineSteps = timelineSteps,
+       _relatedPeople = relatedPeople,
        _facts = facts,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
@@ -1139,10 +1377,14 @@ class AppleLiquidSheetRow {
          type != AppleLiquidSheetRowType.segmented ||
              firstSegmentOption != secondSegmentOption,
        ),
-       assert(type != AppleLiquidSheetRowType.identity || role != null),
-       assert(type != AppleLiquidSheetRowType.identity || role != ''),
-       assert(type != AppleLiquidSheetRowType.identity || activityType != null),
-       assert(type != AppleLiquidSheetRowType.identity || activityType != ''),
+       assert(
+         type != AppleLiquidSheetRowType.identity || role == null || role != '',
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.identity ||
+             activityType == null ||
+             activityType != '',
+       ),
        assert(
          type != AppleLiquidSheetRowType.identity ||
              description == null ||
@@ -1152,6 +1394,11 @@ class AppleLiquidSheetRow {
          type != AppleLiquidSheetRowType.identity ||
              avatarUrl == null ||
              avatarUrl != '',
+       ),
+       assert(
+         type != AppleLiquidSheetRowType.identity ||
+             avatarText == null ||
+             avatarText != '',
        ),
        assert(
          type != AppleLiquidSheetRowType.factsGrid ||
@@ -1351,22 +1598,32 @@ class AppleLiquidSheetRow {
          systemImage: systemImage,
        );
 
-  /// Creates a highlighted identity header.
+  /// Creates a configurable identity card.
   ///
   /// [systemImage] is used as the avatar fallback. When [avatarUrl] is set and
   /// the image can be loaded, the remote avatar is shown instead.
-  /// [description] is rendered below the activity type inside the same card.
-  /// [style] configures the card geometry and avatar presentation.
+  /// [status] adds an optional trailing status chip. [relatedPeople] adds
+  /// optional secondary people or entities below the primary identity.
+  /// [description] is rendered below [activityType] inside the same card.
+  /// [variant] can preserve the published card or select the composed card;
+  /// when omitted, native automatic resolution keeps legacy content compatible
+  /// and selects the composed layout for status, related people, or avatar text.
+  /// [style] configures the card geometry, spacing, and avatar presentation.
   const AppleLiquidSheetRow.identity({
     required String title,
-    required String role,
-    required String activityType,
+    String? role,
+    String? activityType,
     String? description,
     String? systemImage,
     String? avatarUrl,
+    String? avatarText,
     Color? tintColor,
     double? rowHorizontalInset,
     AppleLiquidSheetIdentityStyle? style,
+    AppleLiquidSheetIdentityStatus? status,
+    AppleLiquidSheetIdentityVariant? variant,
+    List<AppleLiquidSheetIdentityPerson> relatedPeople =
+        const <AppleLiquidSheetIdentityPerson>[],
   }) : this._(
          type: AppleLiquidSheetRowType.identity,
          title: title,
@@ -1375,9 +1632,13 @@ class AppleLiquidSheetRow {
          description: description,
          systemImage: systemImage,
          avatarUrl: avatarUrl,
+         avatarText: avatarText,
          tintColor: tintColor,
          rowHorizontalInset: rowHorizontalInset,
          identityStyle: style,
+         status: status,
+         identityVariant: variant,
+         relatedPeople: relatedPeople,
        );
 
   /// Creates a connected status timeline.
@@ -1549,8 +1810,27 @@ class AppleLiquidSheetRow {
   /// Optional remote avatar URL for [AppleLiquidSheetRow.identity].
   final String? avatarUrl;
 
+  /// Optional short text, such as initials, used when [avatarUrl] is absent.
+  final String? avatarText;
+
   /// Visual style for [AppleLiquidSheetRow.identity].
   final AppleLiquidSheetIdentityStyle? identityStyle;
+
+  /// Optional trailing status chip for [AppleLiquidSheetRow.identity].
+  final AppleLiquidSheetIdentityStatus? status;
+
+  /// Optional identity-card composition. Null selects the automatic mode.
+  ///
+  /// [AppleLiquidSheetIdentityVariant.legacy] preserves the card shipped in
+  /// the published plugin version. [AppleLiquidSheetIdentityVariant.composed]
+  /// enables the responsive composition with optional related content.
+  final AppleLiquidSheetIdentityVariant? identityVariant;
+
+  final List<AppleLiquidSheetIdentityPerson> _relatedPeople;
+
+  /// Secondary people or entities rendered below the primary identity card row.
+  List<AppleLiquidSheetIdentityPerson> get relatedPeople =>
+      List<AppleLiquidSheetIdentityPerson>.unmodifiable(_relatedPeople);
 
   final List<AppleLiquidSheetTimelineStep> _timelineSteps;
 
@@ -1667,7 +1947,15 @@ class AppleLiquidSheetRow {
       if (activityType != null) 'activityType': activityType,
       if (description != null) 'description': description,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (avatarText != null) 'avatarText': avatarText,
       if (identityStyle != null) 'identityStyle': identityStyle!.toMap(),
+      if (status != null) 'status': status!.toMap(),
+      if (identityVariant != null)
+        'identityVariant': identityVariant!.platformValue,
+      if (relatedPeople.isNotEmpty)
+        'relatedPeople': relatedPeople
+            .map((AppleLiquidSheetIdentityPerson person) => person.toMap())
+            .toList(growable: false),
       if (timelineSteps.isNotEmpty)
         'steps': timelineSteps
             .map((AppleLiquidSheetTimelineStep step) => step.toMap())
