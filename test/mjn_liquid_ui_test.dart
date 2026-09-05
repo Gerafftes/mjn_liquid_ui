@@ -36,6 +36,7 @@ void main() {
       description: 'Unterstützt den Auftrag vor Ort.',
       systemImage: 'person.fill',
       avatarUrl: 'https://example.com/avatar.jpg',
+      avatarAllowedHosts: <String>['example.com'],
       avatarText: 'D',
       tintColor: Color(0xFF0A84FF),
       rowHorizontalInset: 8,
@@ -66,6 +67,7 @@ void main() {
       'activityType': 'Gartenarbeit',
       'description': 'Unterstützt den Auftrag vor Ort.',
       'avatarUrl': 'https://example.com/avatar.jpg',
+      'avatarAllowedHosts': <String>['example.com'],
       'avatarText': 'D',
       'rowHorizontalInset': 8.0,
       'identityStyle': <String, Object?>{
@@ -89,6 +91,25 @@ void main() {
         'avatarTextColor': 0xFFFFFFFF,
         'avatarBackgroundColor': 0xFF0A84FF,
       },
+    });
+  });
+
+  test('identity avatar URLs require an explicit host allowlist', () {
+    const AppleLiquidSheetRow row = AppleLiquidSheetRow.identity(
+      title: 'Du',
+      avatarUrl: 'https://example.com/avatar.jpg',
+      relatedPeople: <AppleLiquidSheetIdentityPerson>[
+        AppleLiquidSheetIdentityPerson(
+          title: 'Mara König',
+          avatarUrl: 'https://example.com/mara.jpg',
+        ),
+      ],
+    );
+
+    final Map<String, Object?> map = row.toMap();
+    expect(map.containsKey('avatarUrl'), isFalse);
+    expect((map['relatedPeople']! as List<Object?>).single, <String, Object?>{
+      'title': 'Mara König',
     });
   });
 
@@ -2031,6 +2052,24 @@ void main() {
         },
         onChanged: (_) {},
       ),
+      throwsAssertionError,
+    );
+  });
+
+  test('AppleLiquidSlider keeps release-relevant range guards', () {
+    expect(
+      () => AppleLiquidSlider(value: 0.5, min: 1, max: 0, onChanged: (_) {}),
+      throwsAssertionError,
+    );
+    expect(
+      () => AppleLiquidSlider(value: 0.5, step: 2, onChanged: (_) {}),
+      throwsAssertionError,
+    );
+  });
+
+  test('AppleLiquidSymbol keeps native render-size guards', () {
+    expect(
+      () => AppleLiquidSymbol('sparkles', size: 513),
       throwsAssertionError,
     );
   });

@@ -1,5 +1,16 @@
 ## 0.2.33
 
+- Hardened `AppleLiquidSlider` validation in both Dart and native Swift so
+  non-finite values, invalid ranges, and invalid steps cannot reach SwiftUI's
+  closed-range slider in release builds.
+- Made remote identity avatars opt-in through exact HTTPS host allowlists. An
+  empty `avatarAllowedHosts` list keeps the avatar local, and redirects cannot
+  leave the allowlisted hosts.
+- Bounded standalone SF Symbol rendering before native bitmap allocation and
+  replaced the process-wide byte cache with an LRU cache capped at 128 entries
+  and 4 MiB.
+- Added regression coverage for slider ranges, avatar URL policy, symbol
+  render limits, and the secure avatar serialization behavior.
 - Extended `AppleLiquidSheetRow.identity` with optional primary content,
   configurable status chips, avatar text, related people, and inline badges.
 - Added responsive native layout and identity styling controls so metadata

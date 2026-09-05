@@ -1,8 +1,16 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'apple_liquid_symbol_weight.dart';
+
+const double _maxNativeSymbolSize = 512;
+const double _maxNativeSymbolScale = 4;
+const double _maxNativeSymbolPixelDimension = 2048;
+const int _maxSymbolCacheEntries = 128;
+const int _maxSymbolCacheBytes = 4 * 1024 * 1024;
 
 /// Renders an SF Symbol by name on iOS.
 ///
@@ -21,15 +29,17 @@ class AppleLiquidSymbol extends StatelessWidget {
     this.fallbackIcon,
     this.semanticLabel,
   }) : assert(name.length > 0),
-       assert(size > 0);
+       assert(size > 0),
+       assert(size <= _maxNativeSymbolSize);
 
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/symbols');
-  static final Map<_AppleLiquidSymbolCacheKey, Uint8List> _bytesCache =
-      <_AppleLiquidSymbolCacheKey, Uint8List>{};
+  static final LinkedHashMap<_AppleLiquidSymbolCacheKey, Uint8List>
+  _bytesCache = LinkedHashMap<_AppleLiquidSymbolCacheKey, Uint8List>();
   static final Map<_AppleLiquidSymbolCacheKey, Future<Uint8List?>>
   _pendingLoads = <_AppleLiquidSymbolCacheKey, Future<Uint8List?>>{};
-  static final Set<_AppleLiquidSymbolCacheKey> _missingSymbols =
-      <_AppleLiquidSymbolCacheKey>{};
+  static final LinkedHashSet<_AppleLiquidSymbolCacheKey> _missingSymbols =
+      LinkedHashSet<_AppleLiquidSymbolCacheKey>();
+  static int _cachedByteCount = 0;
 
   /// SF Symbol name passed to `UIImage(systemName:)` on iOS.
   final String name;
@@ -55,6 +65,7 @@ class AppleLiquidSymbol extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    _validateSize();
     final Color? effectiveColor = color ?? IconTheme.of(context).color;
     final Widget symbol = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
         ? _nativeSymbol(context, effectiveColor)
@@ -73,6 +84,10 @@ class AppleLiquidSymbol extends StatelessWidget {
   Widget _nativeSymbol(BuildContext context, Color? effectiveColor) {
     final double devicePixelRatio =
         MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    if (!_supportsNativeScale(devicePixelRatio)) {
+      return _fallbackSymbol(effectiveColor);
+    }
+
     final _AppleLiquidSymbolCacheKey cacheKey = _AppleLiquidSymbolCacheKey(
       name: name,
       size: size,
@@ -81,12 +96,12 @@ class AppleLiquidSymbol extends StatelessWidget {
       devicePixelRatio: devicePixelRatio,
     );
 
-    final Uint8List? cachedBytes = _bytesCache[cacheKey];
+    final Uint8List? cachedBytes = _cachedBytesFor(cacheKey);
     if (cachedBytes != null) {
       return _image(cachedBytes, effectiveColor);
     }
 
-    if (_missingSymbols.contains(cacheKey)) {
+    if (_isMissing(cacheKey)) {
       return _fallbackSymbol(effectiveColor);
     }
 
@@ -136,12 +151,12 @@ class AppleLiquidSymbol extends StatelessWidget {
   static Future<Uint8List?> _loadNativeSymbol(
     _AppleLiquidSymbolCacheKey cacheKey,
   ) {
-    final Uint8List? cachedBytes = _bytesCache[cacheKey];
+    final Uint8List? cachedBytes = _cachedBytesFor(cacheKey);
     if (cachedBytes != null) {
       return SynchronousFuture<Uint8List?>(cachedBytes);
     }
 
-    if (_missingSymbols.contains(cacheKey)) {
+    if (_isMissing(cacheKey)) {
       return SynchronousFuture<Uint8List?>(null);
     }
 
@@ -157,11 +172,11 @@ class AppleLiquidSymbol extends StatelessWidget {
             });
 
         if (bytes == null || bytes.isEmpty) {
-          _missingSymbols.add(cacheKey);
+          _rememberMissing(cacheKey);
           return null;
         }
 
-        _bytesCache[cacheKey] = bytes;
+        _cacheBytes(cacheKey, bytes);
         return bytes;
       } on MissingPluginException {
         return null;
@@ -171,6 +186,76 @@ class AppleLiquidSymbol extends StatelessWidget {
         _pendingLoads.remove(cacheKey);
       }
     });
+  }
+
+  static Uint8List? _cachedBytesFor(_AppleLiquidSymbolCacheKey cacheKey) {
+    final Uint8List? bytes = _bytesCache.remove(cacheKey);
+    if (bytes != null) {
+      _bytesCache[cacheKey] = bytes;
+    }
+    return bytes;
+  }
+
+  static bool _isMissing(_AppleLiquidSymbolCacheKey cacheKey) {
+    if (!_missingSymbols.remove(cacheKey)) {
+      return false;
+    }
+
+    _missingSymbols.add(cacheKey);
+    return true;
+  }
+
+  static void _rememberMissing(_AppleLiquidSymbolCacheKey cacheKey) {
+    _missingSymbols.remove(cacheKey);
+    _missingSymbols.add(cacheKey);
+    while (_missingSymbols.length > _maxSymbolCacheEntries) {
+      _missingSymbols.remove(_missingSymbols.first);
+    }
+  }
+
+  static void _cacheBytes(
+    _AppleLiquidSymbolCacheKey cacheKey,
+    Uint8List bytes,
+  ) {
+    final Uint8List? previousBytes = _bytesCache.remove(cacheKey);
+    if (previousBytes != null) {
+      _cachedByteCount -= previousBytes.length;
+    }
+    _missingSymbols.remove(cacheKey);
+
+    if (bytes.length > _maxSymbolCacheBytes) {
+      return;
+    }
+
+    _bytesCache[cacheKey] = bytes;
+    _cachedByteCount += bytes.length;
+
+    while (_bytesCache.length > _maxSymbolCacheEntries ||
+        _cachedByteCount > _maxSymbolCacheBytes) {
+      final _AppleLiquidSymbolCacheKey oldestKey = _bytesCache.keys.first;
+      final Uint8List? oldestBytes = _bytesCache.remove(oldestKey);
+      if (oldestBytes == null) {
+        break;
+      }
+      _cachedByteCount -= oldestBytes.length;
+    }
+  }
+
+  bool _supportsNativeScale(double devicePixelRatio) {
+    return devicePixelRatio.isFinite &&
+        devicePixelRatio > 0 &&
+        devicePixelRatio <= _maxNativeSymbolScale &&
+        size * devicePixelRatio <= _maxNativeSymbolPixelDimension;
+  }
+
+  void _validateSize() {
+    if (!size.isFinite || size <= 0 || size > _maxNativeSymbolSize) {
+      throw ArgumentError.value(
+        size,
+        'size',
+        'must be finite, greater than zero, and at most $_maxNativeSymbolSize',
+      );
+    }
   }
 }
 

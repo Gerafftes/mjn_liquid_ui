@@ -6,6 +6,78 @@ import XCTest
 
 final class RunnerTests: XCTestCase {
 
+  func testSliderConfigurationRejectsMalformedRanges() {
+    XCTAssertNil(
+      AppleLiquidSliderConfiguration(
+        arguments: ["min": 1.0, "max": 0.0, "value": 0.5]
+      )
+    )
+    XCTAssertNil(
+      AppleLiquidSliderConfiguration(
+        arguments: ["min": Double.nan, "max": 1.0, "value": 0.5]
+      )
+    )
+
+    let configuration = AppleLiquidSliderConfiguration(
+      arguments: ["min": 0.0, "max": 1.0, "value": 0.5, "step": 0.25]
+    )
+    XCTAssertEqual(configuration?.min, 0)
+    XCTAssertEqual(configuration?.max, 1)
+    XCTAssertEqual(configuration?.step, 0.25)
+  }
+
+  func testSymbolConfigurationBoundsNativeRasterization() {
+    XCTAssertNil(
+      AppleLiquidSymbolConfiguration(arguments: ["size": 513.0])
+    )
+    XCTAssertNil(
+      AppleLiquidSymbolConfiguration(arguments: ["size": 512.0, "scale": 4.1])
+    )
+
+    let configuration = AppleLiquidSymbolConfiguration(
+      arguments: ["size": 256.0, "scale": 4.0]
+    )
+    XCTAssertEqual(configuration?.pointSize, 256)
+    XCTAssertEqual(configuration?.scale, 4)
+  }
+
+  func testAvatarURLPolicyRequiresExactHTTPSHostAllowlist() throws {
+    let allowedHosts = AppleLiquidAvatarURLPolicy.allowedHosts(
+      ["images.example.com"] as [Any]
+    )
+    let allowedURL = try XCTUnwrap(
+      URL(string: "https://images.example.com/avatar.png")
+    )
+    let httpURL = try XCTUnwrap(
+      URL(string: "http://images.example.com/avatar.png")
+    )
+    let otherHostURL = try XCTUnwrap(
+      URL(string: "https://cdn.example.com/avatar.png")
+    )
+    let portURL = try XCTUnwrap(
+      URL(string: "https://images.example.com:8443/avatar.png")
+    )
+
+    XCTAssertTrue(
+      AppleLiquidAvatarURLPolicy.allows(
+        allowedURL,
+        allowedHosts: allowedHosts
+      )
+    )
+    XCTAssertFalse(
+      AppleLiquidAvatarURLPolicy.allows(httpURL, allowedHosts: allowedHosts)
+    )
+    XCTAssertFalse(
+      AppleLiquidAvatarURLPolicy.allows(
+        otherHostURL,
+        allowedHosts: allowedHosts
+      )
+    )
+    XCTAssertFalse(
+      AppleLiquidAvatarURLPolicy.allows(portURL, allowedHosts: allowedHosts)
+    )
+  }
+
   func testPluginCanBeCreated() {
     let plugin = AppleLiquidTabbarPlugin()
     XCTAssertNotNil(plugin)
