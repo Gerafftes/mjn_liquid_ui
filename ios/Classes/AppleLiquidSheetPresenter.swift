@@ -1,5 +1,6 @@
 import Combine
 import Flutter
+import Foundation
 import SwiftUI
 import UIKit
 
@@ -2026,12 +2027,79 @@ private struct AppleLiquidSheetIdentityBadgeConfiguration: Identifiable {
   }
 }
 
+enum AppleLiquidAvatarURLPolicy {
+  static func allowedHosts(_ value: Any?) -> Set<String> {
+    guard let values = value as? [Any] else {
+      return []
+    }
+
+    return Set(
+      values.compactMap { value in
+        guard let host = value as? String else {
+          return nil
+        }
+        return normalizedHost(host)
+      }
+    )
+  }
+
+  static func optionalURL(
+    _ value: Any?,
+    allowedHosts: Set<String>
+  ) -> URL? {
+    guard let string = value as? String,
+      !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      let url = URL(string: string),
+      allows(url, allowedHosts: allowedHosts)
+    else {
+      return nil
+    }
+
+    return url
+  }
+
+  static func allows(_ url: URL, allowedHosts: Set<String>) -> Bool {
+    guard url.scheme?.lowercased() == "https",
+      url.user == nil,
+      url.password == nil,
+      url.port == nil || url.port == 443,
+      let host = url.host.flatMap(normalizedHost),
+      allowedHosts.contains(host)
+    else {
+      return false
+    }
+
+    return true
+  }
+
+  private static func normalizedHost(_ value: String) -> String? {
+    let host = value.trimmingCharacters(in: .whitespacesAndNewlines)
+      .lowercased()
+    guard !host.isEmpty,
+      host.range(
+        of: "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)*$",
+        options: .regularExpression
+      ) != nil
+    else {
+      return nil
+    }
+
+    let labels = host.split(separator: ".")
+    if labels.count == 4 && labels.allSatisfy({ Int($0) != nil }) {
+      return nil
+    }
+
+    return host
+  }
+}
+
 private struct AppleLiquidSheetIdentityPersonConfiguration: Identifiable {
   let id: String
   let title: String
   let subtitle: String?
   let systemImage: String?
   let avatarURL: URL?
+  let avatarAllowedHosts: Set<String>
   let avatarText: String?
   let badges: [AppleLiquidSheetIdentityBadgeConfiguration]
 
@@ -2046,7 +2114,14 @@ private struct AppleLiquidSheetIdentityPersonConfiguration: Identifiable {
     self.title = title
     self.subtitle = Self.optionalString(dictionary["subtitle"])
     self.systemImage = Self.optionalString(dictionary["systemImage"])
-    self.avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    let allowedHosts = AppleLiquidAvatarURLPolicy.allowedHosts(
+      dictionary["avatarAllowedHosts"]
+    )
+    self.avatarAllowedHosts = allowedHosts
+    self.avatarURL = AppleLiquidAvatarURLPolicy.optionalURL(
+      dictionary["avatarUrl"],
+      allowedHosts: allowedHosts
+    )
     self.avatarText = Self.optionalString(dictionary["avatarText"])
     self.badges = (dictionary["badges"] as? [Any] ?? [])
       .enumerated()
@@ -2068,17 +2143,6 @@ private struct AppleLiquidSheetIdentityPersonConfiguration: Identifiable {
     return string
   }
 
-  private static func optionalURL(_ value: Any?) -> URL? {
-    guard let string = optionalString(value),
-      let url = URL(string: string),
-      let scheme = url.scheme?.lowercased(),
-      scheme == "https" || scheme == "http"
-    else {
-      return nil
-    }
-
-    return url
-  }
 }
 
 private struct AppleLiquidSheetTimelineStepConfiguration: Identifiable {
@@ -2177,6 +2241,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let activityType: String?
   let identityDescription: String?
   let avatarURL: URL?
+  let avatarAllowedHosts: Set<String>
   let avatarText: String?
   let identityStyle: AppleLiquidSheetIdentityStyleConfiguration
   let identityStatus: AppleLiquidSheetIdentityStatusConfiguration?
@@ -2247,7 +2312,13 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     let role = Self.optionalString(dictionary["role"])
     let activityType = Self.optionalString(dictionary["activityType"])
     let identityDescription = Self.optionalString(dictionary["description"])
-    let avatarURL = Self.optionalURL(dictionary["avatarUrl"])
+    let avatarAllowedHosts = AppleLiquidAvatarURLPolicy.allowedHosts(
+      dictionary["avatarAllowedHosts"]
+    )
+    let avatarURL = AppleLiquidAvatarURLPolicy.optionalURL(
+      dictionary["avatarUrl"],
+      allowedHosts: avatarAllowedHosts
+    )
     let avatarText = Self.optionalString(dictionary["avatarText"])
     let identityStyle = AppleLiquidSheetIdentityStyleConfiguration(
       value: dictionary["identityStyle"]
@@ -2363,6 +2434,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.activityType = activityType
     self.identityDescription = identityDescription
     self.avatarURL = avatarURL
+    self.avatarAllowedHosts = avatarAllowedHosts
     self.avatarText = avatarText
     self.identityStyle = identityStyle
     self.identityStatus = identityStatus
@@ -2455,6 +2527,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     activityType: String? = nil,
     identityDescription: String? = nil,
     avatarURL: URL? = nil,
+    avatarAllowedHosts: Set<String> = [],
     avatarText: String? = nil,
     identityStyle: AppleLiquidSheetIdentityStyleConfiguration =
       AppleLiquidSheetIdentityStyleConfiguration(value: nil),
@@ -2512,6 +2585,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.activityType = activityType
     self.identityDescription = identityDescription
     self.avatarURL = avatarURL
+    self.avatarAllowedHosts = avatarAllowedHosts
     self.avatarText = avatarText
     self.identityStyle = identityStyle
     self.identityStatus = identityStatus
@@ -2823,18 +2897,6 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     }
 
     return string
-  }
-
-  private static func optionalURL(_ value: Any?) -> URL? {
-    guard let string = optionalString(value),
-      let url = URL(string: string),
-      let scheme = url.scheme?.lowercased(),
-      scheme == "https" || scheme == "http"
-    else {
-      return nil
-    }
-
-    return url
   }
 
   private static func clampedInt(
@@ -4872,6 +4934,148 @@ private struct AppleLiquidSheetRowView: View {
 }
 
 @available(iOS 16.0, *)
+private final class AppleLiquidAvatarSessionDelegate: NSObject,
+  URLSessionTaskDelegate
+{
+  let allowedHosts: Set<String>
+
+  init(allowedHosts: Set<String>) {
+    self.allowedHosts = allowedHosts
+  }
+
+  func urlSession(
+    _ session: URLSession,
+    task: URLSessionTask,
+    willPerformHTTPRedirection response: HTTPURLResponse,
+    newRequest request: URLRequest,
+    completionHandler: @escaping (URLRequest?) -> Void
+  ) {
+    guard let url = request.url,
+      AppleLiquidAvatarURLPolicy.allows(url, allowedHosts: allowedHosts)
+    else {
+      completionHandler(nil)
+      return
+    }
+
+    completionHandler(request)
+  }
+}
+
+@available(iOS 16.0, *)
+private final class AppleLiquidAvatarLoader: ObservableObject {
+  @Published private(set) var image: UIImage?
+
+  private let url: URL
+  private let allowedHosts: Set<String>
+  private var session: URLSession?
+  private var task: URLSessionDataTask?
+
+  init(url: URL, allowedHosts: Set<String>) {
+    self.url = url
+    self.allowedHosts = allowedHosts
+  }
+
+  deinit {
+    stop()
+  }
+
+  func start() {
+    guard task == nil,
+      AppleLiquidAvatarURLPolicy.allows(url, allowedHosts: allowedHosts)
+    else {
+      return
+    }
+
+    let configuration = URLSessionConfiguration.ephemeral
+    configuration.httpShouldSetCookies = false
+    configuration.urlCredentialStorage = nil
+    let session = URLSession(
+      configuration: configuration,
+      delegate: AppleLiquidAvatarSessionDelegate(allowedHosts: allowedHosts),
+      delegateQueue: nil
+    )
+    self.session = session
+
+    let task = session.dataTask(with: URLRequest(url: url)) {
+      [weak self] data, response, _ in
+      let image: UIImage?
+      if let response,
+        let responseURL = response.url,
+        let httpResponse = response as? HTTPURLResponse,
+        (200..<300).contains(httpResponse.statusCode),
+        AppleLiquidAvatarURLPolicy.allows(
+          responseURL,
+          allowedHosts: self?.allowedHosts ?? []
+        ),
+        let data
+      {
+        image = UIImage(data: data)
+      } else {
+        image = nil
+      }
+
+      DispatchQueue.main.async { [weak self] in
+        guard let self else {
+          return
+        }
+
+        self.image = image
+        self.task = nil
+        self.session?.finishTasksAndInvalidate()
+        self.session = nil
+      }
+    }
+    self.task = task
+    task.resume()
+  }
+
+  func stop() {
+    task?.cancel()
+    task = nil
+    session?.invalidateAndCancel()
+    session = nil
+  }
+}
+
+@available(iOS 16.0, *)
+private struct AppleLiquidRemoteAvatar<Placeholder: View>: View {
+  private let placeholder: Placeholder
+  @StateObject private var loader: AppleLiquidAvatarLoader
+
+  init(
+    url: URL,
+    allowedHosts: Set<String>,
+    @ViewBuilder placeholder: () -> Placeholder
+  ) {
+    self.placeholder = placeholder()
+    _loader = StateObject(
+      wrappedValue: AppleLiquidAvatarLoader(
+        url: url,
+        allowedHosts: allowedHosts
+      )
+    )
+  }
+
+  var body: some View {
+    Group {
+      if let image = loader.image {
+        Image(uiImage: image)
+          .resizable()
+          .scaledToFill()
+      } else {
+        placeholder
+      }
+    }
+    .onAppear {
+      loader.start()
+    }
+    .onDisappear {
+      loader.stop()
+    }
+  }
+}
+
+@available(iOS 16.0, *)
 private struct AppleLiquidSheetIdentityRow: View {
   let row: AppleLiquidSheetRowConfiguration
 
@@ -5145,16 +5349,13 @@ private struct AppleLiquidSheetIdentityRow: View {
   @ViewBuilder
   private var primaryAvatar: some View {
     if let avatarURL = row.avatarURL {
-      AsyncImage(url: avatarURL) { phase in
-        switch phase {
-        case .success(let image):
-          image
-            .resizable()
-            .scaledToFill()
-        default:
-          primaryAvatarFallback
-        }
+      AppleLiquidRemoteAvatar(
+        url: avatarURL,
+        allowedHosts: row.avatarAllowedHosts
+      ) {
+        primaryAvatarFallback
       }
+      .id(avatarURL)
       .frame(
         width: row.identityStyle.avatarSize,
         height: row.identityStyle.avatarSize
@@ -5170,16 +5371,13 @@ private struct AppleLiquidSheetIdentityRow: View {
     _ person: AppleLiquidSheetIdentityPersonConfiguration
   ) -> some View {
     if let avatarURL = person.avatarURL {
-      AsyncImage(url: avatarURL) { phase in
-        switch phase {
-        case .success(let image):
-          image
-            .resizable()
-            .scaledToFill()
-        default:
-          personAvatarFallback(person)
-        }
+      AppleLiquidRemoteAvatar(
+        url: avatarURL,
+        allowedHosts: person.avatarAllowedHosts
+      ) {
+        personAvatarFallback(person)
       }
+      .id(avatarURL)
       .frame(
         width: row.identityStyle.secondaryAvatarSize,
         height: row.identityStyle.secondaryAvatarSize

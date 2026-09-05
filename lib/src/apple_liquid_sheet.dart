@@ -747,9 +747,11 @@ class AppleLiquidSheetIdentityPerson {
     this.systemImage,
     this.avatarUrl,
     this.avatarText,
+    List<String> avatarAllowedHosts = const <String>[],
     List<AppleLiquidSheetIdentityBadge> badges =
         const <AppleLiquidSheetIdentityBadge>[],
   }) : _badges = badges,
+       _avatarAllowedHosts = avatarAllowedHosts,
        assert(title != ''),
        assert(subtitle == null || subtitle != ''),
        assert(systemImage == null || systemImage != ''),
@@ -766,7 +768,19 @@ class AppleLiquidSheetIdentityPerson {
   final String? systemImage;
 
   /// Optional remote avatar URL.
+  ///
+  /// The URL is only sent to native code when [avatarAllowedHosts] is
+  /// non-empty.
   final String? avatarUrl;
+
+  /// Exact HTTPS hosts allowed to load [avatarUrl].
+  ///
+  /// An empty list disables remote avatar loading for this person.
+  final List<String> _avatarAllowedHosts;
+
+  /// Exact HTTPS hosts allowed to load [avatarUrl].
+  List<String> get avatarAllowedHosts =>
+      List<String>.unmodifiable(_avatarAllowedHosts);
 
   /// Optional short text, such as initials, used when [avatarUrl] is absent.
   final String? avatarText;
@@ -782,7 +796,10 @@ class AppleLiquidSheetIdentityPerson {
       'title': title,
       if (subtitle != null) 'subtitle': subtitle,
       if (systemImage != null) 'systemImage': systemImage,
-      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (avatarUrl != null && avatarAllowedHosts.isNotEmpty)
+        'avatarUrl': avatarUrl,
+      if (avatarUrl != null && avatarAllowedHosts.isNotEmpty)
+        'avatarAllowedHosts': avatarAllowedHosts,
       if (avatarText != null) 'avatarText': avatarText,
       if (badges.isNotEmpty)
         'badges': badges
@@ -1308,6 +1325,7 @@ class AppleLiquidSheetRow {
     this.description,
     this.avatarUrl,
     this.avatarText,
+    List<String> avatarAllowedHosts = const <String>[],
     this.identityStyle,
     this.status,
     this.identityVariant,
@@ -1335,6 +1353,7 @@ class AppleLiquidSheetRow {
        _selectionSystemImages = selectionSystemImages,
        _timelineSteps = timelineSteps,
        _relatedPeople = relatedPeople,
+       _avatarAllowedHosts = avatarAllowedHosts,
        _facts = facts,
        _firstSegmentOption = firstSegmentOption,
        _secondSegmentOption = secondSegmentOption,
@@ -1601,7 +1620,8 @@ class AppleLiquidSheetRow {
   /// Creates a configurable identity card.
   ///
   /// [systemImage] is used as the avatar fallback. When [avatarUrl] is set and
-  /// the image can be loaded, the remote avatar is shown instead.
+  /// [avatarAllowedHosts] contains its exact HTTPS host, the remote avatar is
+  /// shown when the image can be loaded.
   /// [status] adds an optional trailing status chip. [relatedPeople] adds
   /// optional secondary people or entities below the primary identity.
   /// [description] is rendered below [activityType] inside the same card.
@@ -1617,6 +1637,7 @@ class AppleLiquidSheetRow {
     String? systemImage,
     String? avatarUrl,
     String? avatarText,
+    List<String> avatarAllowedHosts = const <String>[],
     Color? tintColor,
     double? rowHorizontalInset,
     AppleLiquidSheetIdentityStyle? style,
@@ -1633,6 +1654,7 @@ class AppleLiquidSheetRow {
          systemImage: systemImage,
          avatarUrl: avatarUrl,
          avatarText: avatarText,
+         avatarAllowedHosts: avatarAllowedHosts,
          tintColor: tintColor,
          rowHorizontalInset: rowHorizontalInset,
          identityStyle: style,
@@ -1807,8 +1829,18 @@ class AppleLiquidSheetRow {
   /// Optional description shown inside [AppleLiquidSheetRow.identity].
   final String? description;
 
-  /// Optional remote avatar URL for [AppleLiquidSheetRow.identity].
+  /// Optional remote avatar URL for [AppleLiquidSheetRow.identity]. It is only
+  /// sent to native code when [avatarAllowedHosts] is non-empty.
   final String? avatarUrl;
+
+  /// Exact HTTPS hosts allowed to load [avatarUrl].
+  ///
+  /// An empty list disables remote avatar loading for this row.
+  final List<String> _avatarAllowedHosts;
+
+  /// Exact HTTPS hosts allowed to load [avatarUrl].
+  List<String> get avatarAllowedHosts =>
+      List<String>.unmodifiable(_avatarAllowedHosts);
 
   /// Optional short text, such as initials, used when [avatarUrl] is absent.
   final String? avatarText;
@@ -1946,7 +1978,10 @@ class AppleLiquidSheetRow {
       if (role != null) 'role': role,
       if (activityType != null) 'activityType': activityType,
       if (description != null) 'description': description,
-      if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (avatarUrl != null && avatarAllowedHosts.isNotEmpty)
+        'avatarUrl': avatarUrl,
+      if (avatarUrl != null && avatarAllowedHosts.isNotEmpty)
+        'avatarAllowedHosts': avatarAllowedHosts,
       if (avatarText != null) 'avatarText': avatarText,
       if (identityStyle != null) 'identityStyle': identityStyle!.toMap(),
       if (status != null) 'status': status!.toMap(),

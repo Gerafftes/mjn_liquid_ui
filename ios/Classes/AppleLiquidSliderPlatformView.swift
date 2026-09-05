@@ -169,7 +169,8 @@ final class AppleLiquidSliderPlatformView: NSObject, FlutterPlatformView {
       binaryMessenger: messenger
     )
     model = AppleLiquidSliderModel(
-      configuration: AppleLiquidSliderConfiguration(arguments: args)
+      configuration: AppleLiquidSliderConfiguration(arguments: args) ??
+        .fallback
     )
 
     super.init()
@@ -209,7 +210,18 @@ final class AppleLiquidSliderPlatformView: NSObject, FlutterPlatformView {
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "updateConfiguration":
-      let configuration = AppleLiquidSliderConfiguration(arguments: call.arguments)
+      guard let configuration = AppleLiquidSliderConfiguration(
+        arguments: call.arguments
+      ) else {
+        result(
+          FlutterError(
+            code: "invalid_slider_configuration",
+            message: "The slider configuration must contain a finite range.",
+            details: nil
+          )
+        )
+        return
+      }
       model.update(configuration: configuration)
       result(nil)
     default:

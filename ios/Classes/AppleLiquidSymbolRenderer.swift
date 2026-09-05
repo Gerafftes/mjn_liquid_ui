@@ -5,7 +5,18 @@ enum AppleLiquidSymbolRenderer {
   static func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "render":
-      let configuration = AppleLiquidSymbolConfiguration(arguments: call.arguments)
+      guard let configuration = AppleLiquidSymbolConfiguration(
+        arguments: call.arguments
+      ) else {
+        result(
+          FlutterError(
+            code: "invalid_symbol_configuration",
+            message: "The symbol size or scale exceeds the native render limit.",
+            details: nil
+          )
+        )
+        return
+      }
       result(render(configuration: configuration))
     default:
       result(FlutterMethodNotImplemented)

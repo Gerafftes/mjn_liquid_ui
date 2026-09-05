@@ -73,6 +73,28 @@ class AppleLiquidSlider extends StatefulWidget {
   /// Minimum width reserved for [valueLabel].
   final double valueLabelMinWidth;
 
+  void _validateConfiguration() {
+    if (!min.isFinite || !max.isFinite || min >= max) {
+      throw ArgumentError(
+        'AppleLiquidSlider requires finite min and max values with min < max.',
+      );
+    }
+
+    if (!value.isFinite) {
+      throw ArgumentError.value(value, 'value', 'must be finite');
+    }
+
+    final double? stepValue = step;
+    if (stepValue != null &&
+        (!stepValue.isFinite || stepValue <= 0 || stepValue > max - min)) {
+      throw ArgumentError.value(
+        stepValue,
+        'step',
+        'must be finite, greater than zero, and no larger than max - min',
+      );
+    }
+  }
+
   @override
   State<AppleLiquidSlider> createState() => _AppleLiquidSliderState();
 }
@@ -87,6 +109,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
   @override
   void didUpdateWidget(covariant AppleLiquidSlider oldWidget) {
     super.didUpdateWidget(oldWidget);
+    widget._validateConfiguration();
 
     if (oldWidget.value != widget.value ||
         oldWidget.min != widget.min ||
@@ -109,6 +132,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
 
   @override
   Widget build(BuildContext context) {
+    widget._validateConfiguration();
     final double value = widget.value.clamp(widget.min, widget.max);
     final int? divisions = _divisionsForStep();
     final Widget slider = _buildSliderControl(context, value, divisions);
@@ -179,6 +203,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
   }
 
   Map<String, Object?> get _configuration {
+    widget._validateConfiguration();
     return <String, Object?>{
       'value': widget.value,
       'min': widget.min,

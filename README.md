@@ -481,6 +481,9 @@ AppleLiquidSheetSection(
 `role`, `activityType`, and `description` are optional, so the same row also
 supports a compact primary-only card. `avatarUrl` takes precedence over
 `avatarText`, which takes precedence over the SF Symbol fallback. Set
+`avatarAllowedHosts` to an exact list of HTTPS hosts to opt into remote avatar
+loading; leaving it empty keeps the avatar local and prevents a network
+request. Redirects are accepted only when they remain on an allowlisted host.
 `status` with any app-provided label and colors; the plugin does not assume
 specific statuses or business roles. `relatedPeople` accepts any number of
 secondary people or entities, each with its own avatar source and badges.
@@ -973,6 +976,33 @@ The earlier bottom search bar option has been removed from the sheet API.
 - Changes inside `ios/Classes` are native Swift/SwiftUI changes. Flutter hot
   restart does not recompile those files; stop and rerun the example app so
   Xcode performs an incremental iOS build.
+
+## Security and resource limits
+
+Remote identity avatars are opt-in. For
+`AppleLiquidSheetRow.identity` and `AppleLiquidSheetIdentityPerson`, provide
+an exact HTTPS host allowlist when a remote avatar is intended:
+
+```dart
+const AppleLiquidSheetRow.identity(
+  title: 'Du',
+  avatarUrl: 'https://images.example.com/avatar.jpg',
+  avatarAllowedHosts: <String>['images.example.com'],
+);
+```
+
+An empty `avatarAllowedHosts` list omits the URL from the native payload, so the
+identity card uses its local text or SF Symbol fallback. Native loading accepts
+only HTTPS URLs whose host is exactly allowlisted; credentials, non-approved
+ports, and redirects to other hosts are rejected. The host application remains
+responsible for choosing trusted origins and applying its own privacy and ATS
+policy.
+
+Standalone SF Symbol rendering is bounded before native bitmap allocation:
+point size is limited to 512 pt, device scale to 4, and the resulting pixel
+dimension to 2048. Its process cache uses an LRU policy capped at 128 entries
+and 4 MiB. Slider ranges, values, and optional steps are validated in both
+Dart and native code before SwiftUI receives them.
 
 ## Limitations
 
