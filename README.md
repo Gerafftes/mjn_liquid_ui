@@ -114,7 +114,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.32
+  mjn_liquid_ui: ^0.2.34
 ```
 
 Then import the package:
