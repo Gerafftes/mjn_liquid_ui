@@ -1,4 +1,4 @@
-## 0.2.33
+## 0.2.34
 
 - Hardened `AppleLiquidSlider` validation in both Dart and native Swift so
   non-finite values, invalid ranges, and invalid steps cannot reach SwiftUI's
