@@ -1468,8 +1468,69 @@ void main() {
     try {
       expect(await AppleLiquidToast.show(title: 'Saved'), isFalse);
       expect(await AppleLiquidToast.dismiss(), isFalse);
+      expect(await AppleLiquidToast.setVisible(false), isFalse);
+      expect(await AppleLiquidToast.setVisible(true), isFalse);
       expect(calls, isEmpty);
     } finally {
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast hides and restores the active stack', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    String? actionId;
+    int actionTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionId = arguments['actionId'] as String?;
+          }
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Saved',
+          duration: null,
+          action: AppleLiquidToastAction(
+            title: 'Undo',
+            dismissesToast: false,
+            onPressed: () {
+              actionTapCount += 1;
+            },
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(await AppleLiquidToast.setVisible(false), isTrue);
+      expect(await AppleLiquidToast.setVisible(true), isTrue);
+
+      expect(calls.map((MethodCall call) => call.method).toList(), <String>[
+        'show',
+        'setVisibility',
+        'setVisibility',
+      ]);
+      expect(calls[1].arguments, isFalse);
+      expect(calls[2].arguments, isTrue);
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionId},
+      );
+      expect(actionTapCount, 1);
+    } finally {
+      await AppleLiquidToast.setVisible(true);
+      await AppleLiquidToast.dismiss();
       debugDefaultTargetPlatformOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(toastChannel, null);
@@ -1514,6 +1575,9 @@ void main() {
       expect(arguments, containsPair('duration', 1.5));
       expect(arguments, containsPair('placementOffset', -44.0));
       expect(arguments, containsPair('transitionOffset', 120.0));
+      expect(arguments['maxVisibleToasts'], isNull);
+      expect(arguments, containsPair('overflowTitle', 'More notifications'));
+      expect(arguments, containsPair('isVisible', true));
       expect(arguments, containsPair('systemImage', 'cart.fill'));
       expect(arguments, containsPair('actionTitle', 'Undo'));
       expect(arguments, containsPair('actionTintColor', 0xFFFF9500));
@@ -1521,6 +1585,179 @@ void main() {
       expect(arguments, containsPair('isWholeToastTappable', true));
       expect(arguments['actionId'], isA<String>());
     } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast keeps stacked actions independent', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<String> actionIds = <String>[];
+    final List<String> toastIds = <String>[];
+    int firstTapCount = 0;
+    int secondTapCount = 0;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            actionIds.add(arguments['actionId'] as String);
+            toastIds.add(arguments['id'] as String);
+          }
+
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'First',
+          duration: null,
+          action: AppleLiquidToastAction(
+            title: 'Undo first',
+            dismissesToast: false,
+            onPressed: () {
+              firstTapCount += 1;
+            },
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Second',
+          duration: null,
+          action: AppleLiquidToastAction(
+            title: 'Undo second',
+            dismissesToast: false,
+            onPressed: () {
+              secondTapCount += 1;
+            },
+          ),
+        ),
+        isTrue,
+      );
+
+      expect(actionIds, hasLength(2));
+      expect(actionIds[0], isNot(equals(actionIds[1])));
+      expect(toastIds, hasLength(2));
+      expect(toastIds[0], isNot(equals(toastIds[1])));
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionIds[0]},
+      );
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionIds[1]},
+      );
+
+      expect(firstTapCount, 1);
+      expect(secondTapCount, 1);
+
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'toastDismissed',
+        <String, Object?>{'toastId': toastIds[0]},
+      );
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionIds[0]},
+      );
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': actionIds[1]},
+      );
+
+      expect(firstTapCount, 1);
+      expect(secondTapCount, 2);
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast keeps actions trailing-only by default', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          return true;
+        });
+
+    try {
+      expect(
+        await AppleLiquidToast.show(
+          title: 'Added to Cart',
+          action: AppleLiquidToastAction(title: 'Undo', onPressed: () {}),
+        ),
+        isTrue,
+      );
+
+      final Map<Object?, Object?> arguments =
+          calls.single.arguments as Map<Object?, Object?>;
+      expect(arguments, containsPair('isWholeToastTappable', false));
+    } finally {
+      await AppleLiquidToast.dismiss();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  test('AppleLiquidToast serializes configurable stack options', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final List<MethodCall> calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          calls.add(call);
+          return true;
+        });
+
+    final AppleLiquidToastStackOptions previousStackOptions =
+        AppleLiquidToast.stackOptions;
+    AppleLiquidToast.stackOptions = const AppleLiquidToastStackOptions(
+      maxVisibleToasts: 2,
+      overflowTitle: '{count} weitere Toasts',
+    );
+
+    try {
+      expect(
+        await AppleLiquidToast.show(title: 'First', duration: null),
+        isTrue,
+      );
+      expect(
+        await AppleLiquidToast.show(title: 'Second', duration: null),
+        isTrue,
+      );
+
+      final List<Map<Object?, Object?>> showArguments = calls
+          .where((MethodCall call) => call.method == 'show')
+          .map((MethodCall call) => call.arguments as Map<Object?, Object?>)
+          .toList();
+
+      expect(showArguments, hasLength(2));
+      for (final Map<Object?, Object?> arguments in showArguments) {
+        expect(arguments, containsPair('maxVisibleToasts', 2));
+        expect(
+          arguments,
+          containsPair('overflowTitle', '{count} weitere Toasts'),
+        );
+      }
+    } finally {
+      AppleLiquidToast.stackOptions = previousStackOptions;
       await AppleLiquidToast.dismiss();
       debugDefaultTargetPlatformOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

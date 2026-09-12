@@ -3,6 +3,7 @@ enum AppleLiquidTabbarConstants {
   static let switchViewType = "mjn_liquid_ui_switch"
   static let sliderViewType = "mjn_liquid_ui_slider"
   static let surfaceViewType = "mjn_liquid_ui_surface"
+  static let concentricRectangleViewType = "mjn_liquid_ui_concentric_rectangle"
   static let symbolChannelName = "mjn_liquid_ui/symbols"
   static let sheetChannelName = "mjn_liquid_ui/sheets"
   static let toastChannelName = "mjn_liquid_ui/toasts"
