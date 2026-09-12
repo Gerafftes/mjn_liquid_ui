@@ -34,6 +34,8 @@ structure.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
+- Native SwiftUI concentric rectangles with independently configurable or
+  uniformly resolved corners.
 - Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
   sheet, customizable Dart-provided form content, content-sized detents,
   optional background color, and background zoom.
@@ -53,6 +55,7 @@ structure.
 | `AppleLiquidSlider` | Native Liquid Glass slider with min/max range, optional step support, and optional trailing value labels | - |
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
 | `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
+| `AppleConcentricRectangle` | Native iOS 26 container-relative rectangle with fixed, concentric, and minimum-radius corner styles | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
 | `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
 | `AppleLiquidSheetBackgroundInteractionGuard` | Optional Flutter background interaction guard while a native sheet is active | `AppleLiquidSheetController` |
@@ -114,7 +117,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.34
+  mjn_liquid_ui: ^0.2.35
 ```
 
 Then import the package:
@@ -294,6 +297,32 @@ Use `deformable: true` for interactive squash and stretch feedback. Use
 `AppleLiquidStretchGestureMode.gestureDetector` when the surface contains
 buttons or other tappable Flutter children.
 
+### Concentric rectangle
+
+```dart
+const AppleConcentricRectangle(
+  height: 240,
+  color: Color(0xFF34C759),
+  inset: 8,
+  corners: AppleConcentricRectangleCorners.uniformTopAndBottom(
+    uniformTopCorners: AppleConcentricCornerStyle.fixed(24),
+    uniformBottomCorners: AppleConcentricCornerStyle.concentric(),
+  ),
+  child: Center(child: Text('Container-relative corners')),
+)
+```
+
+On iOS 26 and newer, `AppleConcentricRectangle` uses SwiftUI's native
+`ConcentricRectangle`. Keep the widget at the full size of its container and
+use `inset` so SwiftUI can preserve the shared corner centers. Set
+`containerCornerRadius` when the surrounding container is a custom rounded
+rectangle; leave it null to use the system-provided container shape. Fixed
+corners and `concentric(minimumRadius:)` also provide deterministic fallbacks
+on older iOS versions and unsupported Flutter platforms. All public visual
+parameters—color, inset, container radius, corner styles, grouping, size, and
+child padding—are provided by the Dart widget; the native layer only keeps
+platform compatibility details and safe fallback defaults.
+
 ### Native toast
 
 ```dart
@@ -320,6 +349,31 @@ newer; iOS 26 uses the system Liquid Glass effect, while older supported iOS
 versions use a native rounded fallback.
 The default duration is three seconds. Pass `duration: null` to keep a toast
 visible until its action, a downward swipe, or `AppleLiquidToast.dismiss()`.
+Multiple calls can remain visible as a vertical stack: newer toasts appear
+above older ones, and each toast keeps its own duration and action. Calling
+`AppleLiquidToast.dismiss()` dismisses the complete stack.
+The stack is unlimited by default. To collapse the stack after a configurable
+number of toasts, set `AppleLiquidToast.stackOptions` before showing them:
+
+```dart
+AppleLiquidToast.stackOptions = const AppleLiquidToastStackOptions(
+  maxVisibleToasts: 2,
+  overflowTitle: '{count} more notifications',
+);
+```
+
+When the limit is exceeded, the visible stack is replaced by one summary toast.
+`{count}` is replaced with the number of toasts represented by that summary.
+Actions belonging to the collapsed individual toasts are no longer available.
+Reset `stackOptions` to `const AppleLiquidToastStackOptions()` to restore the
+unlimited behavior.
+Use `AppleLiquidToast.setVisible(false)` to temporarily hide the active stack
+without clearing its toasts or Dart action callbacks. Calling
+`AppleLiquidToast.setVisible(true)` shows the same stack again. Toast durations
+continue while the stack is hidden; use `AppleLiquidToast.dismiss()` when the
+stack should be cleared permanently.
+When a native `AppleLiquidSheet` is open, the toast overlay is suspended for
+the duration of the sheet and restored afterward without clearing the stack.
 Set `isWholeToastTappable: true` on the action to make the complete toast
 capsule invoke the action. In that mode the action title is rendered as a label
 inside one native button, so no button is nested inside another button.

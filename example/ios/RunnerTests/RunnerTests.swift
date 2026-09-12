@@ -6,6 +6,61 @@ import XCTest
 
 final class RunnerTests: XCTestCase {
 
+  @available(iOS 16.0, *)
+  func testToastHitFrameUsesWindowCoordinates() {
+    let frame = AppleLiquidToastHitFrame(
+      id: "action-toast",
+      geometryFrame: CGRect(x: 15, y: 20, width: 410, height: 50),
+      placementOffset: -60
+    )
+
+    XCTAssertEqual(
+      frame.rect,
+      CGRect(x: 15, y: 80, width: 410, height: 50)
+    )
+  }
+
+  func testConcentricRectangleConfigurationResolvesFallbackRadii() {
+    let configuration = AppleConcentricRectangleConfiguration(arguments: [
+      "inset": 8.0,
+      "containerCornerRadius": 40.0,
+      "corners": [
+        "grouping": "topAndBottom",
+        "topLeading": ["kind": "fixed", "radius": 12.0],
+        "topTrailing": ["kind": "fixed", "radius": 24.0],
+        "bottomLeading": [
+          "kind": "concentric", "minimumRadius": 10.0,
+        ],
+        "bottomTrailing": ["kind": "fixed", "radius": 18.0],
+      ],
+    ])
+
+    XCTAssertEqual(configuration.grouping, .topAndBottom)
+    XCTAssertEqual(
+      configuration.fallbackRadii,
+      AppleConcentricRectangleRadii(
+        topLeading: 24,
+        topTrailing: 24,
+        bottomLeading: 32,
+        bottomTrailing: 32
+      )
+    )
+  }
+
+  func testConcentricRectangleConfigurationSanitizesInvalidNumbers() {
+    let configuration = AppleConcentricRectangleConfiguration(arguments: [
+      "inset": Double.nan,
+      "containerCornerRadius": -1.0,
+      "corners": [
+        "topLeading": ["kind": "fixed", "radius": Double.infinity]
+      ],
+    ])
+
+    XCTAssertEqual(configuration.inset, 0)
+    XCTAssertNil(configuration.containerCornerRadius)
+    XCTAssertEqual(configuration.fallbackRadii.topLeading, 0)
+  }
+
   func testSliderConfigurationRejectsMalformedRanges() {
     XCTAssertNil(
       AppleLiquidSliderConfiguration(

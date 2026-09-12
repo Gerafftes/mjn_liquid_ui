@@ -6,6 +6,27 @@ import 'package:flutter/services.dart';
 /// Callback invoked when a native toast action is pressed.
 typedef AppleLiquidToastActionCallback = void Function();
 
+/// Controls how multiple native toasts are presented as a stack.
+class AppleLiquidToastStackOptions {
+  const AppleLiquidToastStackOptions({
+    this.maxVisibleToasts,
+    this.overflowTitle = 'More notifications',
+  }) : assert(maxVisibleToasts == null || maxVisibleToasts > 0),
+       assert(overflowTitle != '');
+
+  /// Maximum number of regular toasts that may be visible at the same time.
+  ///
+  /// A `null` value keeps the current unlimited stack behavior. When the
+  /// limit is exceeded, the visible stack is replaced by one summary toast.
+  final int? maxVisibleToasts;
+
+  /// Title used by the summary toast after [maxVisibleToasts] is exceeded.
+  ///
+  /// Every `{count}` placeholder is replaced with the number of toasts
+  /// represented by the summary.
+  final String overflowTitle;
+}
+
 class _AppleLiquidToastActionRegistration {
   const _AppleLiquidToastActionRegistration({
     required this.callback,
@@ -55,12 +76,20 @@ class AppleLiquidToast {
   static const MethodChannel _channel = MethodChannel('mjn_liquid_ui/toasts');
   static final Map<String, _AppleLiquidToastActionRegistration> _actions =
       <String, _AppleLiquidToastActionRegistration>{};
+  static final Map<String, Timer> _actionCleanupTimers = <String, Timer>{};
 
   static bool _handlerAttached = false;
+  static bool _isVisible = true;
+  static int _nextToastId = 0;
   static int _nextActionId = 0;
-  static String? _activeActionId;
-  static String? _activeToastId;
-  static Timer? _activeActionCleanupTimer;
+
+  /// Global presentation options for the native toast stack.
+  ///
+  /// The default keeps all toasts visible, matching the original behavior.
+  /// Assign a new [AppleLiquidToastStackOptions] value before calling
+  /// [show] to enable a maximum and an overflow summary.
+  static AppleLiquidToastStackOptions stackOptions =
+      const AppleLiquidToastStackOptions();
 
   /// Shows a native iOS Liquid Glass toast.
   ///
@@ -88,9 +117,9 @@ class AppleLiquidToast {
 
     _ensureHandlerAttached();
 
-    final String toastId = DateTime.now().microsecondsSinceEpoch.toString();
+    final String toastId = 'toast_${_nextToastId++}';
     final String? actionId = _registerAction(action, duration, toastId);
-    _activeToastId = toastId;
+    final AppleLiquidToastStackOptions currentStackOptions = stackOptions;
     final Map<String, Object?> arguments = <String, Object?>{
       'id': toastId,
       'title': title,
@@ -99,6 +128,9 @@ class AppleLiquidToast {
           : duration.inMicroseconds / Duration.microsecondsPerSecond,
       'placementOffset': placementOffset,
       'transitionOffset': transitionOffset,
+      'maxVisibleToasts': currentStackOptions.maxVisibleToasts,
+      'overflowTitle': currentStackOptions.overflowTitle,
+      'isVisible': _isVisible,
       if (systemImage != null) 'systemImage': systemImage,
       if (action != null) ...<String, Object?>{
         'actionTitle': action.title,
@@ -113,21 +145,21 @@ class AppleLiquidToast {
       final bool shown =
           await _channel.invokeMethod<bool>('show', arguments) ?? false;
       if (!shown) {
-        _clearActiveToast(toastId, actionId);
+        _clearToast(toastId);
       }
       return shown;
     } on MissingPluginException {
-      _clearActiveToast(toastId, actionId);
+      _clearToast(toastId);
       return false;
     } on PlatformException {
-      _clearActiveToast(toastId, actionId);
+      _clearToast(toastId);
       return false;
     }
   }
 
-  /// Dismisses the currently visible native toast.
+  /// Dismisses all currently visible native toasts.
   static Future<bool> dismiss() async {
-    _clearActiveToast();
+    _clearAllToasts();
 
     if (!_isNativeToastSupported) {
       return false;
@@ -135,6 +167,28 @@ class AppleLiquidToast {
 
     try {
       return await _channel.invokeMethod<bool>('dismiss') ?? false;
+    } on MissingPluginException {
+      return false;
+    } on PlatformException {
+      return false;
+    }
+  }
+
+  /// Temporarily hides or shows the active native toast stack.
+  ///
+  /// Unlike [dismiss], this keeps the active toasts and their Dart action
+  /// callbacks alive. A toast's native duration continues while the stack is
+  /// hidden, so this only changes visibility and not the toast lifecycle.
+  static Future<bool> setVisible(bool visible) async {
+    _isVisible = visible;
+
+    if (!_isNativeToastSupported) {
+      return false;
+    }
+
+    try {
+      return await _channel.invokeMethod<bool>('setVisibility', visible) ??
+          false;
     } on MissingPluginException {
       return false;
     } on PlatformException {
@@ -167,7 +221,7 @@ class AppleLiquidToast {
       case 'toastDismissed':
         final Object? arguments = call.arguments;
         if (arguments is Map && arguments['toastId'] is String) {
-          _clearActiveToast(arguments['toastId'] as String);
+          _clearToast(arguments['toastId'] as String);
           return;
         }
         throw MissingPluginException('Invalid toastDismissed payload.');
@@ -181,8 +235,6 @@ class AppleLiquidToast {
     Duration? duration,
     String toastId,
   ) {
-    _clearActiveToast();
-
     if (action == null) {
       return null;
     }
@@ -198,10 +250,9 @@ class AppleLiquidToast {
       dismissesToast: action.dismissesToast,
       toastId: toastId,
     );
-    _activeActionId = actionId;
 
     if (duration != null) {
-      _activeActionCleanupTimer = Timer(
+      _actionCleanupTimers[actionId] = Timer(
         duration + const Duration(seconds: 2),
         () => _removeAction(actionId),
       );
@@ -221,18 +272,33 @@ class AppleLiquidToast {
       registration.callback();
     } finally {
       if (registration.dismissesToast) {
-        _clearActiveToast(registration.toastId, actionId);
+        _clearToast(registration.toastId);
       }
     }
   }
 
-  static void _clearActiveToast([String? toastId, String? actionId]) {
-    if (toastId != null && toastId != _activeToastId) {
-      return;
-    }
+  static void _clearToast(String toastId) {
+    final List<String> actionIds = _actions.entries
+        .where((MapEntry<String, _AppleLiquidToastActionRegistration> entry) {
+          return entry.value.toastId == toastId;
+        })
+        .map((MapEntry<String, _AppleLiquidToastActionRegistration> entry) {
+          return entry.key;
+        })
+        .toList();
 
-    _removeAction(actionId ?? _activeActionId);
-    _activeToastId = null;
+    for (final String registeredActionId in actionIds) {
+      _removeAction(registeredActionId);
+    }
+  }
+
+  static void _clearAllToasts() {
+    _actions.clear();
+
+    for (final Timer timer in _actionCleanupTimers.values) {
+      timer.cancel();
+    }
+    _actionCleanupTimers.clear();
   }
 
   static void _removeAction(String? actionId) {
@@ -241,11 +307,6 @@ class AppleLiquidToast {
     }
 
     _actions.remove(actionId);
-
-    if (_activeActionId == actionId) {
-      _activeActionId = null;
-      _activeActionCleanupTimer?.cancel();
-      _activeActionCleanupTimer = null;
-    }
+    _actionCleanupTimers.remove(actionId)?.cancel();
   }
 }

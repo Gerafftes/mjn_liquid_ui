@@ -1,6 +1,7 @@
 /// Native-inspired Liquid Glass UI components for Flutter.
 library;
 
+export 'src/apple_concentric_rectangle.dart';
 export 'src/apple_liquid_tab_bar.dart';
 export 'src/apple_liquid_tab_item.dart';
 export 'src/apple_liquid_slider.dart';

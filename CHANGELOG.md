@@ -1,3 +1,23 @@
+## 0.2.35
+
+- Added independently animated native Liquid Toast stacking with configurable
+  maximum-visible counts and a single overflow summary toast.
+- Preserved per-toast actions, durations, whole-toast tapping, and the active
+  stack while toast visibility changes across demo tabs.
+- Limited native toast hit testing to each visible capsule, aligned its frame
+  with placement offsets, and kept surrounding Flutter content interactive.
+- Suspended the native toast overlay while a Liquid Sheet is presented and
+  restored it after dismissal without clearing active toasts or actions.
+- Made native button-row insets absolute so rendered Form content and calculated
+  sheet detents stay aligned on iOS 26.5.
+- Preserved each demo tab's scroll position when navigating between tabs.
+- Made one randomly selected toast per demo group fully tappable and used it
+  to verify action-driven navigation to the Slider tab.
+- Added the native `AppleConcentricRectangle` API with fixed, concentric, and
+  grouped corner styles plus Flutter and older-iOS fallbacks.
+- Added focused Dart, example, and native regression coverage for the new
+  toast, sheet, navigation, and concentric-rectangle behavior.
+
 ## 0.2.34
 
 - Hardened `AppleLiquidSlider` validation in both Dart and native Swift so

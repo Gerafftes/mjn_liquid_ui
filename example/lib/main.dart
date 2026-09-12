@@ -8,6 +8,8 @@ void main() {
   runApp(const MyApp());
 }
 
+const Set<int> _toastVisibleTabIndices = <int>{0, 2, 3};
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -42,9 +44,23 @@ class _DemoShellState extends State<DemoShell> {
   Color? templateSheetColor;
   final AppleLiquidSheetController templateSheetController =
       AppleLiquidSheetController();
+  final PageStorageBucket _pageStorageBucket = PageStorageBucket();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(
+      AppleLiquidToast.setVisible(
+        _toastVisibleTabIndices.contains(currentIndex),
+      ),
+    );
+  }
 
   @override
   void dispose() {
+    AppleLiquidToast.stackOptions = const AppleLiquidToastStackOptions();
+    unawaited(AppleLiquidToast.setVisible(true));
+    unawaited(AppleLiquidToast.dismiss());
     templateSheetController.dispose();
     super.dispose();
   }
@@ -55,18 +71,32 @@ class _DemoShellState extends State<DemoShell> {
       controller: templateSheetController,
       child: _DemoScaffold(
         currentIndex: currentIndex,
-        onChanged: (int index) {
-          setState(() => currentIndex = index);
-        },
-        page: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: KeyedSubtree(
-            key: ValueKey<int>(currentIndex),
-            child: _pageFor(currentIndex),
+        onChanged: _handleTabChanged,
+        page: PageStorage(
+          bucket: _pageStorageBucket,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: KeyedSubtree(
+              key: ValueKey<int>(currentIndex),
+              child: _pageFor(currentIndex),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  void _handleTabChanged(int index) {
+    if (index == currentIndex) {
+      return;
+    }
+
+    // Temporarily hide the native stack on Switch. The active toasts and
+    // their actions stay alive and are restored on the other tabs.
+    unawaited(
+      AppleLiquidToast.setVisible(_toastVisibleTabIndices.contains(index)),
+    );
+    setState(() => currentIndex = index);
   }
 
   Widget _pageFor(int index) {
@@ -111,6 +141,7 @@ class _DemoShellState extends State<DemoShell> {
             setState(() => templateSheetColor = value);
           },
           onShowTemplateSheet: _showTemplateSheet,
+          onOpenSlider: () => _handleTabChanged(2),
         );
     }
   }
@@ -576,6 +607,7 @@ class _DemoPageScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
+      key: PageStorageKey<String>('demo-page-$title'),
       padding: const EdgeInsets.all(24),
       children: <Widget>[
         Text(title, style: Theme.of(context).textTheme.headlineMedium),
@@ -597,6 +629,7 @@ class _TabbarDemoPage extends StatelessWidget {
     required this.onSheetSectionBackgroundsChanged,
     required this.onSheetColorChanged,
     required this.onShowTemplateSheet,
+    required this.onOpenSlider,
   });
 
   final bool sheetBackgroundZoom;
@@ -606,6 +639,7 @@ class _TabbarDemoPage extends StatelessWidget {
   final ValueChanged<bool> onSheetSectionBackgroundsChanged;
   final ValueChanged<Color?> onSheetColorChanged;
   final ValueChanged<BuildContext> onShowTemplateSheet;
+  final VoidCallback onOpenSlider;
 
   @override
   Widget build(BuildContext context) {
@@ -639,6 +673,8 @@ class _TabbarDemoPage extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _ToastDemoCard(onOpenSlider: onOpenSlider),
           const SizedBox(height: 16),
           AppleLiquidSurface(
             height: 350,
@@ -686,57 +722,150 @@ class _TabbarDemoPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          AppleLiquidSurface(
-            height: 132,
-            child: Row(
-              children: <Widget>[
-                const AppleLiquidSymbol(
-                  'cart.fill',
-                  size: 34,
-                  color: Color(0xFF34C759),
-                  fallbackIcon: Icons.shopping_cart_rounded,
-                  semanticLabel: 'Cart',
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: _SurfaceText(
-                    title: 'Glass toast',
-                    body: 'Native bottom toast with an optional action.',
-                  ),
-                ),
-                const SizedBox(width: 12),
-                FilledButton(
-                  onPressed: _showCartToast,
-                  child: const Text('Show'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
           const AppleLiquidSurface(height: 500, child: _SymbolGrid()),
         ],
       ),
     );
   }
+}
 
-  void _showCartToast() {
+class _ToastDemoCard extends StatefulWidget {
+  const _ToastDemoCard({required this.onOpenSlider});
+
+  final VoidCallback onOpenSlider;
+
+  @override
+  State<_ToastDemoCard> createState() => _ToastDemoCardState();
+}
+
+class _ToastDemoCardState extends State<_ToastDemoCard> {
+  static const String _overflowTitle = '{count} more toasts';
+  static const int _sliderActionGroupSize = 3;
+
+  final math.Random _random = math.Random();
+  int? _maxVisibleToasts = 2;
+  int _nextToastNumber = 1;
+  late int _nextSliderActionToastNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _nextSliderActionToastNumber = 1 + _random.nextInt(_sliderActionGroupSize);
+    _applyStackOptions();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppleLiquidSurface(
+      height: 280,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const AppleLiquidSymbol(
+                'bell.badge.fill',
+                size: 34,
+                color: Color(0xFFFF9F0A),
+                fallbackIcon: Icons.notifications_active_rounded,
+                semanticLabel: 'Toast notifications',
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: _SurfaceText(
+                  title: 'Toast stack',
+                  body:
+                      'Choose a limit and add native toasts one at a time. '
+                      'One random toast per group opens Slider when tapped.',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text('Max visible', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: <Widget>[
+              _maxChoice('1', 1),
+              _maxChoice('2', 2),
+              _maxChoice('3', 3),
+              _maxChoice('∞', null),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _addToast,
+                  icon: const Icon(Icons.add_alert_rounded),
+                  label: const Text('Add toast'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () {
+                  unawaited(AppleLiquidToast.dismiss());
+                },
+                child: const Text('Clear'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _maxChoice(String label, int? value) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _maxVisibleToasts == value,
+      onSelected: (_) => _setMaxVisibleToasts(value),
+    );
+  }
+
+  void _setMaxVisibleToasts(int? value) {
+    if (_maxVisibleToasts == value) {
+      return;
+    }
+
+    setState(() => _maxVisibleToasts = value);
+    _applyStackOptions();
+    unawaited(AppleLiquidToast.dismiss());
+  }
+
+  void _applyStackOptions() {
+    AppleLiquidToast.stackOptions = AppleLiquidToastStackOptions(
+      maxVisibleToasts: _maxVisibleToasts,
+      overflowTitle: _overflowTitle,
+    );
+  }
+
+  void _addToast() {
+    final int toastNumber = _nextToastNumber++;
+    final bool opensSlider = toastNumber == _nextSliderActionToastNumber;
+    if (opensSlider) {
+      final int nextGroupStart =
+          ((toastNumber - 1) ~/ _sliderActionGroupSize + 1) *
+              _sliderActionGroupSize +
+          1;
+      _nextSliderActionToastNumber =
+          nextGroupStart + _random.nextInt(_sliderActionGroupSize);
+    }
+
     unawaited(
       AppleLiquidToast.show(
-        title: 'Added to Cart',
-        systemImage: 'cart.fill',
-        action: AppleLiquidToastAction(
-          title: 'Undo',
-          tintColor: const Color(0xFFFF9500),
-          dismissesToast: false,
-          onPressed: () {
-            unawaited(
-              AppleLiquidToast.show(
-                title: 'Removed From Cart',
-                systemImage: 'checkmark.circle.fill',
-              ),
-            );
-          },
-        ),
+        title: 'Toast $toastNumber',
+        duration: const Duration(seconds: 4),
+        systemImage: 'bell.fill',
+        action: opensSlider
+            ? AppleLiquidToastAction(
+                title: 'Open Slider',
+                isWholeToastTappable: true,
+                onPressed: widget.onOpenSlider,
+              )
+            : null,
       ),
     );
   }
@@ -1314,21 +1443,28 @@ class _SwitchDemoPage extends StatelessWidget {
       title: 'Switch',
       subtitle:
           'Five native UIKit UISwitch controls embedded through UiKitView.',
-      child: AppleLiquidSurface(
-        height: 360,
-        child: Column(
-          children: <Widget>[
-            for (int index = 0; index < values.length; index += 1)
-              _SwitchSampleRow(
-                label: 'Native switch ${index + 1}',
-                value: values[index],
-                tintColor: _switchTintColors[index],
-                onChanged: (bool value) {
-                  onChanged(index, value);
-                },
-              ),
-          ],
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          AppleLiquidSurface(
+            height: 360,
+            child: Column(
+              children: <Widget>[
+                for (int index = 0; index < values.length; index += 1)
+                  _SwitchSampleRow(
+                    label: 'Native switch ${index + 1}',
+                    value: values[index],
+                    tintColor: _switchTintColors[index],
+                    onChanged: (bool value) {
+                      onChanged(index, value);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          const _ConcentricRectangleDemoCard(),
+        ],
       ),
     );
   }
@@ -1375,6 +1511,405 @@ class _SwitchSampleRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ConcentricRectangleDemoCard extends StatefulWidget {
+  const _ConcentricRectangleDemoCard();
+
+  @override
+  State<_ConcentricRectangleDemoCard> createState() =>
+      _ConcentricRectangleDemoCardState();
+}
+
+class _ConcentricRectangleDemoCardState
+    extends State<_ConcentricRectangleDemoCard> {
+  static const List<_ConcentricColorOption> _colorOptions =
+      <_ConcentricColorOption>[
+        _ConcentricColorOption('Green', Color(0xFF34C759)),
+        _ConcentricColorOption('Blue', Color(0xFF0A84FF)),
+        _ConcentricColorOption('Orange', Color(0xFFFF9F0A)),
+      ];
+
+  Color _color = const Color(0xFF34C759);
+  double _shapeHeight = 116;
+  double _inset = 10;
+  double _primaryCornerValue = 28;
+  double _secondaryCornerValue = 12;
+  double _contentPadding = 16;
+  double _containerCornerRadius = 36;
+  bool _usesCustomContainer = true;
+  AppleConcentricCornerStyleKind _cornerStyle =
+      AppleConcentricCornerStyleKind.concentric;
+  AppleConcentricRectangleCornerGrouping _grouping =
+      AppleConcentricRectangleCornerGrouping.topAndBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    final AppleConcentricRectangleCorners corners = _buildCorners();
+    final Brightness textBrightness = ThemeData.estimateBrightnessForColor(
+      _color,
+    );
+
+    return AppleLiquidSurface(
+      height: 650,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const AppleLiquidSymbol(
+                  'rectangle.roundedtop.fill',
+                  size: 34,
+                  color: Color(0xFF34C759),
+                  fallbackIcon: Icons.rounded_corner,
+                  semanticLabel: 'Concentric rectangle',
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: _SurfaceText(
+                    title: 'Concentric Rectangle',
+                    body:
+                        'Change every shape parameter below and compare the native result.',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            AppleConcentricRectangle(
+              height: _shapeHeight,
+              color: _color,
+              inset: _inset,
+              containerCornerRadius: _usesCustomContainer
+                  ? _containerCornerRadius
+                  : null,
+              corners: corners,
+              padding: EdgeInsets.all(_contentPadding),
+              child: Center(
+                child: Text(
+                  'Inset ${_inset.round()} · $_cornerStyleLabel',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: textBrightness == Brightness.dark
+                        ? Colors.white
+                        : Colors.black87,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            _sectionTitle(context, 'Appearance'),
+            Text('Fill color', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                for (final _ConcentricColorOption option in _colorOptions)
+                  ChoiceChip(
+                    label: Text(option.label),
+                    avatar: CircleAvatar(
+                      backgroundColor: option.color,
+                      radius: 8,
+                    ),
+                    selected: _color == option.color,
+                    onSelected: (_) => setState(() => _color = option.color),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text('Corner style', style: Theme.of(context).textTheme.titleSmall),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: <Widget>[
+                _styleChoice(
+                  AppleConcentricCornerStyleKind.concentric,
+                  'Concentric',
+                ),
+                _styleChoice(AppleConcentricCornerStyleKind.fixed, 'Fixed'),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Corner grouping',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            const SizedBox(height: 6),
+            InputDecorator(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<AppleConcentricRectangleCornerGrouping>(
+                  value: _grouping,
+                  isExpanded: true,
+                  items: AppleConcentricRectangleCornerGrouping.values
+                      .map(
+                        (AppleConcentricRectangleCornerGrouping grouping) =>
+                            DropdownMenuItem<
+                              AppleConcentricRectangleCornerGrouping
+                            >(
+                              value: grouping,
+                              child: Text(_groupingLabel(grouping)),
+                            ),
+                      )
+                      .toList(),
+                  onChanged:
+                      (AppleConcentricRectangleCornerGrouping? grouping) {
+                        if (grouping != null) {
+                          setState(() => _grouping = grouping);
+                        }
+                      },
+                ),
+              ),
+            ),
+            _sectionTitle(context, 'Geometry'),
+            _sliderControl(
+              context,
+              label: 'Shape height',
+              value: _shapeHeight,
+              min: 88,
+              max: 180,
+              step: 4,
+              onChanged: (double value) {
+                setState(() => _shapeHeight = value);
+              },
+            ),
+            _sliderControl(
+              context,
+              label: 'Inset',
+              value: _inset,
+              min: 0,
+              max: 32,
+              step: 2,
+              onChanged: (double value) {
+                setState(() => _inset = value);
+              },
+            ),
+            _sliderControl(
+              context,
+              label: _cornerValueLabel('Primary corner'),
+              value: _primaryCornerValue,
+              min: 0,
+              max: 48,
+              step: 2,
+              onChanged: (double value) {
+                setState(() => _primaryCornerValue = value);
+              },
+            ),
+            _sliderControl(
+              context,
+              label: _cornerValueLabel('Secondary corner'),
+              value: _secondaryCornerValue,
+              min: 0,
+              max: 48,
+              step: 2,
+              onChanged: (double value) {
+                setState(() => _secondaryCornerValue = value);
+              },
+            ),
+            _sliderControl(
+              context,
+              label: 'Content padding',
+              value: _contentPadding,
+              min: 0,
+              max: 28,
+              step: 2,
+              onChanged: (double value) {
+                setState(() => _contentPadding = value);
+              },
+            ),
+            _sectionTitle(context, 'Container'),
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: Text(
+                    'Custom container radius',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                AppleLiquidSwitch(
+                  value: _usesCustomContainer,
+                  tintColor: const Color(0xFF34C759),
+                  width: 64,
+                  height: 44,
+                  onChanged: (bool value) {
+                    setState(() => _usesCustomContainer = value);
+                  },
+                ),
+              ],
+            ),
+            if (_usesCustomContainer)
+              _sliderControl(
+                context,
+                label: 'Container corner radius',
+                value: _containerCornerRadius,
+                min: 0,
+                max: 56,
+                step: 2,
+                onChanged: (double value) {
+                  setState(() => _containerCornerRadius = value);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  AppleConcentricRectangleCorners _buildCorners() {
+    final AppleConcentricCornerStyle primary = _cornerStyleFor(
+      _primaryCornerValue,
+    );
+    final AppleConcentricCornerStyle secondary = _cornerStyleFor(
+      _secondaryCornerValue,
+    );
+
+    return switch (_grouping) {
+      AppleConcentricRectangleCornerGrouping.individual =>
+        AppleConcentricRectangleCorners(
+          topLeadingCorner: primary,
+          topTrailingCorner: secondary,
+          bottomLeadingCorner: secondary,
+          bottomTrailingCorner: primary,
+        ),
+      AppleConcentricRectangleCornerGrouping.all =>
+        AppleConcentricRectangleCorners.all(primary, isUniform: true),
+      AppleConcentricRectangleCornerGrouping.topAndBottom =>
+        AppleConcentricRectangleCorners.uniformTopAndBottom(
+          uniformTopCorners: primary,
+          uniformBottomCorners: secondary,
+        ),
+      AppleConcentricRectangleCornerGrouping.leadingAndTrailing =>
+        AppleConcentricRectangleCorners.uniformLeadingAndTrailing(
+          uniformLeadingCorners: primary,
+          uniformTrailingCorners: secondary,
+        ),
+      AppleConcentricRectangleCornerGrouping.top =>
+        AppleConcentricRectangleCorners.uniformTop(
+          uniformTopCorners: primary,
+          bottomLeadingCorner: secondary,
+          bottomTrailingCorner: secondary,
+        ),
+      AppleConcentricRectangleCornerGrouping.bottom =>
+        AppleConcentricRectangleCorners.uniformBottom(
+          uniformBottomCorners: primary,
+          topLeadingCorner: secondary,
+          topTrailingCorner: secondary,
+        ),
+      AppleConcentricRectangleCornerGrouping.leading =>
+        AppleConcentricRectangleCorners.uniformLeading(
+          uniformLeadingCorners: primary,
+          topTrailingCorner: secondary,
+          bottomTrailingCorner: secondary,
+        ),
+      AppleConcentricRectangleCornerGrouping.trailing =>
+        AppleConcentricRectangleCorners.uniformTrailing(
+          uniformTrailingCorners: primary,
+          topLeadingCorner: secondary,
+          bottomLeadingCorner: secondary,
+        ),
+    };
+  }
+
+  AppleConcentricCornerStyle _cornerStyleFor(double value) {
+    return switch (_cornerStyle) {
+      AppleConcentricCornerStyleKind.concentric =>
+        AppleConcentricCornerStyle.concentric(minimumRadius: value),
+      AppleConcentricCornerStyleKind.fixed => AppleConcentricCornerStyle.fixed(
+        value,
+      ),
+    };
+  }
+
+  Widget _styleChoice(AppleConcentricCornerStyleKind kind, String label) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: _cornerStyle == kind,
+      onSelected: (_) => setState(() => _cornerStyle = kind),
+    );
+  }
+
+  Widget _sliderControl(
+    BuildContext context, {
+    required String label,
+    required double value,
+    required double min,
+    required double max,
+    required double step,
+    required ValueChanged<double> onChanged,
+  }) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        Text(label, style: textTheme.titleSmall),
+        const SizedBox(height: 2),
+        AppleLiquidSlider(
+          value: value,
+          min: min,
+          max: max,
+          step: step,
+          height: 52,
+          tintColor: _color,
+          valueLabelBuilder: (BuildContext context, double value) {
+            return Text('${value.round()} pt', style: textTheme.labelLarge);
+          },
+          onChanged: onChanged,
+        ),
+        const SizedBox(height: 4),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(BuildContext context, String title) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, bottom: 8),
+      child: Text(
+        title,
+        style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
+  String get _cornerStyleLabel {
+    return _cornerStyle == AppleConcentricCornerStyleKind.concentric
+        ? 'concentric'
+        : 'fixed';
+  }
+
+  String _cornerValueLabel(String prefix) {
+    return _cornerStyle == AppleConcentricCornerStyleKind.concentric
+        ? '$prefix minimum radius'
+        : '$prefix radius';
+  }
+
+  String _groupingLabel(AppleConcentricRectangleCornerGrouping grouping) {
+    return switch (grouping) {
+      AppleConcentricRectangleCornerGrouping.individual => 'Individual',
+      AppleConcentricRectangleCornerGrouping.all => 'All corners',
+      AppleConcentricRectangleCornerGrouping.topAndBottom => 'Top + bottom',
+      AppleConcentricRectangleCornerGrouping.leadingAndTrailing =>
+        'Leading + trailing',
+      AppleConcentricRectangleCornerGrouping.top => 'Top pair',
+      AppleConcentricRectangleCornerGrouping.bottom => 'Bottom pair',
+      AppleConcentricRectangleCornerGrouping.leading => 'Leading pair',
+      AppleConcentricRectangleCornerGrouping.trailing => 'Trailing pair',
+    };
+  }
+}
+
+class _ConcentricColorOption {
+  const _ConcentricColorOption(this.label, this.color);
+
+  final String label;
+  final Color color;
 }
 
 class _SliderDemoPage extends StatelessWidget {

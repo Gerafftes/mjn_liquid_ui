@@ -3168,6 +3168,7 @@ private final class AppleLiquidSheetSession: NSObject,
     }
 
     didFinish = true
+    AppleLiquidToastPresenter.setSheetPresented(false)
     restorePresentingViewInteraction()
   }
 
@@ -3223,6 +3224,7 @@ private final class AppleLiquidSheetSession: NSObject,
     self.hostController = hostController
 
     disablePresentingViewInteraction()
+    AppleLiquidToastPresenter.setSheetPresented(true)
     presenter.present(hostController, animated: true)
     applyBackgroundZoom()
 
@@ -3606,6 +3608,7 @@ private final class AppleLiquidSheetSession: NSObject,
     }
 
     didFinish = true
+    AppleLiquidToastPresenter.setSheetPresented(false)
     keyboardTransitionWorkItem?.cancel()
     keyboardTransitionWorkItem = nil
     restoreBackgroundZoom()
@@ -6560,11 +6563,20 @@ private extension View {
     top: CGFloat? = nil,
     bottom: CGFloat? = nil
   ) -> some View {
-    if horizontal != nil || leading != nil || trailing != nil || top != nil ||
-      bottom != nil
-    {
-      let nativeInset =
-        AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+    let nativeInset =
+      AppleLiquidSheetContentConfiguration.nativeFormRowHorizontalInset
+
+    if top != nil || bottom != nil {
+      let horizontalInset = horizontal ?? nativeInset
+      listRowInsets(
+        EdgeInsets(
+          top: top ?? 0,
+          leading: leading ?? horizontalInset,
+          bottom: bottom ?? 0,
+          trailing: trailing ?? horizontalInset
+        )
+      )
+    } else if horizontal != nil || leading != nil || trailing != nil {
       padding(
         EdgeInsets(
           top: top ?? 0,

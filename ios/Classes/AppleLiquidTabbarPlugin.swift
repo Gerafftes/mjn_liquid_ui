@@ -20,6 +20,10 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
       AppleLiquidSurfacePlatformViewFactory(),
       withId: AppleLiquidTabbarConstants.surfaceViewType
     )
+    registrar.register(
+      AppleConcentricRectanglePlatformViewFactory(),
+      withId: AppleLiquidTabbarConstants.concentricRectangleViewType
+    )
     FlutterMethodChannel(
       name: AppleLiquidTabbarConstants.symbolChannelName,
       binaryMessenger: registrar.messenger()
