@@ -38,13 +38,13 @@ enum AppleLiquidSheetPresenter {
     result: @escaping FlutterResult
   ) {
     guard #available(iOS 16.0, *) else {
-      result(false)
+      result(["status": "notPresented"])
       return
     }
 
     if let existingSession = activeSession {
       guard existingSession.isStale else {
-        result(true)
+        result(["status": "alreadyShowing"])
         return
       }
 
@@ -55,7 +55,7 @@ enum AppleLiquidSheetPresenter {
     guard let presenter = topViewController(from: activeRootViewController()),
       presenter.viewIfLoaded?.window != nil
     else {
-      result(false)
+      result(["status": "notPresented"])
       return
     }
 
@@ -79,13 +79,25 @@ enum AppleLiquidSheetPresenter {
           ]
         )
       },
+      onToolbarAction: { actionId, status in
+        channel.invokeMethod(
+          "toolbarActionPressed",
+          arguments: ["actionId": actionId, "status": status.rawValue]
+        )
+      },
+      onTextFieldAction: { actionId, value in
+        channel.invokeMethod(
+          "textFieldChanged",
+          arguments: ["actionId": actionId, "value": value]
+        )
+      },
       onFinish: {
         activeSession = nil
       }
     )
 
     guard session.present(from: presenter) else {
-      result(false)
+      result(["status": "notPresented"])
       return
     }
 
@@ -702,6 +714,7 @@ private struct AppleLiquidSheetToolbarActionConfiguration {
   let accessibilityLabel: String
   let foregroundARGB: Int?
   let backgroundARGB: Int?
+  let actionId: String?
 
   init?(value: Any?) {
     guard let dictionary = value as? [String: Any] else {
@@ -728,6 +741,7 @@ private struct AppleLiquidSheetToolbarActionConfiguration {
     self.backgroundARGB = AppleLiquidTabbarConfiguration.intValue(
       dictionary["backgroundColor"]
     )
+    self.actionId = Self.nonEmptyString(dictionary["actionId"])
   }
 
   private init(
@@ -735,13 +749,15 @@ private struct AppleLiquidSheetToolbarActionConfiguration {
     systemImage: String?,
     accessibilityLabel: String,
     foregroundARGB: Int? = nil,
-    backgroundARGB: Int? = nil
+    backgroundARGB: Int? = nil,
+    actionId: String? = nil
   ) {
     self.title = title
     self.systemImage = systemImage
     self.accessibilityLabel = accessibilityLabel
     self.foregroundARGB = foregroundARGB
     self.backgroundARGB = backgroundARGB
+    self.actionId = actionId
   }
 
   static func defaultConfirmation(
@@ -771,6 +787,11 @@ private struct AppleLiquidSheetToolbarActionConfiguration {
 
     return string
   }
+}
+
+private enum AppleLiquidSheetResultStatus: String {
+  case saved
+  case cancelled
 }
 
 private struct AppleLiquidSheetDetentHeights {
@@ -2260,6 +2281,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let buttonStyle: AppleLiquidSheetButtonStyleConfiguration
   let buttonActionId: String?
   let multiSelectionActionId: String?
+  let textFieldActionId: String?
   let buttonAccessibilityLabel: String
   let buttonDismissesSheet: Bool
   let buttonEnabled: Bool
@@ -2484,6 +2506,9 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.multiSelectionActionId = Self.optionalString(
       dictionary["multiSelectionActionId"]
     )
+    self.textFieldActionId = Self.optionalString(
+      dictionary["textFieldActionId"]
+    )
     self.buttonAccessibilityLabel = Self.string(
       dictionary["buttonSemanticLabel"],
       defaultValue: title
@@ -2549,6 +2574,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       AppleLiquidSheetButtonStyleConfiguration(value: nil),
     buttonActionId: String? = nil,
     multiSelectionActionId: String? = nil,
+    textFieldActionId: String? = nil,
     buttonAccessibilityLabel: String? = nil,
     buttonDismissesSheet: Bool = false,
     buttonEnabled: Bool = true
@@ -2604,6 +2630,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     self.buttonStyle = buttonStyle
     self.buttonActionId = buttonActionId
     self.multiSelectionActionId = multiSelectionActionId
+    self.textFieldActionId = textFieldActionId
     self.buttonAccessibilityLabel = buttonAccessibilityLabel ?? title
     self.buttonDismissesSheet = buttonDismissesSheet
     self.buttonEnabled = buttonEnabled
@@ -2762,6 +2789,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
     id: String,
     title: String,
     value: String,
+    actionId: String? = nil,
     subtitle: String? = nil,
     systemImage: String? = nil
   ) -> AppleLiquidSheetRowConfiguration {
@@ -2771,7 +2799,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
       title: title,
       subtitle: subtitle,
       value: value,
-      systemImage: systemImage
+      systemImage: systemImage,
+      textFieldActionId: actionId
     )
   }
 
@@ -3109,6 +3138,8 @@ private final class AppleLiquidSheetSession: NSObject,
   private let result: FlutterResult
   private let onButtonAction: (String) -> Void
   private let onMultiSelectionAction: (String, [String]) -> Void
+  private let onToolbarAction: (String, AppleLiquidSheetResultStatus) -> Void
+  private let onTextFieldAction: (String, String) -> Void
   private let onFinish: () -> Void
   private let originalTransform: CGAffineTransform
   private let originalCornerRadius: CGFloat
@@ -3126,6 +3157,9 @@ private final class AppleLiquidSheetSession: NSObject,
   private var keyboardTransitionWorkItem: DispatchWorkItem?
   private var dismissalCallbacks: [() -> Void] = []
   private var isDismissing = false
+  private var dismissalStatus: AppleLiquidSheetResultStatus = .cancelled
+  private var dismissalToolbarActionId: String?
+  private var textFieldValues: [String: String] = [:]
   private var expandedDetentIdentifier:
     UISheetPresentationController.Detent.Identifier?
 
@@ -3135,6 +3169,8 @@ private final class AppleLiquidSheetSession: NSObject,
     result: @escaping FlutterResult,
     onButtonAction: @escaping (String) -> Void,
     onMultiSelectionAction: @escaping (String, [String]) -> Void,
+    onToolbarAction: @escaping (String, AppleLiquidSheetResultStatus) -> Void,
+    onTextFieldAction: @escaping (String, String) -> Void,
     onFinish: @escaping () -> Void
   ) {
     self.configuration = configuration
@@ -3142,6 +3178,8 @@ private final class AppleLiquidSheetSession: NSObject,
     self.result = result
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
+    self.onToolbarAction = onToolbarAction
+    self.onTextFieldAction = onTextFieldAction
     self.onFinish = onFinish
     self.originalTransform = presentingView?.transform ?? .identity
     self.originalCornerRadius = presentingView?.layer.cornerRadius ?? 0
@@ -3205,14 +3243,30 @@ private final class AppleLiquidSheetSession: NSObject,
 
         self.onMultiSelectionAction(actionId, selectedOptions)
       },
+      onTextFieldChanged: { [weak self] actionId, value in
+        guard let self else {
+          return
+        }
+
+        self.textFieldValues[actionId] = value
+        self.onTextFieldAction(actionId, value)
+      },
       currentDetentSelection: { [weak self] in
         self?.currentDetentSelection() ?? .primary
       },
       onPresentationChange: { [weak self] presentation in
         self?.updateSheetPresentation(presentation, animated: true)
       },
-      onDismissRequest: { [weak self] in
-        self?.dismissFromControl()
+      onToolbarAction: { [weak self] status, actionId in
+        guard let self else {
+          return
+        }
+
+        if let actionId {
+          self.dismissalToolbarActionId = actionId
+          self.onToolbarAction(actionId, status)
+        }
+        self.dismissFromControl(resultStatus: status)
       }
     )
 
@@ -3358,10 +3412,17 @@ private final class AppleLiquidSheetSession: NSObject,
     presentingView.isUserInteractionEnabled = originalUserInteractionEnabled
   }
 
-  func dismissFromControl(onDismissed: (() -> Void)? = nil) {
+  func dismissFromControl(
+    resultStatus: AppleLiquidSheetResultStatus? = nil,
+    onDismissed: (() -> Void)? = nil
+  ) {
     guard !didFinish else {
       onDismissed?()
       return
+    }
+
+    if let resultStatus {
+      dismissalStatus = resultStatus
     }
 
     if let onDismissed {
@@ -3621,7 +3682,14 @@ private final class AppleLiquidSheetSession: NSObject,
       }
 
       self.restorePresentingViewInteraction()
-      self.result(true)
+      var response: [String: Any] = [
+        "status": self.dismissalStatus.rawValue,
+        "textFieldValues": self.textFieldValues
+      ]
+      if let actionId = self.dismissalToolbarActionId {
+        response["toolbarActionId"] = actionId
+      }
+      self.result(response)
       self.onFinish()
       callbacks.forEach { $0() }
       self.hostController?.presentationController?.delegate = nil
@@ -3763,9 +3831,10 @@ private struct AppleLiquidSettingsSheetView: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onTextFieldChanged: (String, String) -> Void
   let currentDetentSelection: () -> AppleLiquidSheetDetentSelection
   let onPresentationChange: (AppleLiquidSheetPagePresentation) -> Void
-  let onDismissRequest: () -> Void
+  let onToolbarAction: (AppleLiquidSheetResultStatus, String?) -> Void
   @State private var selectedDetent: PresentationDetent
   @State private var contentDetentHeight: CGFloat
   @State private var expandedDetentHeight: CGFloat?
@@ -3780,20 +3849,22 @@ private struct AppleLiquidSettingsSheetView: View {
       AppleLiquidSheetRowConfiguration,
       [String]
     ) -> Void,
+    onTextFieldChanged: @escaping (String, String) -> Void,
     currentDetentSelection: @escaping () -> AppleLiquidSheetDetentSelection,
     onPresentationChange: @escaping (
       AppleLiquidSheetPagePresentation
     ) -> Void,
-    onDismissRequest: @escaping () -> Void
+    onToolbarAction: @escaping (AppleLiquidSheetResultStatus, String?) -> Void
   ) {
     self.configuration = configuration
     self.onFrameChange = onFrameChange
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
+    self.onTextFieldChanged = onTextFieldChanged
     self.currentDetentSelection = currentDetentSelection
     self.onPresentationChange = onPresentationChange
-    self.onDismissRequest = onDismissRequest
+    self.onToolbarAction = onToolbarAction
 
     let detentHeights = configuration.content.preferredDetentHeights
     self._selectedDetent = State(initialValue: .height(detentHeights.primary))
@@ -3816,7 +3887,8 @@ private struct AppleLiquidSettingsSheetView: View {
         onControlInteractionChanged: onControlInteractionChanged,
         onButtonAction: onButtonAction,
         onMultiSelectionAction: onMultiSelectionAction,
-        onToolbarAction: onDismissRequest
+        onTextFieldChanged: onTextFieldChanged,
+        onToolbarAction: onToolbarAction
       )
       .navigationDestination(for: AppleLiquidSheetNavigationRoute.self) {
         route in
@@ -3828,6 +3900,7 @@ private struct AppleLiquidSettingsSheetView: View {
           onControlInteractionChanged: onControlInteractionChanged,
           onButtonAction: onButtonAction,
           onMultiSelectionAction: onMultiSelectionAction,
+          onTextFieldChanged: onTextFieldChanged,
           onToolbarAction: nil
         )
         .navigationBarBackButtonHidden(true)
@@ -4028,7 +4101,8 @@ private struct AppleLiquidSheetFormScreen: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
-  let onToolbarAction: (() -> Void)?
+  let onTextFieldChanged: (String, String) -> Void
+  let onToolbarAction: ((AppleLiquidSheetResultStatus, String?) -> Void)?
   @State private var timelineHeightAdjustments: [String: CGFloat] = [:]
 
   var body: some View {
@@ -4046,6 +4120,7 @@ private struct AppleLiquidSheetFormScreen: View {
               onControlInteractionChanged: onControlInteractionChanged,
               onButtonAction: onButtonAction,
               onMultiSelectionAction: onMultiSelectionAction,
+              onTextFieldChanged: onTextFieldChanged,
               onTimelineExpansionChanged: handleTimelineExpansionChange
             )
           } else {
@@ -4056,6 +4131,7 @@ private struct AppleLiquidSheetFormScreen: View {
                 onControlInteractionChanged: onControlInteractionChanged,
                 onButtonAction: onButtonAction,
                 onMultiSelectionAction: onMultiSelectionAction,
+                onTextFieldChanged: onTextFieldChanged,
                 onTimelineExpansionChanged: handleTimelineExpansionChange
               )
               .appleLiquidFormRowInsets(
@@ -4125,7 +4201,7 @@ private struct AppleLiquidSheetFormScreen: View {
             AppleLiquidSheetToolbarButton(
               action: leadingAction,
               onTap: {
-                onToolbarAction?()
+                onToolbarAction?(.cancelled, leadingAction.actionId)
               }
             )
           }
@@ -4135,7 +4211,7 @@ private struct AppleLiquidSheetFormScreen: View {
           AppleLiquidSheetToolbarButton(
             action: content.trailingAction,
             onTap: {
-              onToolbarAction?()
+              onToolbarAction?(.saved, content.trailingAction.actionId)
             }
           )
         }
@@ -4459,9 +4535,10 @@ private struct AppleLiquidSheetLayoutTestHost: View {
           onControlInteractionChanged: { _ in },
           onButtonAction: { _ in },
           onMultiSelectionAction: { _, _ in },
+          onTextFieldChanged: { _, _ in },
           currentDetentSelection: { .primary },
           onPresentationChange: { _ in },
-          onDismissRequest: {}
+          onToolbarAction: { _, _ in }
         )
       }
   }
@@ -4475,6 +4552,7 @@ private struct AppleLiquidSheetRowView: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onTextFieldChanged: (String, String) -> Void
   let onTimelineExpansionChanged: (AppleLiquidSheetRowConfiguration, Bool) -> Void
   @State private var toggleValue: Bool
   @State private var pickerSelection: String
@@ -4492,6 +4570,7 @@ private struct AppleLiquidSheetRowView: View {
       AppleLiquidSheetRowConfiguration,
       [String]
     ) -> Void,
+    onTextFieldChanged: @escaping (String, String) -> Void,
     onTimelineExpansionChanged: @escaping (
       AppleLiquidSheetRowConfiguration,
       Bool
@@ -4502,6 +4581,7 @@ private struct AppleLiquidSheetRowView: View {
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
     self.onMultiSelectionAction = onMultiSelectionAction
+    self.onTextFieldChanged = onTextFieldChanged
     self.onTimelineExpansionChanged = onTimelineExpansionChanged
     self._toggleValue = State(initialValue: row.boolValue)
     self._pickerSelection = State(initialValue: row.resolvedSelectedOption)
@@ -4616,6 +4696,13 @@ private struct AppleLiquidSheetRowView: View {
 
     case .textField:
       TextField(row.title, text: $textValue)
+        .onChange(of: textValue) { updatedValue in
+          guard let actionId = row.textFieldActionId else {
+            return
+          }
+
+          onTextFieldChanged(actionId, updatedValue)
+        }
 
     case .identity:
       AppleLiquidSheetIdentityRow(row: row)
@@ -6340,6 +6427,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
+  let onTextFieldChanged: (String, String) -> Void
   let onTimelineExpansionChanged: (AppleLiquidSheetRowConfiguration, Bool) -> Void
 
   var body: some View {
@@ -6351,6 +6439,7 @@ private struct AppleLiquidSheetStyledFormGroup: View {
           onControlInteractionChanged: onControlInteractionChanged,
           onButtonAction: onButtonAction,
           onMultiSelectionAction: onMultiSelectionAction,
+          onTextFieldChanged: onTextFieldChanged,
           onTimelineExpansionChanged: onTimelineExpansionChanged
         )
         .frame(maxWidth: .infinity, minHeight: minimumContentHeight(for: row))

@@ -487,14 +487,15 @@ class _DemoShellState extends State<DemoShell> {
       return;
     }
 
-    final bool didShowNativeSheet = await templateSheetController.showSheet(
-      backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
-      sheetColor: templateSheetColor,
-      content: sheetContent,
-      scrollContext: scrollContext,
-    );
+    final AppleLiquidSheetResult result = await templateSheetController
+        .showSheet(
+          backgroundZoomScale: templateSheetBackgroundZoom ? 0.94 : 1,
+          sheetColor: templateSheetColor,
+          content: sheetContent,
+          scrollContext: scrollContext,
+        );
 
-    if (didShowNativeSheet || !mounted) {
+    if (result.didPresent || !mounted) {
       return;
     }
 

@@ -117,7 +117,7 @@ are not official Android, web, or desktop support.
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.2.35
+  mjn_liquid_ui: ^0.3.0
 ```
 
 Then import the package:
@@ -585,7 +585,7 @@ is shown.
 | API | Purpose |
 | --- | --- |
 | `AppleLiquidSheetContent` | One native sheet page with title, optional detents, section backgrounds, section spacing, and sections |
-| `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol |
+| `AppleLiquidSheetToolbarAction` | Optional leading or trailing toolbar button with text and/or SF Symbol, plus an `onPressed` callback |
 | `AppleLiquidSheetSection` | Optional section header with configurable color and content spacing, native form rows, and per-section background, border, and corner styling |
 | `AppleLiquidSheetRow.text` | Title and optional subtitle |
 | `AppleLiquidSheetRow.value` | Native label-value row |
@@ -597,7 +597,9 @@ is shown.
 | `AppleLiquidSheetRow.button` | Full-width native action button with a Dart callback, optional sheet dismissal, accessibility label, and configurable enabled state |
 | `AppleLiquidSheetButtonStyle` | Button colors, dimensions, typography, alignment, form-row insets/background/separator, and press feedback |
 | `AppleLiquidSheetRow.slider` | Native slider row with local sheet state, optional `step`, min/max, tint, value placement, and horizontal row inset |
-| `AppleLiquidSheetRow.textField` | Native text field row with local sheet state |
+| `AppleLiquidSheetRow.textField` | Native text field row with an initial value, an `onChanged` callback, and a final value in the sheet result |
+| `AppleLiquidSheetResult` | Save/cancel/presentation status and final text-field values returned by `showSheet()` |
+| `AppleLiquidSheetTextFieldValue` | Final text and optional identifier for one text-field row |
 | `AppleLiquidSheetRow.identity` | Identity card with selectable legacy or responsive composed layout, optional role, activity, status chip, related people, avatars, badges, and horizontal inset |
 | `AppleLiquidSheetIdentityStatus` | App-provided status-chip label, optional SF Symbol, and colors |
 | `AppleLiquidSheetIdentityPerson` | Related person/entity title, metadata, avatar source, and badges |
@@ -609,6 +611,7 @@ is shown.
 | `AppleLiquidSheetRow.factsGrid` | Compact one-to-four-column grid for short facts |
 | `AppleLiquidSheetFact` | Typed label, value, and optional SF Symbol for one grid item |
 | `AppleLiquidSheetRow.navigation` | Pushes another `AppleLiquidSheetContent` page with an optional custom chevron color |
+| `AppleLiquidSheetResultStatus` | Whether the sheet was saved, cancelled, already showing, or not presented |
 
 `AppleLiquidSheetDetents` can be set on every `AppleLiquidSheetContent`, not
 only the root sheet. Heights are native iOS points:
@@ -644,6 +647,7 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
     systemImage: 'xmark',
     semanticLabel: 'Dismiss sheet',
     foregroundColor: Color(0xFFFF9F0A),
+    onPressed: (AppleLiquidSheetResultStatus status) {},
   ),
   trailingAction: AppleLiquidSheetToolbarAction(
     title: 'Apply',
@@ -651,6 +655,7 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
     semanticLabel: 'Apply changes',
     foregroundColor: Color(0xFFFFFFFF),
     backgroundColor: Color(0xFF34C759),
+    onPressed: (AppleLiquidSheetResultStatus status) {},
   ),
   detents: AppleLiquidSheetDetents(
     initialHeight: 420,
@@ -707,6 +712,12 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
           valuePlacement: AppleLiquidSheetSliderValuePlacement.besideTrack,
           rowHorizontalInset: 8,
         ),
+        AppleLiquidSheetRow.textField(
+          identifier: 'title',
+          title: 'Title',
+          value: 'Project',
+          onChanged: (String value) {},
+        ),
         AppleLiquidSheetRow.navigation(
           title: 'Details',
           chevronColor: Color(0xFF34C759),
@@ -733,11 +744,15 @@ final AppleLiquidSheetContent content = AppleLiquidSheetContent(
   ],
 );
 
-final bool didShow = await AppleLiquidSheet.showSheet(
+final AppleLiquidSheetResult result = await AppleLiquidSheet.showSheet(
   backgroundZoomScale: 0.94,
   sheetColor: const Color(0xFFEAF3FF),
   content: content,
 );
+
+if (result.isSaved) {
+  final String? editedTitle = result.textField('title')?.value;
+}
 ```
 
 Sheet buttons do not contain app-specific behavior. `onPressed` is registered
@@ -747,6 +762,16 @@ callback. Omit `style` for the blue outlined default, or pass
 `AppleLiquidSheetButtonStyle` to configure colors, sizing, typography,
 alignment, row insets, the form background and separator, disabled appearance,
 and press feedback.
+
+Toolbar `onPressed` callbacks run when their action is tapped and receive its
+status. The leading toolbar action returns
+`AppleLiquidSheetResultStatus.cancelled`; the trailing confirmation action
+returns `saved`. Dragging the sheet closed also returns `cancelled`. Text-field
+values are available from `result.textFields`, or by
+calling `result.textField(identifier)` for rows created with a unique
+`identifier`.
+`result.isSaved` and `result.isCancelled` are convenience checks, and
+`result.didPresent` replaces the old `showSheet()` boolean for fallback logic.
 
 ### Button row spacing
 
@@ -866,7 +891,8 @@ final AppleLiquidSheetController sheetController =
   content: content,
 );
 
-final bool didShow = await sheetController.showSheet();
+final AppleLiquidSheetResult result = await sheetController.showSheet();
+final bool didShow = result.didPresent;
 await sheetController.dismiss();
 ```
 
@@ -899,11 +925,11 @@ await sheetController.showSheet(scrollContext: context);
 `backgroundZoomScale` controls how far the presenting view scales back while
 the sheet is open. Set `sheetColor` to force a specific sheet background color;
 leave it null to use the native Liquid Glass/system presentation background.
-The method returns `true` after a native iOS sheet was shown and dismissed. It
-returns `false` on unsupported platforms so apps can present their own Flutter
-fallback.
-Repeated show calls return `true` without opening another sheet so fallback code
-does not stack a second presentation.
+`showSheet()` returns an `AppleLiquidSheetResult` after dismissal, including the
+final text-field values and save/cancel status. Check `result.didPresent` before
+opening a Flutter fallback. A repeated call while a sheet is already active
+returns `AppleLiquidSheetResultStatus.alreadyShowing` without stacking another
+presentation.
 The controller exposes `isShowing` and `isShown` for UI state while its
 presentation is active.
 
