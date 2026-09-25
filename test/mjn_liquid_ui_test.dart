@@ -870,9 +870,8 @@ void main() {
         });
 
     try {
-      final Future<bool> showFuture = AppleLiquidSheet.showSheet(
-        content: content,
-      );
+      final Future<AppleLiquidSheetResult> showFuture =
+          AppleLiquidSheet.showSheet(content: content);
       await Future<void>.delayed(Duration.zero);
 
       expect(actionId, isNotNull);
@@ -884,7 +883,7 @@ void main() {
       expect(pressCount, 1);
 
       showCompleter.complete(true);
-      expect(await showFuture, isTrue);
+      expect((await showFuture).didPresent, isTrue);
     } finally {
       if (!showCompleter.isCompleted) {
         showCompleter.complete(false);
@@ -894,6 +893,176 @@ void main() {
           .setMockMethodCallHandler(sheetChannel, null);
     }
   });
+
+  test('sheet results return text and report save status', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+    final Completer<Object?> resultCompleter = Completer<Object?>();
+    final List<String> textChanges = <String>[];
+    final List<AppleLiquidSheetResultStatus> toolbarStatuses =
+        <AppleLiquidSheetResultStatus>[];
+    String? textFieldActionId;
+    String? saveActionId;
+
+    final AppleLiquidSheetContent content = AppleLiquidSheetContent(
+      leadingAction: AppleLiquidSheetToolbarAction(
+        title: 'Cancel',
+        onPressed: toolbarStatuses.add,
+      ),
+      trailingAction: AppleLiquidSheetToolbarAction(
+        title: 'Save',
+        onPressed: toolbarStatuses.add,
+      ),
+      sections: <AppleLiquidSheetSection>[
+        AppleLiquidSheetSection(
+          rows: <AppleLiquidSheetRow>[
+            AppleLiquidSheetRow.textField(
+              identifier: 'title',
+              title: 'Title',
+              value: 'Initial',
+              onChanged: textChanges.add,
+            ),
+          ],
+        ),
+      ],
+    );
+
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+          if (call.method == 'showTemplateSheet') {
+            final Map<Object?, Object?> arguments =
+                call.arguments as Map<Object?, Object?>;
+            final Map<Object?, Object?> nativeContent =
+                arguments['content'] as Map<Object?, Object?>;
+            final List<Object?> sections =
+                nativeContent['sections'] as List<Object?>;
+            final Map<Object?, Object?> section =
+                sections.single as Map<Object?, Object?>;
+            final List<Object?> rows = section['rows'] as List<Object?>;
+            final Map<Object?, Object?> row =
+                rows.single as Map<Object?, Object?>;
+            final Map<Object?, Object?> trailingAction =
+                nativeContent['trailingAction'] as Map<Object?, Object?>;
+            textFieldActionId = row['textFieldActionId'] as String?;
+            saveActionId = trailingAction['actionId'] as String?;
+            return resultCompleter.future;
+          }
+
+          return null;
+        });
+
+    try {
+      final Future<AppleLiquidSheetResult> showFuture =
+          AppleLiquidSheet.showSheet(content: content);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(textFieldActionId, isNotNull);
+      expect(saveActionId, isNotNull);
+      await _sendPlatformMethodCall(
+        sheetChannel,
+        'textFieldChanged',
+        <String, Object?>{'actionId': textFieldActionId, 'value': 'Live edit'},
+      );
+      await _sendPlatformMethodCall(
+        sheetChannel,
+        'toolbarActionPressed',
+        <String, Object?>{'actionId': saveActionId, 'status': 'saved'},
+      );
+
+      expect(textChanges, <String>['Live edit']);
+      expect(toolbarStatuses, <AppleLiquidSheetResultStatus>[
+        AppleLiquidSheetResultStatus.saved,
+      ]);
+
+      resultCompleter.complete(<String, Object?>{
+        'status': 'saved',
+        'toolbarActionId': saveActionId,
+        'textFieldValues': <String, String>{textFieldActionId!: 'Final title'},
+      });
+
+      final AppleLiquidSheetResult result = await showFuture;
+      expect(result.status, AppleLiquidSheetResultStatus.saved);
+      expect(result.isSaved, isTrue);
+      expect(result.didPresent, isTrue);
+      expect(result.textField('title')?.value, 'Final title');
+      expect(textChanges, <String>['Live edit', 'Final title']);
+      expect(toolbarStatuses, <AppleLiquidSheetResultStatus>[
+        AppleLiquidSheetResultStatus.saved,
+      ]);
+    } finally {
+      if (!resultCompleter.isCompleted) {
+        resultCompleter.complete(<String, Object?>{'status': 'cancelled'});
+      }
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, null);
+    }
+  });
+
+  test(
+    'sheet cancellation invokes the toolbar callback with cancelled',
+    () async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+
+      final Completer<Object?> resultCompleter = Completer<Object?>();
+      final List<AppleLiquidSheetResultStatus> toolbarStatuses =
+          <AppleLiquidSheetResultStatus>[];
+      String? cancelActionId;
+
+      final AppleLiquidSheetContent content = AppleLiquidSheetContent(
+        leadingAction: AppleLiquidSheetToolbarAction(
+          title: 'Cancel',
+          onPressed: toolbarStatuses.add,
+        ),
+        sections: <AppleLiquidSheetSection>[
+          AppleLiquidSheetSection(rows: <AppleLiquidSheetRow>[]),
+        ],
+      );
+
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(sheetChannel, (MethodCall call) async {
+            if (call.method == 'showTemplateSheet') {
+              final Map<Object?, Object?> arguments =
+                  call.arguments as Map<Object?, Object?>;
+              final Map<Object?, Object?> nativeContent =
+                  arguments['content'] as Map<Object?, Object?>;
+              final Map<Object?, Object?> leadingAction =
+                  nativeContent['leadingAction'] as Map<Object?, Object?>;
+              cancelActionId = leadingAction['actionId'] as String?;
+              return resultCompleter.future;
+            }
+
+            return null;
+          });
+
+      try {
+        final Future<AppleLiquidSheetResult> showFuture =
+            AppleLiquidSheet.showSheet(content: content);
+        await Future<void>.delayed(Duration.zero);
+
+        expect(cancelActionId, isNotNull);
+        resultCompleter.complete(<String, Object?>{
+          'status': 'cancelled',
+          'toolbarActionId': cancelActionId,
+        });
+
+        final AppleLiquidSheetResult result = await showFuture;
+        expect(result.status, AppleLiquidSheetResultStatus.cancelled);
+        expect(result.isCancelled, isTrue);
+        expect(result.didPresent, isTrue);
+        expect(toolbarStatuses, <AppleLiquidSheetResultStatus>[
+          AppleLiquidSheetResultStatus.cancelled,
+        ]);
+      } finally {
+        if (!resultCompleter.isCompleted) {
+          resultCompleter.complete(<String, Object?>{'status': 'cancelled'});
+        }
+        debugDefaultTargetPlatformOverride = null;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(sheetChannel, null);
+      }
+    },
+  );
 
   test('sheet toolbar actions require visible content', () {
     expect(() => AppleLiquidSheetToolbarAction(), throwsAssertionError);
@@ -1206,7 +1375,7 @@ void main() {
         });
 
     try {
-      final Future<bool> showFuture = controller.showSheet();
+      final Future<AppleLiquidSheetResult> showFuture = controller.showSheet();
       await Future<void>.delayed(Duration.zero);
 
       expect(controller.isShowing, isTrue);
@@ -1218,11 +1387,11 @@ void main() {
       expect(calls.single.arguments, containsPair('sheetColor', 0xFFEAF3FF));
       expect(calls.single.arguments, containsPair('content', content.toMap()));
 
-      expect(await controller.showSheet(), isTrue);
+      expect((await controller.showSheet()).didPresent, isTrue);
       expect(calls, hasLength(1));
 
       expect(await controller.dismiss(), isTrue);
-      expect(await showFuture, isTrue);
+      expect((await showFuture).didPresent, isTrue);
       expect(controller.isShowing, isFalse);
       expect(controller.isShown, isFalse);
       expect(calls.map((MethodCall call) => call.method), <String>[
@@ -1274,14 +1443,15 @@ void main() {
         await tester.tap(find.text('Background action'));
         expect(tapCount, 1);
 
-        final Future<bool> showFuture = controller.showSheet();
+        final Future<AppleLiquidSheetResult> showFuture = controller
+            .showSheet();
         await tester.pump();
 
         await tester.tap(find.text('Background action'), warnIfMissed: false);
         expect(tapCount, 1);
 
         showCompleter.complete(true);
-        expect(await showFuture, isTrue);
+        expect((await showFuture).didPresent, isTrue);
         await tester.pump();
 
         await tester.tap(find.text('Background action'));
@@ -1338,13 +1508,14 @@ void main() {
         final double offsetBeforeSheet = scrollable.position.pixels;
         expect(offsetBeforeSheet, greaterThan(0));
 
-        final Future<bool> showFuture = controller.showSheet();
+        final Future<AppleLiquidSheetResult> showFuture = controller
+            .showSheet();
         await tester.pump();
 
         expect(scrollable.position.pixels, offsetBeforeSheet);
 
         showCompleter.complete(true);
-        expect(await showFuture, isTrue);
+        expect((await showFuture).didPresent, isTrue);
         await tester.pump();
 
         expect(scrollable.position.pixels, offsetBeforeSheet);
@@ -1400,7 +1571,8 @@ void main() {
 
         expect(isBlockedFromBuilder, isFalse);
 
-        final Future<bool> showFuture = controller.showSheet();
+        final Future<AppleLiquidSheetResult> showFuture = controller
+            .showSheet();
         await tester.pump();
         expect(isBlockedFromBuilder, isTrue);
 
@@ -1408,7 +1580,7 @@ void main() {
         expect(tapCount, 1);
 
         showCompleter.complete(true);
-        expect(await showFuture, isTrue);
+        expect((await showFuture).didPresent, isTrue);
         await tester.pump();
         expect(isBlockedFromBuilder, isFalse);
       } finally {
@@ -1439,15 +1611,16 @@ void main() {
         });
 
     try {
-      final Future<bool> showFuture = AppleLiquidSheet.showSheet();
+      final Future<AppleLiquidSheetResult> showFuture =
+          AppleLiquidSheet.showSheet();
       await Future<void>.delayed(Duration.zero);
 
       expect(calls, hasLength(1));
-      expect(await AppleLiquidSheet.showSheet(), isTrue);
+      expect((await AppleLiquidSheet.showSheet()).didPresent, isTrue);
       expect(calls, hasLength(1));
 
       showCompleter.complete(true);
-      expect(await showFuture, isTrue);
+      expect((await showFuture).didPresent, isTrue);
     } finally {
       debugDefaultTargetPlatformOverride = null;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -2036,7 +2209,9 @@ void main() {
       expect(scrollController.offset, greaterThan(0));
 
       expect(
-        await AppleLiquidSheet.showSheet(scrollContext: scrollContext),
+        (await AppleLiquidSheet.showSheet(
+          scrollContext: scrollContext,
+        )).didPresent,
         isTrue,
       );
       final double stoppedOffset = scrollController.offset;

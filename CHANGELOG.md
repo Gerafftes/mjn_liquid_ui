@@ -1,3 +1,12 @@
+## 0.3.0
+
+- **Breaking:** `showSheet()` now returns `AppleLiquidSheetResult` instead of a
+  `bool`. Use `result.didPresent` when only presentation status is needed.
+- Added live Dart callbacks for native text-field changes and configurable sheet
+  toolbar actions with save/cancel status.
+- Added final text-field values and save/cancel status to `showSheet()` results;
+  kept the legacy `showTemplateSheet()` boolean API compatible.
+
 ## 0.2.35
 
 - Added independently animated native Liquid Toast stacking with configurable
