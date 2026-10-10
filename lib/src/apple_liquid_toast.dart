@@ -11,6 +11,7 @@ class AppleLiquidToastStackOptions {
   const AppleLiquidToastStackOptions({
     this.maxVisibleToasts,
     this.overflowTitle = 'More notifications',
+    this.overflowAction,
   }) : assert(maxVisibleToasts == null || maxVisibleToasts > 0),
        assert(overflowTitle != '');
 
@@ -25,6 +26,14 @@ class AppleLiquidToastStackOptions {
   /// Every `{count}` placeholder is replaced with the number of toasts
   /// represented by the summary.
   final String overflowTitle;
+
+  /// Optional button at the trailing edge of the overflow summary.
+  ///
+  /// Uses the options from the latest [AppleLiquidToast.show] call. The action
+  /// can navigate or perform any app-defined work through `onPressed`.
+  /// `dismissesToast` applies to the summary; `isWholeToastTappable` is ignored
+  /// because only this button is tappable.
+  final AppleLiquidToastAction? overflowAction;
 }
 
 class _AppleLiquidToastActionRegistration {
@@ -39,7 +48,21 @@ class _AppleLiquidToastActionRegistration {
   final String toastId;
 }
 
-/// Action button configuration for [AppleLiquidToast.show].
+class _AppleLiquidToastVisibility extends ChangeNotifier
+    implements ValueListenable<bool> {
+  bool _value = false;
+
+  @override
+  bool get value => _value;
+
+  void _update(bool value) {
+    if (_value == value) return;
+    _value = value;
+    notifyListeners();
+  }
+}
+
+/// Action button configuration for a toast or its overflow summary.
 class AppleLiquidToastAction {
   const AppleLiquidToastAction({
     required this.title,
@@ -77,8 +100,12 @@ class AppleLiquidToast {
   static final Map<String, _AppleLiquidToastActionRegistration> _actions =
       <String, _AppleLiquidToastActionRegistration>{};
   static final Map<String, Timer> _actionCleanupTimers = <String, Timer>{};
+  static final _AppleLiquidToastVisibility _stackVisibility =
+      _AppleLiquidToastVisibility();
 
   static bool _handlerAttached = false;
+  static bool _visibilitySyncStarted = false;
+  static int _visibilityRevision = 0;
   static bool _isVisible = true;
   static int _nextToastId = 0;
   static int _nextActionId = 0;
@@ -90,6 +117,37 @@ class AppleLiquidToast {
   /// [show] to enable a maximum and an overflow summary.
   static AppleLiquidToastStackOptions stackOptions =
       const AppleLiquidToastStackOptions();
+
+  /// Whether the native overlay currently displays at least one toast.
+  ///
+  /// Starts at `false` and synchronizes with native state on first access.
+  /// Native changes, including swipe dismissal, expiry, overflow summaries,
+  /// [setVisible], and temporary hiding by native sheets, update this read-only
+  /// listenable. Unsupported platforms keep the value `false`.
+  static ValueListenable<bool> get isStackVisible {
+    if (_isNativeToastSupported && !_visibilitySyncStarted) {
+      _visibilitySyncStarted = true;
+      _ensureHandlerAttached();
+      unawaited(_synchronizeStackVisibility());
+    }
+    return _stackVisibility;
+  }
+
+  static Future<void> _synchronizeStackVisibility() async {
+    final int revision = _visibilityRevision;
+    try {
+      final bool visible =
+          await _channel.invokeMethod<bool>('getStackVisibility') ?? false;
+      // A native event received during the query is newer than its snapshot.
+      if (_visibilityRevision == revision) {
+        _stackVisibility._update(visible);
+      }
+    } on MissingPluginException {
+      _visibilitySyncStarted = false;
+    } on PlatformException {
+      _visibilitySyncStarted = false;
+    }
+  }
 
   /// Shows a native iOS Liquid Glass toast.
   ///
@@ -117,9 +175,19 @@ class AppleLiquidToast {
 
     _ensureHandlerAttached();
 
+    final AppleLiquidToastStackOptions currentStackOptions = stackOptions;
     final String toastId = 'toast_${_nextToastId++}';
     final String? actionId = _registerAction(action, duration, toastId);
-    final AppleLiquidToastStackOptions currentStackOptions = stackOptions;
+    final String overflowToastId = '${toastId}_overflow';
+    final AppleLiquidToastAction? overflowAction =
+        currentStackOptions.maxVisibleToasts == null
+        ? null
+        : currentStackOptions.overflowAction;
+    final String? overflowActionId = _registerAction(
+      overflowAction,
+      duration,
+      overflowToastId,
+    );
     final Map<String, Object?> arguments = <String, Object?>{
       'id': toastId,
       'title': title,
@@ -139,6 +207,14 @@ class AppleLiquidToast {
         'isWholeToastTappable': action.isWholeToastTappable,
         if (actionId != null) 'actionId': actionId,
       },
+      if (overflowAction != null)
+        'overflowAction': <String, Object?>{
+          'toastId': overflowToastId,
+          'title': overflowAction.title,
+          'tintColor': overflowAction.tintColor?.toARGB32(),
+          'dismissesToast': overflowAction.dismissesToast,
+          if (overflowActionId != null) 'actionId': overflowActionId,
+        },
     };
 
     try {
@@ -146,13 +222,16 @@ class AppleLiquidToast {
           await _channel.invokeMethod<bool>('show', arguments) ?? false;
       if (!shown) {
         _clearToast(toastId);
+        _clearToast(overflowToastId);
       }
       return shown;
     } on MissingPluginException {
       _clearToast(toastId);
+      _clearToast(overflowToastId);
       return false;
     } on PlatformException {
       _clearToast(toastId);
+      _clearToast(overflowToastId);
       return false;
     }
   }
@@ -211,6 +290,14 @@ class AppleLiquidToast {
 
   static Future<void> _handleMethodCall(MethodCall call) async {
     switch (call.method) {
+      case 'stackVisibilityChanged':
+        final Object? visible = call.arguments;
+        if (visible is bool) {
+          _visibilityRevision += 1;
+          _stackVisibility._update(visible);
+          return;
+        }
+        throw MissingPluginException('Invalid stackVisibilityChanged payload.');
       case 'actionInvoked':
         final Object? arguments = call.arguments;
         if (arguments is Map && arguments['actionId'] is String) {

@@ -7,6 +7,256 @@ import XCTest
 final class RunnerTests: XCTestCase {
 
   @available(iOS 16.0, *)
+  private func visibilityToast(
+    _ id: String,
+    duration: Any = NSNull(),
+    maxVisibleToasts: Any = NSNull(),
+    dismissesOnAction: Bool = true
+  ) throws -> AppleLiquidToastConfiguration {
+    try XCTUnwrap(AppleLiquidToastConfiguration(arguments: [
+      "id": id,
+      "title": id,
+      "duration": duration,
+      "maxVisibleToasts": maxVisibleToasts,
+      "actionTitle": "Open",
+      "actionId": "\(id)_action",
+      "dismissesOnAction": dismissesOnAction,
+    ]))
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityOnShowAndLastSwipeDismissal() throws {
+    var changes: [Bool] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { _ in }
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertTrue(changes.isEmpty)
+    model.show(try visibilityToast("first"))
+    XCTAssertTrue(model.isStackVisible)
+    model.dismiss(id: "first") // Same synchronous removal as the swipe handler.
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertEqual(changes, [true, false])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityWhenOnlyOneOfSeveralToastsIsDismissed() throws {
+    var changes: [Bool] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { _ in }
+    model.show(try visibilityToast("first"))
+    model.show(try visibilityToast("second"))
+    model.dismiss(id: "first")
+    XCTAssertTrue(model.isStackVisible)
+    XCTAssertEqual(changes, [true])
+    model.dismiss(id: "second")
+    XCTAssertEqual(changes, [true, false])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityOnAutomaticExpiry() throws {
+    let expired = expectation(description: "Last toast expires natively")
+    var changes: [Bool] = []
+    var dismissedIDs: [String] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: { visible in
+      changes.append(visible)
+      if !visible { expired.fulfill() }
+    }) { dismissedIDs.append($0) }
+    model.show(try visibilityToast("expiring", duration: 1.0))
+    wait(for: [expired], timeout: 3)
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertEqual(changes, [true, false])
+    XCTAssertEqual(dismissedIDs, ["expiring"])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityOnClosingActionAndDismissAll() throws {
+    var changes: [Bool] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { _ in }
+    let closing = try visibilityToast("closing")
+    model.show(closing)
+    if closing.dismissesOnAction { model.dismiss(id: closing.id) }
+    XCTAssertEqual(changes, [true, false])
+
+    let persistent = try visibilityToast("persistent", dismissesOnAction: false)
+    model.show(persistent)
+    if persistent.dismissesOnAction { model.dismiss(id: persistent.id) }
+    XCTAssertTrue(model.isStackVisible)
+    model.show(try visibilityToast("second"))
+    model.dismiss()
+    model.dismiss()
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertEqual(changes, [true, false, true, false])
+  }
+
+  @available(iOS 16.0, *)
+  func testHiddenExpiredToastDoesNotReappear() throws {
+    let expired = expectation(description: "Hidden toast expires natively")
+    var changes: [Bool] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { _ in expired.fulfill() }
+    model.show(try visibilityToast("expiring", duration: 1.0))
+    model.setVisible(false)
+    wait(for: [expired], timeout: 3)
+    model.setVisible(true)
+    XCTAssertTrue(model.activeToasts.isEmpty)
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertEqual(changes, [true, false])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityOnHideRestoreAndSheetSuspension() throws {
+    var changes: [Bool] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { _ in }
+    model.setVisible(false)
+    model.show(try visibilityToast("hidden"))
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertTrue(changes.isEmpty)
+    model.setVisible(true)
+    model.setVisible(true)
+    model.setSheetPresented(true)
+    model.setVisible(false)
+    model.setSheetPresented(false)
+    XCTAssertFalse(model.isStackVisible)
+    model.setVisible(true)
+    XCTAssertEqual(changes, [true, false, true])
+    model.setSheetPresented(true)
+    model.setVisible(true)
+    XCTAssertFalse(model.isStackVisible)
+    model.setSheetPresented(false)
+    XCTAssertTrue(model.isStackVisible)
+    model.dismiss()
+    model.setVisible(false)
+    model.setVisible(true)
+    XCTAssertFalse(model.isStackVisible)
+    XCTAssertEqual(changes, [true, false, true, false, true, false])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastVisibilityStaysTrueWhenThirdToastBecomesSummary() throws {
+    var changes: [Bool] = []
+    var dismissedIDs: [String] = []
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: {
+      changes.append($0)
+    }) { dismissedIDs.append($0) }
+    for index in 1...3 {
+      model.show(try visibilityToast("toast_\(index)", maxVisibleToasts: 2))
+    }
+    let summary = try XCTUnwrap(model.activeToasts.first)
+    XCTAssertTrue(summary.isOverflowSummary)
+    XCTAssertEqual(model.activeToasts.count, 1)
+    XCTAssertEqual(dismissedIDs, ["toast_1", "toast_2", "toast_3"])
+    XCTAssertEqual(changes, [true])
+    model.show(try visibilityToast("fourth", maxVisibleToasts: 2))
+    model.show(try visibilityToast("unlimited"))
+    XCTAssertEqual(changes, [true])
+    model.dismiss(id: "unlimited")
+    XCTAssertEqual(changes, [true, false])
+  }
+
+  @available(iOS 16.0, *)
+  private func toastOverlayWindow() throws -> AppleLiquidToastOverlayWindow {
+    let scene = try XCTUnwrap(
+      UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first
+    )
+    return AppleLiquidToastOverlayWindow(windowScene: scene)
+  }
+
+  @available(iOS 16.0, *)
+  func testToastOverlayRetainsHitFrameWhenSummaryUpdates() throws {
+    let window = try toastOverlayWindow()
+    let model = AppleLiquidToastModel { _ in }
+    for id in ["first", "second", "third"] {
+      model.show(try visibilityToast(id, maxVisibleToasts: 2))
+    }
+    let summaryID = try XCTUnwrap(model.activeToasts.first?.id)
+    window.updateLayout(for: model.activeToasts)
+    window.updateHitFrame(AppleLiquidToastHitFrame(
+      id: summaryID,
+      geometryFrame: CGRect(x: 15, y: 20, width: 300, height: 50),
+      placementOffset: -60
+    ))
+    let point = CGPoint(x: 100, y: 100)
+    XCTAssertFalse(window.canBecomeKey)
+    XCTAssertTrue(window.point(inside: point, with: nil))
+    XCTAssertFalse(window.point(inside: CGPoint(x: 0, y: 100), with: nil))
+    for id in ["fourth", "fifth"] {
+      model.show(try visibilityToast(id, maxVisibleToasts: 2))
+      XCTAssertEqual(model.activeToasts.first?.id, summaryID)
+      // The direct show path and Combine sink both update the same layout.
+      window.updateLayout(for: model.activeToasts)
+      XCTAssertTrue(window.point(inside: point, with: nil), id)
+      window.updateLayout(for: model.activeToasts)
+      XCTAssertTrue(window.point(inside: point, with: nil), "repeated \(id)")
+    }
+    window.updateLayout(for: [])
+    XCTAssertFalse(window.point(inside: point, with: nil))
+  }
+
+  @available(iOS 16.0, *)
+  func testToastOverlayRemovesStaleIDsAndHiddenHitFrames() throws {
+    let window = try toastOverlayWindow()
+    let first = try visibilityToast("first")
+    let second = try visibilityToast("second")
+    let third = try visibilityToast("third")
+    window.updateLayout(for: [first, second])
+    for (id, y) in [(first.id, 20.0), (second.id, 100.0)] {
+      window.updateHitFrame(AppleLiquidToastHitFrame(
+        id: id, geometryFrame: CGRect(x: 15, y: y, width: 300, height: 50),
+        placementOffset: 0
+      ))
+    }
+    let firstPoint = CGPoint(x: 100, y: 45)
+    let secondPoint = CGPoint(x: 100, y: 125)
+    XCTAssertTrue(window.point(inside: firstPoint, with: nil))
+    XCTAssertTrue(window.point(inside: secondPoint, with: nil))
+    window.updateLayout(for: [second, third])
+    XCTAssertFalse(window.point(inside: firstPoint, with: nil))
+    XCTAssertTrue(window.point(inside: secondPoint, with: nil))
+    window.removeHitFrame(id: second.id)
+    XCTAssertFalse(window.point(inside: secondPoint, with: nil))
+    window.updateHitFrame(AppleLiquidToastHitFrame(
+      id: third.id, geometryFrame: CGRect(x: 15, y: 100, width: 300, height: 50),
+      placementOffset: 0
+    ))
+    window.updateLayout(for: []) // Same path as hide, sheet suspension and dismiss.
+    XCTAssertFalse(window.point(inside: secondPoint, with: nil))
+    window.updateLayout(for: [second, third])
+    XCTAssertFalse(window.point(inside: secondPoint, with: nil))
+  }
+
+  @available(iOS 16.0, *)
+  func testToastOverlayInvalidatesHitFramesWhenWindowGeometryChanges() throws {
+    let window = try toastOverlayWindow()
+    let toast = try visibilityToast("first")
+    let hitFrame = AppleLiquidToastHitFrame(
+      id: toast.id, geometryFrame: CGRect(x: 15, y: 20, width: 300, height: 50),
+      placementOffset: -60
+    )
+    let point = CGPoint(x: 100, y: 100)
+    window.updateLayout(for: [toast])
+    window.updateHitFrame(hitFrame)
+    XCTAssertTrue(window.point(inside: point, with: nil))
+    window.frame = window.frame.insetBy(dx: 10, dy: 0)
+    window.updateLayout(for: [toast])
+    XCTAssertFalse(window.point(inside: point, with: nil))
+    window.updateHitFrame(hitFrame)
+    XCTAssertTrue(window.point(inside: point, with: nil))
+    let offsetToast = try XCTUnwrap(AppleLiquidToastConfiguration(arguments: [
+      "id": toast.id, "title": "Moved", "placementOffset": -140.0,
+      "duration": NSNull(),
+    ]))
+    window.updateLayout(for: [offsetToast])
+    XCTAssertFalse(window.point(inside: point, with: nil))
+  }
+
+  @available(iOS 16.0, *)
   func testToastHitFrameUsesWindowCoordinates() {
     let frame = AppleLiquidToastHitFrame(
       id: "action-toast",
@@ -18,6 +268,90 @@ final class RunnerTests: XCTestCase {
       frame.rect,
       CGRect(x: 15, y: 80, width: 410, height: 50)
     )
+  }
+
+  @available(iOS 16.0, *)
+  func testToastOverflowRetainsOnlyTheCurrentSummaryAction() throws {
+    var dismissedIDs: [String] = []
+    let model = AppleLiquidToastModel { dismissedIDs.append($0) }
+
+    func toast(
+      _ id: String,
+      limited: Bool = true
+    ) throws -> AppleLiquidToastConfiguration {
+      try XCTUnwrap(AppleLiquidToastConfiguration(arguments: [
+        "id": id,
+        "title": id,
+        "duration": NSNull(),
+        "maxVisibleToasts": limited ? 2 as Any : NSNull(),
+        "overflowTitle": "{count} notifications",
+        "actionTitle": "Individual",
+        "actionId": "\(id)_individual_action",
+        "isWholeToastTappable": true,
+        "overflowAction": [
+          "toastId": "\(id)_overflow",
+          "title": "Open",
+          "actionId": "\(id)_summary_action",
+          "tintColor": 0xFFFF9500,
+          "dismissesToast": false,
+        ],
+      ]))
+    }
+
+    model.show(try toast("first"))
+    model.show(try toast("second"))
+    model.show(try toast("third"))
+
+    let summary = try XCTUnwrap(model.activeToasts.first)
+    XCTAssertEqual(model.activeToasts.count, 1)
+    XCTAssertEqual(summary.title, "3 notifications")
+    XCTAssertTrue(summary.isOverflowSummary)
+    XCTAssertEqual(summary.actionTitle, "Open")
+    XCTAssertEqual(summary.actionId, "third_summary_action")
+    XCTAssertEqual(
+      summary.actionTintColor,
+      Color(.sRGB, red: 1, green: 149.0 / 255.0, blue: 0, opacity: 1)
+    )
+    XCTAssertFalse(summary.dismissesOnAction)
+    XCTAssertFalse(summary.isWholeToastTappable)
+    XCTAssertEqual(summary.callbackToastIDs, ["third_overflow"])
+    XCTAssertEqual(dismissedIDs, [
+      "first", "first_overflow", "second", "second_overflow", "third",
+    ])
+
+    model.show(try toast("fourth"))
+    let updatedSummary = try XCTUnwrap(model.activeToasts.first)
+    XCTAssertEqual(updatedSummary.id, summary.id)
+    XCTAssertEqual(updatedSummary.title, "4 notifications")
+    XCTAssertEqual(updatedSummary.actionId, "fourth_summary_action")
+    XCTAssertEqual(Array(dismissedIDs.suffix(2)), ["third_overflow", "fourth"])
+
+    model.show(try toast("unlimited", limited: false))
+    XCTAssertEqual(dismissedIDs.last, "fourth_overflow")
+    XCTAssertFalse(try XCTUnwrap(model.activeToasts.first).isOverflowSummary)
+    model.dismiss()
+    XCTAssertTrue(model.activeToasts.isEmpty)
+    XCTAssertEqual(Array(dismissedIDs.suffix(2)), ["unlimited", "unlimited_overflow"])
+  }
+
+  @available(iOS 16.0, *)
+  func testToastOverflowWithoutActionKeepsCountOnlySummary() throws {
+    let model = AppleLiquidToastModel { _ in }
+    for index in 1...3 {
+      model.show(try XCTUnwrap(AppleLiquidToastConfiguration(arguments: [
+        "id": "toast_\(index)",
+        "title": "Toast \(index)",
+        "duration": NSNull(),
+        "maxVisibleToasts": 2,
+        "overflowTitle": "{count} notifications",
+      ])))
+    }
+    let summary = try XCTUnwrap(model.activeToasts.first)
+    XCTAssertEqual(summary.title, "3 notifications")
+    XCTAssertNil(summary.actionTitle)
+    XCTAssertNil(summary.actionId)
+    XCTAssertEqual(summary.callbackToastIDs, [summary.id])
+    model.dismiss()
   }
 
   func testConcentricRectangleConfigurationResolvesFallbackRadii() {
@@ -94,6 +428,102 @@ final class RunnerTests: XCTestCase {
     )
     XCTAssertEqual(configuration?.pointSize, 256)
     XCTAssertEqual(configuration?.scale, 4)
+  }
+
+  func testDetentConfigurationDefaultsForMissingOrMalformedInput() {
+    let values: [Any?] = [nil, NSNull(), "invalid", 42, [String: Any]()]
+    for value in values {
+      let configuration = AppleLiquidSheetDetentConfiguration(value: value)
+      XCTAssertNil(configuration.initialHeight)
+      XCTAssertNil(configuration.expandedHeight)
+      XCTAssertTrue(configuration.allowsAutomaticExpansion)
+    }
+    XCTAssertNil(AppleLiquidSheetDetentConfiguration.automatic.initialHeight)
+    XCTAssertNil(AppleLiquidSheetDetentConfiguration.automatic.expandedHeight)
+    XCTAssertTrue(AppleLiquidSheetDetentConfiguration.automatic.allowsAutomaticExpansion)
+
+    let invalidHeights: [Any] = [NSNull(), "420", 0, -1.0]
+    for height in invalidHeights {
+      let configuration = AppleLiquidSheetDetentConfiguration(value: [
+        "initialHeight": height,
+        "expandedHeight": height,
+        "allowsAutomaticExpansion": NSNull(),
+      ])
+      XCTAssertNil(configuration.initialHeight)
+      XCTAssertNil(configuration.expandedHeight)
+      XCTAssertTrue(configuration.allowsAutomaticExpansion)
+    }
+  }
+
+  func testDetentConfigurationPreservesNumericHeights() {
+    let cases: [(Any, CGFloat)] = [(420.5, 420.5), (NSNumber(value: 300), 300)]
+    for (height, expected) in cases {
+      let configuration = AppleLiquidSheetDetentConfiguration(value: [
+        "initialHeight": height,
+        "expandedHeight": NSNumber(value: 640.25),
+        "allowsAutomaticExpansion": false,
+      ])
+      XCTAssertEqual(configuration.initialHeight, expected)
+      XCTAssertEqual(configuration.expandedHeight, 640.25)
+      XCTAssertFalse(configuration.allowsAutomaticExpansion)
+    }
+  }
+
+  func testDetentConfigurationPreservesExpansionConversion() {
+    let cases: [(Any, Bool)] = [
+      (true, true), (false, false),
+      (NSNumber(value: 1), true), (NSNumber(value: 0), false),
+      (NSNumber(value: 2), true), ("false", true), (NSNull(), true),
+    ]
+    for (value, expected) in cases {
+      let configuration = AppleLiquidSheetDetentConfiguration(value: [
+        "allowsAutomaticExpansion": value,
+      ])
+      XCTAssertEqual(configuration.allowsAutomaticExpansion, expected)
+    }
+  }
+
+  func testAvatarURLPolicyNormalizesAndRejectsInvalidHosts() {
+    XCTAssertEqual(
+      AppleLiquidAvatarURLPolicy.allowedHosts([
+        " Images.Example.COM\n", "images.example.com", "cdn-1.example.com",
+        "", "bad_host.example.com", "-bad.example.com", "bad-.example.com",
+        "images.example.com.", "127.0.0.1", "999.999.999.999", 42, NSNull(),
+      ] as [Any]),
+      Set(["images.example.com", "cdn-1.example.com"])
+    )
+    XCTAssertTrue(AppleLiquidAvatarURLPolicy.allowedHosts(nil).isEmpty)
+    XCTAssertTrue(AppleLiquidAvatarURLPolicy.allowedHosts("images.example.com").isEmpty)
+  }
+
+  func testAvatarURLPolicyPreservesOptionalURLAndCredentialRules() throws {
+    let hosts: Set<String> = ["images.example.com"]
+    for value in [nil, NSNull(), 42, "", " \n", "not a URL"] as [Any?] {
+      XCTAssertNil(AppleLiquidAvatarURLPolicy.optionalURL(value, allowedHosts: hosts))
+    }
+    for value in [
+      "HTTPS://IMAGES.EXAMPLE.COM:443/avatar.png?size=2#avatar",
+      "https://images.example.com/avatar.png",
+    ] {
+      XCTAssertEqual(
+        AppleLiquidAvatarURLPolicy.optionalURL(value, allowedHosts: hosts),
+        try XCTUnwrap(URL(string: value))
+      )
+    }
+    for value in [
+      "https://user@images.example.com/avatar.png",
+      "https://user:secret@images.example.com/avatar.png",
+      "https://sub.images.example.com/avatar.png",
+      "https://images.example.com.evil.example/avatar.png",
+      "https://127.0.0.1/avatar.png",
+      "http://images.example.com/avatar.png",
+      "https://images.example.com:8443/avatar.png",
+    ] {
+      XCTAssertNil(AppleLiquidAvatarURLPolicy.optionalURL(value, allowedHosts: hosts), value)
+    }
+    XCTAssertNil(AppleLiquidAvatarURLPolicy.optionalURL(
+      "https://images.example.com/avatar.png", allowedHosts: []
+    ))
   }
 
   func testAvatarURLPolicyRequiresExactHTTPSHostAllowlist() throws {

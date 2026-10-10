@@ -27,3 +27,9 @@ example/pubspec.lock
 *.mobileprovision
 GoogleService-Info.plist
 google-services.json
+
+# Local refactoring skill and verification evidence are development artifacts.
+/skills/
+/docs/refactoring/
+/example/integration_test/support/
+/example/integration_test/toast_visibility_integration_test.dart

@@ -49,6 +49,39 @@ void main() {
     expect(find.text('Surface'), findsOneWidget);
     expect(find.text('Toast stack'), findsOneWidget);
     expect(find.text('Add toast'), findsOneWidget);
+    expect(find.text('Native stack: hidden'), findsOneWidget);
+  });
+
+  testWidgets('shows native toast visibility in the demo', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          return call.method == 'getStackVisibility' ? false : true;
+        });
+    try {
+      await tester.pumpWidget(const MyApp());
+      await tester.pumpAndSettle();
+      expect(find.text('Native stack: hidden'), findsOneWidget);
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'stackVisibilityChanged',
+        true,
+      );
+      await tester.pump();
+      expect(find.text('Native stack: visible'), findsOneWidget);
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'stackVisibilityChanged',
+        false,
+      );
+      await tester.pump();
+      expect(find.text('Native stack: hidden'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
   });
 
   testWidgets('shows the configurable concentric rectangle playground', (
@@ -69,6 +102,64 @@ void main() {
     expect(find.text('Geometry'), findsOneWidget);
     expect(find.text('Container'), findsOneWidget);
     expect(find.byType(AppleLiquidSlider), findsNWidgets(6));
+  });
+
+  testWidgets('preserves switch sample values across tab changes', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await tester.pumpWidget(const MyApp());
+      await tester.tap(find.text('Switch'));
+      await tester.pumpAndSettle();
+
+      final Finder samples = find.descendant(
+        of: find
+            .ancestor(
+              of: find.text('Native switch 1: On'),
+              matching: find.byType(AppleLiquidSurface),
+            )
+            .first,
+        matching: find.byType(AppleLiquidSwitch),
+      );
+      expect(samples, findsNWidgets(5));
+      expect(
+        tester
+            .widgetList<AppleLiquidSwitch>(samples)
+            .map((sample) => sample.value),
+        <bool>[true, false, true, false, true],
+      );
+
+      final Finder secondSwitch = find.descendant(
+        of: samples.at(1),
+        matching: find.byType(Switch),
+      );
+      await tester.ensureVisible(secondSwitch);
+      await tester.tap(secondSwitch);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widgetList<AppleLiquidSwitch>(samples)
+            .map((sample) => sample.value),
+        <bool>[true, true, true, false, true],
+      );
+      expect(find.text('Native switch 2: On'), findsOneWidget);
+
+      await tester.tap(find.text('Tabs'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Switch'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<AppleLiquidSwitch>(samples)
+            .map((sample) => sample.value),
+        <bool>[true, true, true, false, true],
+      );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 
   testWidgets('preserves each demo tab scroll position', (
@@ -212,6 +303,53 @@ void main() {
         toastChannel,
         'actionInvoked',
         <String, Object?>{'actionId': actionableToast['actionId']},
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Native SwiftUI sliders: continuous, stepped, and coarse.'),
+        findsOneWidget,
+      );
+    } finally {
+      await AppleLiquidToast.dismiss();
+      AppleLiquidToast.stackOptions = const AppleLiquidToastStackOptions();
+      debugDefaultTargetPlatformOverride = null;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(toastChannel, null);
+    }
+  });
+
+  testWidgets('opens Slider from the right overflow-summary button', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    final List<Map<Object?, Object?>> showArguments = <Map<Object?, Object?>>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(toastChannel, (MethodCall call) async {
+          if (call.method == 'show') {
+            showArguments.add(call.arguments as Map<Object?, Object?>);
+          }
+          return true;
+        });
+
+    try {
+      await tester.pumpWidget(const MyApp());
+      final Finder addButton = find.text('Add toast');
+      await tester.ensureVisible(addButton);
+      await tester.pumpAndSettle();
+      for (int index = 0; index < 3; index += 1) {
+        await tester.tap(addButton);
+        await tester.pump();
+      }
+
+      expect(showArguments, hasLength(3));
+      final Map<Object?, Object?> overflowAction =
+          showArguments.last['overflowAction'] as Map<Object?, Object?>;
+      expect(overflowAction['title'], 'Open Slider');
+      await _sendPlatformMethodCall(
+        toastChannel,
+        'actionInvoked',
+        <String, Object?>{'actionId': overflowAction['actionId']},
       );
       await tester.pumpAndSettle();
 

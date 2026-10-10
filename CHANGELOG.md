@@ -1,3 +1,19 @@
+## 0.3.1
+
+- Added optional `AppleLiquidToastStackOptions.overflowAction` buttons for
+  collapsed toast summaries, using the latest action when their count changes.
+- Added `AppleLiquidToast.isStackVisible`, a read-only `ValueListenable<bool>`
+  synchronized with native presentation, dismissal, expiry, swipes, explicit
+  visibility changes, and temporary suspension by native sheets.
+- Fixed native toast hit-frame retention so taps and downward swipes keep
+  working when an existing overflow summary updates without changing geometry.
+- Extracted sheet result models, native avatar URL validation, and native
+  detent parsing while preserving existing APIs and validation behavior.
+- Expanded Dart, example, and native regression coverage and updated the demo
+  with toast overflow actions and live stack visibility.
+- Updated installation requirements, feature-specific iOS availability,
+  sheet and toast examples, and demo instructions in the README.
+
 ## 0.3.0
 
 - **Breaking:** `showSheet()` now returns `AppleLiquidSheetResult` instead of a
