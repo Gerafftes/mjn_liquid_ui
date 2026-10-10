@@ -23,9 +23,13 @@
 </p>
 
 `mjn_liquid_ui` embeds iOS SwiftUI/UIKit controls in Flutter through platform
-views. It is designed for apps that want a native-feeling Liquid Glass tab bar,
-search segment, switch, slider, and glass surface while keeping the Flutter app
-structure.
+views and method channels. It provides a native-feeling tab bar, search segment,
+switch, slider, glass surface, concentric rectangle, sheets, toasts, and SF
+Symbols while keeping the Flutter app structure.
+
+This README describes [version 0.3.1](https://pub.dev/packages/mjn_liquid_ui/versions/0.3.1).
+This release adds toast overflow actions and a listenable for native toast-stack
+visibility, and fixes interaction with overflow summaries after count updates.
 
 ## Features
 
@@ -44,7 +48,8 @@ structure.
 - Optional, configurable Flutter background interaction guard for native sheets.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
-- Flutter fallbacks for unsupported platforms to avoid crashes during development.
+- Simple Flutter widget fallbacks for development on unsupported platforms;
+  native sheet and toast presentation remains iOS-only.
 
 ## Widgets
 
@@ -54,7 +59,7 @@ structure.
 | `AppleLiquidSwitch` | Native Liquid Glass toggle switch with animated state changes | - |
 | `AppleLiquidSlider` | Native Liquid Glass slider with min/max range, optional step support, and optional trailing value labels | - |
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
-| `AppleLiquidSurface` | Apply Liquid Glass effects to any Flutter widget | - |
+| `AppleLiquidSurface` | Native glass background with Flutter content layered above it | - |
 | `AppleConcentricRectangle` | Native iOS 26 container-relative rectangle with fixed, concentric, and minimum-radius corner styles | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
 | `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
@@ -73,14 +78,17 @@ structure.
 | API | Source |
 | --- | --- |
 | `AppleLiquidSymbol('name')` | Standalone SF Symbol rendered by native iOS |
-| `AppleLiquidSymbol(weight: AppleLiquidSymbolWeight.bold)` | Optional SF Symbol stroke weight |
-| `AppleLiquidTabItem(systemImage: 'name')` | SF Symbol for tab bar items |
-| `AppleLiquidTabItem(activeSystemImage: 'name')` | Optional selected-state SF Symbol for tab bar items |
-| `AppleLiquidTabItem(symbolWeight: AppleLiquidSymbolWeight.regular)` | Optional inactive tab icon weight |
-| `AppleLiquidTabItem(activeSymbolWeight: AppleLiquidSymbolWeight.bold)` | Optional selected tab icon weight |
-| `fallbackIcon: Icons.example` | Flutter `IconData` fallback for unsupported platforms |
+| `AppleLiquidSymbol('star', weight: AppleLiquidSymbolWeight.bold)` | Optional SF Symbol stroke weight |
+| `AppleLiquidTabItem.systemImage` | Required SF Symbol name, alongside the required `title` |
+| `AppleLiquidTabItem.activeSystemImage` | Optional selected-state SF Symbol for tab bar items |
+| `AppleLiquidTabItem.symbolWeight` | Optional inactive tab icon weight |
+| `AppleLiquidTabItem.activeSymbolWeight` | Optional selected tab icon weight |
+| `fallbackIcon: Icons.star` | Flutter `IconData` fallback when a symbol cannot be rendered |
 
 ## Screenshots
+
+Component previews from the published 0.3.0 demo. The current checkout also
+includes the toast controls introduced in 0.3.1 and documented below.
 
 | Liquid Tab Bar | Liquid Switch |
 | --- | --- |
@@ -109,16 +117,52 @@ structure.
 | Windows | Not officially supported yet |
 | Linux | Not officially supported yet |
 
-The Dart widgets include simple Flutter fallbacks on unsupported platforms so
-apps should not crash during development. These fallbacks are experimental and
-are not official Android, web, or desktop support.
+The Dart widgets include simple, experimental Flutter fallbacks on unsupported
+platforms. Native sheets return `AppleLiquidSheetResultStatus.notPresented`
+and native toasts return `false` there; neither API presents a Flutter fallback
+automatically.
+
+The podspec declares an iOS 13.0 deployment target. Individual native features
+have higher runtime requirements:
+
+| Feature | Native runtime behavior |
+| --- | --- |
+| Tab bar | SwiftUI `TabView` and search role on iOS 18+; UIKit tab bar on iOS 13–17 |
+| Tab bar minimization | iOS 26+; older iOS versions keep the expanded bar |
+| Sheets and toasts | iOS 16+; earlier iOS versions report that presentation was unavailable |
+| Exact sheet button spacing and custom section spacing | iOS 17+; iOS 16 keeps native form spacing |
+| Liquid Glass and native `ConcentricRectangle` | iOS 26+; older iOS versions use simpler native rendering |
+
+These are implementation availability boundaries, not a claim that every older
+iOS version has been tested. To compile the Swift sources, use Xcode 26 or newer
+with an iOS 26+ SDK: the code references the new glass and concentric-shape APIs.
+See Apple's [Xcode 26 release notes](https://developer.apple.com/documentation/xcode-release-notes/xcode-26-release-notes).
 
 ## Installation
 
+The package declares Dart `^3.9.2` (3.9.2 or newer, below 4.0.0) and Flutter
+`>=3.27.0`. Both constraints must be satisfied: use a Flutter SDK whose bundled
+Dart version meets the Dart constraint. Native iOS builds also need the Xcode
+SDK described above.
+
+For the published release:
+
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.3.0
+  mjn_liquid_ui: ^0.3.1
 ```
+
+For local package development, use a path dependency instead, adjusting the
+path relative to your app's `pubspec.yaml`:
+
+```yaml
+dependencies:
+  mjn_liquid_ui:
+    path: ../mjn_liquid_ui
+```
+
+Run `flutter pub get` after changing the dependency. The bundled example already
+uses a path dependency on this checkout.
 
 Then import the package:
 
@@ -127,6 +171,12 @@ import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 ```
 
 ## Usage
+
+Widget examples assume `package:flutter/material.dart` and the package import
+above. In a `State` class, initialize `int currentIndex = 0`,
+`bool enabled = true`, and `double amount = 0.5` for the corresponding examples.
+Replace `YourPageContent`, navigation routes, and app callbacks with your own
+content.
 
 ```dart
 AppleLiquidTabBar(
@@ -202,8 +252,9 @@ Scaffold(
 
 ### Liquid tab bar
 
-`AppleLiquidTabBar` renders a native iOS SwiftUI `TabView` on iOS. The trailing
-`searchItem` is created as a separate native search-role tab.
+`AppleLiquidTabBar` renders a native SwiftUI `TabView` on iOS 18 and newer,
+where the trailing `searchItem` is a separate native search-role tab. On
+iOS 13–17, it uses a UIKit fallback with regular tab buttons.
 Use `selectedTintColor` to customize the selected icon and label tint while
 keeping the native Liquid Glass tab bar rendering intact.
 Set `minimizeBehavior` to `AppleLiquidTabBarMinimizeBehavior.onScrollDown` to
@@ -258,7 +309,7 @@ AppleLiquidSlider(
 
 Omit `step` for a continuous slider. Use `valueLabel` or
 `valueLabelBuilder` to render a value to the right of the slider track; without
-one, the standalone slider keeps the previous slider-only layout.
+one, the standalone slider renders only the track and thumb.
 
 ### SF Symbols
 
@@ -348,7 +399,8 @@ attached, including unsupported platforms. Native toasts require iOS 16 or
 newer; iOS 26 uses the system Liquid Glass effect, while older supported iOS
 versions use a native rounded fallback.
 The default duration is three seconds. Pass `duration: null` to keep a toast
-visible until its action, a downward swipe, or `AppleLiquidToast.dismiss()`.
+until a dismissing action, a downward swipe, or `AppleLiquidToast.dismiss()`
+closes it. An action with `dismissesToast: false` keeps the toast active.
 Multiple calls can remain visible as a vertical stack: newer toasts appear
 above older ones, and each toast keeps its own duration and action. Calling
 `AppleLiquidToast.dismiss()` dismisses the complete stack.
@@ -362,11 +414,33 @@ AppleLiquidToast.stackOptions = const AppleLiquidToastStackOptions(
 );
 ```
 
+**Available since 0.3.1:** add `overflowAction` to give the summary its own
+button:
+
+```dart
+AppleLiquidToast.stackOptions = AppleLiquidToastStackOptions(
+  maxVisibleToasts: 2,
+  overflowTitle: '{count} more notifications',
+  overflowAction: AppleLiquidToastAction(
+    title: 'Open',
+    onPressed: () => Navigator.of(context).pushNamed('/notifications'),
+  ),
+);
+```
+
 When the limit is exceeded, the visible stack is replaced by one summary toast.
 `{count}` is replaced with the number of toasts represented by that summary.
 Actions belonging to the collapsed individual toasts are no longer available.
+The optional `overflowAction` appears as a button to the right of the count.
+Its callback can navigate or perform any app-defined action. By default it
+dismisses the summary; set `dismissesToast: false` to keep it visible.
+The summary uses the stack options from the latest `show` call, including on
+count updates. Only the button invokes this action, even if
+`isWholeToastTappable` is set. Without `overflowAction`, the summary shows the
+count without an action button.
 Reset `stackOptions` to `const AppleLiquidToastStackOptions()` to restore the
-unlimited behavior.
+unlimited behavior for subsequent `show` calls. This does not reconstruct
+individual toasts that have already been collapsed into a summary.
 Use `AppleLiquidToast.setVisible(false)` to temporarily hide the active stack
 without clearing its toasts or Dart action callbacks. Calling
 `AppleLiquidToast.setVisible(true)` shows the same stack again. Toast durations
@@ -374,6 +448,25 @@ continue while the stack is hidden; use `AppleLiquidToast.dismiss()` when the
 stack should be cleared permanently.
 When a native `AppleLiquidSheet` is open, the toast overlay is suspended for
 the duration of the sheet and restored afterward without clearing the stack.
+
+**Available since 0.3.1:** `AppleLiquidToast.isStackVisible` is a read-only
+`ValueListenable<bool>` for the actual native stack visibility. It starts at
+`false` and synchronizes with the current native state on first access.
+It updates when the last toast is swiped
+away, expires, closes through an action or `dismiss()`, or the stack is hidden
+by `setVisible` or a native sheet. Closing one of several toasts or replacing
+them with a visible overflow summary keeps it `true`. Unsupported platforms
+remain `false`.
+
+```dart
+ValueListenableBuilder<bool>(
+  valueListenable: AppleLiquidToast.isStackVisible,
+  builder: (context, visible, child) {
+    return Text(visible ? 'Toast stack visible' : 'No visible toasts');
+  },
+);
+```
+
 Set `isWholeToastTappable: true` on the action to make the complete toast
 capsule invoke the action. In that mode the action title is rendered as a label
 inside one native button, so no button is nested inside another button.
@@ -392,9 +485,9 @@ await AppleLiquidToast.show(
 
 ### Native sheet
 
-`AppleLiquidSheet` presents a native iOS sheet from Flutter. The sheet renders a
-Liquid Glass SwiftUI `NavigationStack` with `Form` content, a content-sized
-detent, optional background zoom on the presenting page, and configurable
+`AppleLiquidSheet` presents a native sheet on iOS 16 and newer. The sheet renders
+a SwiftUI `NavigationStack` with `Form` content, a content-sized detent,
+optional background zoom on the presenting page, and configurable
 toolbar actions to dismiss.
 
 Pass `AppleLiquidSheetContent` to customize the native form. The content model
@@ -538,13 +631,13 @@ supports a compact primary-only card. `avatarUrl` takes precedence over
 `avatarAllowedHosts` to an exact list of HTTPS hosts to opt into remote avatar
 loading; leaving it empty keeps the avatar local and prevents a network
 request. Redirects are accepted only when they remain on an allowlisted host.
-`status` with any app-provided label and colors; the plugin does not assume
+Use `status` with any app-provided label and colors; the plugin does not assume
 specific statuses or business roles. `relatedPeople` accepts any number of
 secondary people or entities, each with its own avatar source and badges.
-Use `AppleLiquidSheetIdentityVariant.legacy` to keep the identity card shipped
-in the published plugin version, or `.composed` for the responsive card with
+Use `AppleLiquidSheetIdentityVariant.legacy` for the original identity-card
+layout, or `.composed` for the responsive card with
 status and related people. If `variant` is omitted, existing identity rows keep
-the published layout automatically; rows that provide status, related people,
+the original layout automatically; rows that provide status, related people,
 or avatar text resolve to the composed layout. An explicit `legacy` variant
 keeps the old layout and ignores composed-only status and related-person
 content.
@@ -562,8 +655,7 @@ padding. Its defaults preserve the original native appearance.
 
 Identity, timeline, facts-grid, and action-button rows resolve their horizontal
 form width at one shared outer level. This keeps their default content bounds
-aligned; action-button row insets are no longer applied by a second nested
-`listRowInsets` path.
+aligned, with action-button row insets applied only once.
 The facts-grid uses that full width for a flexible facts row: the first, middle,
 and last blocks align leading, centered, and trailing while
 their icon, label, and value stay grouped. Longer labels and values wrap within
@@ -578,8 +670,8 @@ collapse with a damped native spring while the sheet resizes in sync; Reduce
 Motion remains respected. Already visible rows stay stationary, while newly
 revealed rows keep their timeline order throughout the transition. The limit is
 configured per timeline and accepts any positive integer; `3` above is only an
-example. Omit `collapsedStepLimit` to keep the timeline permanently expanded as
-before. If the limit is greater than or equal to the number of steps, no toggle
+example. Omit `collapsedStepLimit` to keep the timeline permanently expanded.
+If the limit is greater than or equal to the number of steps, no toggle
 is shown.
 
 | API | Purpose |
@@ -604,7 +696,7 @@ is shown.
 | `AppleLiquidSheetIdentityStatus` | App-provided status-chip label, optional SF Symbol, and colors |
 | `AppleLiquidSheetIdentityPerson` | Related person/entity title, metadata, avatar source, and badges |
 | `AppleLiquidSheetIdentityBadge` | Inline badge label, optional SF Symbol, and colors |
-| `AppleLiquidSheetIdentityVariant` | Automatic, published legacy, or responsive composed identity-card layout |
+| `AppleLiquidSheetIdentityVariant` | Automatic, original legacy, or responsive composed identity-card layout |
 | `AppleLiquidSheetIdentityStyle` | Identity-card avatar sizes, padding, corner radius, spacing, status-chip padding, badge spacing, and avatar text colors |
 | `AppleLiquidSheetRow.timeline` | Connected status history with completed, current, and upcoming steps |
 | `AppleLiquidSheetTimelineStep` | Typed title, optional subtitle, and optional SF Symbol for one timeline step |
@@ -752,6 +844,8 @@ final AppleLiquidSheetResult result = await AppleLiquidSheet.showSheet(
 
 if (result.isSaved) {
   final String? editedTitle = result.textField('title')?.value;
+  // Persist the edited text in your app.
+  debugPrint('Saved title: $editedTitle');
 }
 ```
 
@@ -891,9 +985,15 @@ final AppleLiquidSheetController sheetController =
   content: content,
 );
 
-final AppleLiquidSheetResult result = await sheetController.showSheet();
-final bool didShow = result.didPresent;
-await sheetController.dismiss();
+Future<void> openSheet() async {
+  final AppleLiquidSheetResult result = await sheetController.showSheet();
+  if (!result.didPresent) {
+    // Present your app's Flutter fallback.
+  }
+}
+
+// Call this from another app action while the sheet is active.
+Future<bool> closeSheet() => sheetController.dismiss();
 ```
 
 Wrap Flutter content behind the native sheet with
@@ -914,6 +1014,8 @@ The guard is optional and configurable. Set `absorbPointers` or `lockScrolling`
 to `false` to keep those behaviors under app control, provide a custom
 `lockedScrollPhysics`, or use `builder` to react to the active sheet state with
 app-specific UI.
+Scrollables with their own explicit `physics` keep that setting. Dispose the
+controller when its owning widget is disposed.
 
 Pass `scrollContext` from inside the presenting scrollable when calling
 `showSheet` to stop active fling momentum before the native sheet opens:
@@ -931,7 +1033,8 @@ opening a Flutter fallback. A repeated call while a sheet is already active
 returns `AppleLiquidSheetResultStatus.alreadyShowing` without stacking another
 presentation.
 The controller exposes `isShowing` and `isShown` for UI state while its
-presentation is active.
+presentation is active. These describe the controller's presentation lifecycle;
+they are not a separate native visibility query.
 
 Set `showsSectionBackgrounds: false` on an `AppleLiquidSheetContent` page to
 remove the rounded native SwiftUI section boxes while keeping the form rows and
@@ -1028,31 +1131,34 @@ expanding straight to `.large`. Pass `AppleLiquidSheetDetents` to any
 higher height for that page, including nested navigation pages. When no custom
 detents are supplied and the estimated active form content is taller than the
 normal sheet height, iOS also gets an automatic second higher detent so the user
-can pull the sheet up. Set `allowsAutomaticExpansion: false` to keep only the
-configured initial detent. When native navigation pushes another content page,
+can pull the sheet up. To keep a single detent, set
+`allowsAutomaticExpansion: false` and omit `expandedHeight`. An explicit higher
+`expandedHeight` can still add a second detent when automatic expansion is off.
+Native detent heights are clamped to the supported screen-dependent range.
+When native navigation pushes another content page,
 the sheet activates that page's detents before inserting it into the navigation
 path. When navigating back, it restores the previous page's detents before
 removing the current page. This keeps the destination content correctly laid
 out from its first frame while preserving the native resize animation in both
 directions. The form scroll background stays hidden so the Liquid Glass sheet
 remains visible behind the form content.
-`showTemplateSheet()` and `AppleLiquidSheetController.showTemplateSheet()` are
-kept as compatibility aliases for older code.
-The earlier bottom search bar option has been removed from the sheet API.
+`AppleLiquidSheet.showTemplateSheet()` and
+`AppleLiquidSheetController.showTemplateSheet()` retain their `Future<bool>`
+return type for older callers; they return `result.didPresent`. The corresponding
+`showSheet()` methods return `Future<AppleLiquidSheetResult>`.
 
 ## iOS notes
 
 - The iOS implementation uses Swift, SwiftUI, UIKit, and Flutter platform views.
 - The tab bar's search segment is implemented with native SwiftUI
-  `Tab(..., role: .search)`.
+  `Tab(..., role: .search)` on iOS 18 and newer.
 - SF Symbols names are passed through `systemImage` for tab items and through
   `AppleLiquidSymbol.name` for standalone symbols.
 - SF Symbol weights are optional and use native `UIImage.SymbolConfiguration`
   for standalone symbols. Tabbar weights are passed to native tab labels and
   may still be influenced by iOS tab bar styling.
-- Liquid Glass appearance depends on the iOS and Xcode versions used to build
-  and run the app. Unsupported iOS versions may display a simpler fallback
-  surface.
+- Liquid Glass appearance requires iOS 26 or newer at runtime. Older iOS
+  versions use the native fallbacks listed under Platform support.
 - Changes inside `ios/Classes` are native Swift/SwiftUI changes. Flutter hot
   restart does not recompile those files; stop and rerun the example app so
   Xcode performs an incremental iOS build.
@@ -1073,10 +1179,10 @@ const AppleLiquidSheetRow.identity(
 
 An empty `avatarAllowedHosts` list omits the URL from the native payload, so the
 identity card uses its local text or SF Symbol fallback. Native loading accepts
-only HTTPS URLs whose host is exactly allowlisted; credentials, non-approved
-ports, and redirects to other hosts are rejected. The host application remains
-responsible for choosing trusted origins and applying its own privacy and ATS
-policy.
+only HTTPS URLs whose host is exactly allowlisted; credentials, ports other
+than 443, and redirects outside the host allowlist are rejected. The host
+application remains responsible for choosing trusted origins and applying its
+own privacy and ATS policy.
 
 Standalone SF Symbol rendering is bounded before native bitmap allocation:
 point size is limited to 512 pt, device scale to 4, and the resulting pixel
@@ -1099,11 +1205,17 @@ Run the bundled example app on an iOS simulator:
 
 ```sh
 cd example
+flutter pub get
+flutter devices
 flutter run -d <ios-simulator-id>
 ```
 
-The example demonstrates the liquid tab bar, standalone SF Symbols, search
-segment, switch, slider, liquid glass surface, and native settings sheet.
+Start an iOS simulator first, then replace `<ios-simulator-id>` with its ID from
+`flutter devices`. The current demo tabs are **Tabs**, **Switch**, **Slider**,
+and **Surface**; Surface occupies the native search-role segment with a plus
+icon. The demo includes standalone SF Symbols, switches, continuous and stepped
+sliders, glass surfaces, concentric rectangles, configurable toast stacks with
+actions and visibility controls, and a native form sheet with nested pages.
 
 ## License
 

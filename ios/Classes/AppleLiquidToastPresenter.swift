@@ -26,6 +26,13 @@ enum AppleLiquidToastPresenter {
       case "setVisibility":
         setVisibility(arguments: call.arguments, result: result)
 
+      case "getStackVisibility":
+        if #available(iOS 16.0, *) {
+          result(activeSession?.isStackVisible ?? false)
+        } else {
+          result(false)
+        }
+
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -154,8 +161,12 @@ private final class AppleLiquidToastSession {
   private let hostingController: UIHostingController<AppleLiquidToastHostView>
   private var cancellables = Set<AnyCancellable>()
 
+  var isStackVisible: Bool { model.isStackVisible }
+
   init(scene: UIWindowScene, channel: FlutterMethodChannel) {
-    let model = AppleLiquidToastModel { toastId in
+    let model = AppleLiquidToastModel(onStackVisibilityChanged: { visible in
+      channel.invokeMethod("stackVisibilityChanged", arguments: visible)
+    }) { toastId in
       channel.invokeMethod(
         "toastDismissed",
         arguments: ["toastId": toastId]
@@ -170,7 +181,7 @@ private final class AppleLiquidToastSession {
         model: model,
         onHitFrameChanged: { [weak overlayWindow] frame in
           let activeToastIDs = Set(model.activeToasts.map(\.id))
-          if activeToastIDs.contains(frame.id) {
+          if model.isVisible && activeToastIDs.contains(frame.id) {
             overlayWindow?.updateHitFrame(frame)
           } else {
             overlayWindow?.removeHitFrame(id: frame.id)
@@ -189,20 +200,25 @@ private final class AppleLiquidToastSession {
                 "actionInvoked",
                 arguments: ["actionId": actionId]
               )
-            } else if toast.dismissesOnAction {
-              channel.invokeMethod(
-                "toastDismissed",
-                arguments: ["toastId": toast.id]
-              )
+            }
+            if toast.dismissesOnAction {
+              for callbackToastID in toast.callbackToastIDs {
+                channel.invokeMethod(
+                  "toastDismissed",
+                  arguments: ["toastId": callbackToastID]
+                )
+              }
             }
           }
         },
         onSwipeDismiss: { toast in
           model.dismiss(id: toast.id)
-          channel.invokeMethod(
-            "toastDismissed",
-            arguments: ["toastId": toast.id]
-          )
+          for callbackToastID in toast.callbackToastIDs {
+            channel.invokeMethod(
+              "toastDismissed",
+              arguments: ["toastId": callbackToastID]
+            )
+          }
         }
       )
     )
@@ -262,7 +278,7 @@ private final class AppleLiquidToastSession {
 }
 
 @available(iOS 16.0, *)
-private final class AppleLiquidToastOverlayWindow: UIWindow {
+final class AppleLiquidToastOverlayWindow: UIWindow {
   private static let extraWindowHeight: CGFloat = 140
   private static let minimumWindowHeight: CGFloat = 160
   private static let stackSpacing: CGFloat = 10
@@ -275,11 +291,13 @@ private final class AppleLiquidToastOverlayWindow: UIWindow {
   }
 
   func updateLayout(for toasts: [AppleLiquidToastConfiguration]) {
+    let activeIDs = Set(toasts.map(\.id))
+    // An unchanged summary may not emit another geometry callback.
+    toastHitFrames = toastHitFrames.filter { activeIDs.contains($0.key) }
+
     guard let windowScene else {
       return
     }
-
-    toastHitFrames.removeAll(keepingCapacity: true)
 
     // Keep the last window frame while SwiftUI runs the removal transition.
     // Resizing a bottom-aligned host at the same time makes a fading toast
@@ -299,12 +317,16 @@ private final class AppleLiquidToastOverlayWindow: UIWindow {
         stackHeight + maximumOffset + Self.extraWindowHeight - Self.toastHeight
       )
     )
-    frame = CGRect(
+    let nextFrame = CGRect(
       x: sceneBounds.minX,
       y: sceneBounds.maxY - height,
       width: sceneBounds.width,
       height: height
     )
+    if frame != nextFrame {
+      toastHitFrames.removeAll(keepingCapacity: true)
+    }
+    frame = nextFrame
   }
 
   func updateHitFrame(_ frame: AppleLiquidToastHitFrame) {
@@ -326,9 +348,14 @@ private final class AppleLiquidToastOverlayWindow: UIWindow {
 }
 
 @available(iOS 16.0, *)
-private final class AppleLiquidToastModel: ObservableObject {
-  @Published private(set) var activeToasts: [AppleLiquidToastConfiguration] = []
-  @Published private(set) var isVisible = true
+final class AppleLiquidToastModel: ObservableObject {
+  @Published private(set) var activeToasts: [AppleLiquidToastConfiguration] = [] {
+    didSet { updateStackVisibility() }
+  }
+  @Published private(set) var isVisible = true {
+    didSet { updateStackVisibility() }
+  }
+  private(set) var isStackVisible = false
 
   private var requestedVisibility = true
   private var isSheetPresented = false
@@ -339,14 +366,24 @@ private final class AppleLiquidToastModel: ObservableObject {
   )
   private let dismissalAnimation = Animation.easeOut(duration: 0.18)
   private let onToastDismissed: (String) -> Void
+  private let onStackVisibilityChanged: (Bool) -> Void
   private var dismissWorkItems = [String: DispatchWorkItem]()
   private var overflowToastID: String?
   private var overflowCount = 0
 
   init(
+    onStackVisibilityChanged: @escaping (Bool) -> Void = { _ in },
     onToastDismissed: @escaping (String) -> Void
   ) {
+    self.onStackVisibilityChanged = onStackVisibilityChanged
     self.onToastDismissed = onToastDismissed
+  }
+
+  private func updateStackVisibility() {
+    let visible = isVisible && !activeToasts.isEmpty
+    guard visible != isStackVisible else { return }
+    isStackVisible = visible
+    onStackVisibilityChanged(visible)
   }
 
   func setVisible(_ visible: Bool) {
@@ -374,10 +411,12 @@ private final class AppleLiquidToastModel: ObservableObject {
     cancelDismissals()
     overflowToastID = nil
     overflowCount = 0
+    let dismissedToasts = activeToasts
 
     withAnimation(dismissalAnimation) {
       activeToasts.removeAll()
     }
+    dismissedToasts.forEach(notifyDismissed)
   }
 
   func dismiss(id: String) {
@@ -440,7 +479,12 @@ private final class AppleLiquidToastModel: ObservableObject {
     }
 
     for collapsedToast in collapsedToasts {
-      onToastDismissed(collapsedToast.id)
+      if collapsedToast.id == toast.id {
+        // The new summary owns this toast's overflow action registration.
+        onToastDismissed(collapsedToast.id)
+      } else {
+        notifyDismissed(collapsedToast)
+      }
     }
     scheduleDismissal(for: summary)
   }
@@ -457,6 +501,7 @@ private final class AppleLiquidToastModel: ObservableObject {
       duration: toast.duration
     )
 
+    activeToasts.forEach(notifyDismissed)
     dismissWorkItems.removeValue(forKey: summaryID)?.cancel()
     withAnimation(animation) {
       activeToasts = [summary]
@@ -467,6 +512,7 @@ private final class AppleLiquidToastModel: ObservableObject {
 
   private func replaceOverflow(with toast: AppleLiquidToastConfiguration) {
     cancelDismissals()
+    activeToasts.forEach(notifyDismissed)
     overflowToastID = nil
     overflowCount = 0
     withAnimation(animation) {
@@ -505,7 +551,11 @@ private final class AppleLiquidToastModel: ObservableObject {
     withAnimation(animation) {
       _ = activeToasts.remove(at: index)
     }
-    onToastDismissed(toast.id)
+    notifyDismissed(toast)
+  }
+
+  private func notifyDismissed(_ toast: AppleLiquidToastConfiguration) {
+    toast.callbackToastIDs.forEach(onToastDismissed)
   }
 
   private func cancelDismissals() {
@@ -553,16 +603,14 @@ private struct AppleLiquidToastHostView: View {
         VStack(spacing: 10) {
           ForEach(model.activeToasts.reversed()) { toast in
             toastView(toast)
-              .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .named("appleLiquidToast"))
-              } action: { frame in
-                onHitFrameChanged(
-                  AppleLiquidToastHitFrame(
-                    id: toast.id,
-                    geometryFrame: frame,
-                    placementOffset: toast.placementOffset
-                  )
+              .onGeometryChange(for: AppleLiquidToastHitFrame.self) { proxy in
+                AppleLiquidToastHitFrame(
+                  id: toast.id,
+                  geometryFrame: proxy.frame(in: .named("appleLiquidToast")),
+                  placementOffset: toast.placementOffset
                 )
+              } action: { frame in
+                onHitFrameChanged(frame)
               }
               .padding(.horizontal, 15)
               .offset(y: toast.placementOffset)
@@ -660,6 +708,11 @@ private struct AppleLiquidToastContent: View {
               onAction(toast)
             } label: {
               actionLabel(actionTitle)
+                .frame(
+                  minWidth: toast.isOverflowSummary ? 44 : nil,
+                  minHeight: toast.isOverflowSummary ? 44 : nil
+                )
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
           }
@@ -713,7 +766,7 @@ private struct AppleLiquidGlassToastView: View {
 }
 
 @available(iOS 16.0, *)
-private struct AppleLiquidToastConfiguration: Identifiable {
+struct AppleLiquidToastConfiguration: Identifiable {
   let id: String
   let title: String
   let duration: TimeInterval?
@@ -727,12 +780,37 @@ private struct AppleLiquidToastConfiguration: Identifiable {
   let isWholeToastTappable: Bool
   let maxVisibleToasts: Int?
   let overflowTitle: String
+  let overflowAction: AppleLiquidToastOverflowAction?
+  let isOverflowSummary: Bool
+
+  var callbackToastIDs: [String] {
+    if isOverflowSummary {
+      return [overflowAction?.toastId ?? id]
+    }
+    return [id, overflowAction?.toastId].compactMap { $0 }
+  }
 
   init?(arguments: Any?) {
     guard let dictionary = arguments as? [String: Any],
       let title = Self.optionalString(dictionary["title"])
     else {
       return nil
+    }
+
+    let overflowAction: AppleLiquidToastOverflowAction?
+    if let action = dictionary["overflowAction"] as? [String: Any],
+      let toastId = Self.optionalString(action["toastId"]),
+      let title = Self.optionalString(action["title"])
+    {
+      overflowAction = AppleLiquidToastOverflowAction(
+        toastId: toastId,
+        title: title,
+        tintColor: Color(appleLiquidARGB: Self.optionalInt(action["tintColor"])),
+        actionId: Self.optionalString(action["actionId"]),
+        dismissesToast: Self.bool(action["dismissesToast"], defaultValue: true)
+      )
+    } else {
+      overflowAction = nil
     }
 
     self.init(
@@ -761,7 +839,8 @@ private struct AppleLiquidToastConfiguration: Identifiable {
       ),
       maxVisibleToasts: Self.positiveInt(dictionary["maxVisibleToasts"]),
       overflowTitle: Self.optionalString(dictionary["overflowTitle"])
-        ?? "More notifications"
+        ?? "More notifications",
+      overflowAction: overflowAction
     )
   }
 
@@ -778,7 +857,9 @@ private struct AppleLiquidToastConfiguration: Identifiable {
     dismissesOnAction: Bool,
     isWholeToastTappable: Bool,
     maxVisibleToasts: Int?,
-    overflowTitle: String
+    overflowTitle: String,
+    overflowAction: AppleLiquidToastOverflowAction?,
+    isOverflowSummary: Bool = false
   ) {
     self.id = id
     self.title = title
@@ -793,6 +874,8 @@ private struct AppleLiquidToastConfiguration: Identifiable {
     self.isWholeToastTappable = isWholeToastTappable
     self.maxVisibleToasts = maxVisibleToasts
     self.overflowTitle = overflowTitle
+    self.overflowAction = overflowAction
+    self.isOverflowSummary = isOverflowSummary
   }
 
   func overflowSummary(
@@ -807,13 +890,15 @@ private struct AppleLiquidToastConfiguration: Identifiable {
       placementOffset: placementOffset,
       transitionOffset: transitionOffset,
       systemImage: nil,
-      actionTitle: nil,
-      actionTintColor: nil,
-      actionId: nil,
-      dismissesOnAction: true,
+      actionTitle: overflowAction?.title,
+      actionTintColor: overflowAction?.tintColor,
+      actionId: overflowAction?.actionId,
+      dismissesOnAction: overflowAction?.dismissesToast ?? true,
       isWholeToastTappable: false,
       maxVisibleToasts: maxVisibleToasts,
-      overflowTitle: overflowTitle
+      overflowTitle: overflowTitle,
+      overflowAction: overflowAction,
+      isOverflowSummary: true
     )
   }
 
@@ -883,4 +968,13 @@ private struct AppleLiquidToastConfiguration: Identifiable {
 
     return defaultValue
   }
+}
+
+@available(iOS 16.0, *)
+struct AppleLiquidToastOverflowAction {
+  let toastId: String
+  let title: String
+  let tintColor: Color?
+  let actionId: String?
+  let dismissesToast: Bool
 }

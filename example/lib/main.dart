@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 import 'package:flutter/material.dart';
 
+import 'widgets/switch_samples.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -758,7 +760,7 @@ class _ToastDemoCardState extends State<_ToastDemoCard> {
   @override
   Widget build(BuildContext context) {
     return AppleLiquidSurface(
-      height: 280,
+      height: 310,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
@@ -777,10 +779,21 @@ class _ToastDemoCardState extends State<_ToastDemoCard> {
                   title: 'Toast stack',
                   body:
                       'Choose a limit and add native toasts one at a time. '
-                      'One random toast per group opens Slider when tapped.',
+                      'The summary’s right button opens Slider. '
+                      'One random toast per group also opens Slider.',
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          ValueListenableBuilder<bool>(
+            valueListenable: AppleLiquidToast.isStackVisible,
+            builder: (BuildContext context, bool visible, Widget? child) {
+              return Text(
+                visible ? 'Native stack: visible' : 'Native stack: hidden',
+                style: Theme.of(context).textTheme.labelLarge,
+              );
+            },
           ),
           const SizedBox(height: 14),
           Text('Max visible', style: Theme.of(context).textTheme.titleSmall),
@@ -840,6 +853,10 @@ class _ToastDemoCardState extends State<_ToastDemoCard> {
     AppleLiquidToast.stackOptions = AppleLiquidToastStackOptions(
       maxVisibleToasts: _maxVisibleToasts,
       overflowTitle: _overflowTitle,
+      overflowAction: AppleLiquidToastAction(
+        title: 'Open Slider',
+        onPressed: widget.onOpenSlider,
+      ),
     );
   }
 
@@ -1447,67 +1464,9 @@ class _SwitchDemoPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: <Widget>[
-          AppleLiquidSurface(
-            height: 360,
-            child: Column(
-              children: <Widget>[
-                for (int index = 0; index < values.length; index += 1)
-                  _SwitchSampleRow(
-                    label: 'Native switch ${index + 1}',
-                    value: values[index],
-                    tintColor: _switchTintColors[index],
-                    onChanged: (bool value) {
-                      onChanged(index, value);
-                    },
-                  ),
-              ],
-            ),
-          ),
+          SwitchSamples(values: values, onChanged: onChanged),
           const SizedBox(height: 16),
           const _ConcentricRectangleDemoCard(),
-        ],
-      ),
-    );
-  }
-}
-
-const List<Color> _switchTintColors = <Color>[
-  Color(0xFF14B8A6),
-  Color(0xFF0EA5E9),
-  Color(0xFF8B5CF6),
-  Color(0xFFF97316),
-  Color(0xFF22C55E),
-];
-
-class _SwitchSampleRow extends StatelessWidget {
-  const _SwitchSampleRow({
-    required this.label,
-    required this.value,
-    required this.tintColor,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final Color tintColor;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              '$label: ${value ? 'On' : 'Off'}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          AppleLiquidSwitch(
-            value: value,
-            tintColor: tintColor,
-            onChanged: onChanged,
-          ),
         ],
       ),
     );
