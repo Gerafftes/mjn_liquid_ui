@@ -5,14 +5,14 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a problem. Please provide a minimal reproduction and complete environment details.
+        Thanks for reporting a problem. iOS is the only supported platform; retained Android fallbacks are experimental and untested. Please provide a minimal reproduction and complete environment details.
 
   - type: input
     id: package_version
     attributes:
       label: Package version
       description: Which mjn_liquid_ui version shows the problem?
-      placeholder: "0.2.8"
+      placeholder: "0.3.1"
     validations:
       required: true
 
@@ -22,11 +22,7 @@ body:
       label: Platform
       options:
         - iOS
-        - Android fallback
-        - Web fallback
-        - macOS fallback
-        - Windows fallback
-        - Linux fallback
+        - Android fallback (experimental, untested, unsupported)
     validations:
       required: true
 

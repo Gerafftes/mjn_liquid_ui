@@ -68,7 +68,7 @@ struct AppleLiquidSwiftUITabView: View {
         }
       }
 
-      Tab(value: model.searchIndex, role: .search) {
+      Tab(value: model.searchIndex, role: trailingTabRole) {
         Color.clear
       } label: {
         tabImage(for: model.searchItem, index: model.searchIndex)
@@ -77,6 +77,16 @@ struct AppleLiquidSwiftUITabView: View {
     }
     .background(Color.clear)
     .appleLiquidControlTint(model.selectedTintColor)
+  }
+
+  private var trailingTabRole: TabRole {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      return .prominent
+    }
+    #endif
+
+    return .search
   }
 
   @available(iOS 26.0, *)

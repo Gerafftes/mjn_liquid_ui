@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import 'apple_liquid_platform.dart';
+
 /// Controls how [AppleLiquidStretch] listens for pointer movement.
 enum AppleLiquidStretchGestureMode {
   /// Reacts to raw pointer events before child gestures are resolved.
@@ -114,6 +116,7 @@ class _AppleLiquidStretchState extends State<AppleLiquidStretch>
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     if (!widget.enabled ||
         (widget.stretch == 0 &&
             widget.interactionScale == 1 &&

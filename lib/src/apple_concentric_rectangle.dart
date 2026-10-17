@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_platform_view.dart';
 
 /// The way a corner of an [AppleConcentricRectangle] is resolved.
@@ -324,7 +325,8 @@ class AppleConcentricRectangleCorners {
 /// A rectangle whose corners can follow the curvature of a container.
 ///
 /// On iOS 26 and newer this uses SwiftUI's native `ConcentricRectangle`.
-/// Earlier iOS versions and other platforms use fixed-radius fallbacks.
+/// Earlier iOS versions use native fixed-radius fallbacks. Android retains an
+/// experimental, untested Flutter fallback.
 class AppleConcentricRectangle extends StatelessWidget {
   static const String _viewType = 'mjn_liquid_ui_concentric_rectangle';
 
@@ -376,10 +378,11 @@ class AppleConcentricRectangle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     _validateConfiguration();
 
     final TextDirection textDirection = Directionality.of(context);
-    final Widget shape = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+    final Widget shape = defaultTargetPlatform == TargetPlatform.iOS
         ? AppleLiquidUiKitView(
             key: ValueKey<Object>((
               color: color.toARGB32(),

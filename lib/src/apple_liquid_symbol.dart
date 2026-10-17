@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_symbol_weight.dart';
 
 const double _maxNativeSymbolSize = 512;
@@ -53,7 +54,7 @@ class AppleLiquidSymbol extends StatelessWidget {
   /// Optional SF Symbol stroke weight used by native iOS rendering.
   ///
   /// When null, iOS uses the symbol's default weight for the requested point
-  /// size. Unsupported-platform icon fallbacks map this to Flutter's variable
+  /// size. Flutter icon fallbacks map this to Flutter's variable
   /// icon weight when the fallback icon font supports it.
   final AppleLiquidSymbolWeight? weight;
 
@@ -65,9 +66,10 @@ class AppleLiquidSymbol extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     _validateSize();
     final Color? effectiveColor = color ?? IconTheme.of(context).color;
-    final Widget symbol = !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+    final Widget symbol = defaultTargetPlatform == TargetPlatform.iOS
         ? _nativeSymbol(context, effectiveColor)
         : _fallbackSymbol(effectiveColor);
 
