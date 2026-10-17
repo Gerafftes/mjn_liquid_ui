@@ -1690,7 +1690,7 @@ void main() {
     }
   });
 
-  testWidgets('AppleLiquidSymbol uses an Icon fallback outside iOS', (
+  testWidgets('AppleLiquidSymbol retains its experimental Android fallback', (
     WidgetTester tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -1768,7 +1768,7 @@ void main() {
     },
   );
 
-  testWidgets('uses a tappable Flutter fallback outside iOS', (
+  testWidgets('retains a tappable experimental Android tab bar fallback', (
     WidgetTester tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

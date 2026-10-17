@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_sheet_result.dart';
 
 export 'apple_liquid_sheet_result.dart';
@@ -2486,6 +2487,7 @@ class AppleLiquidSheetBackgroundInteractionGuard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     return ListenableBuilder(
       listenable: controller,
       child: child,

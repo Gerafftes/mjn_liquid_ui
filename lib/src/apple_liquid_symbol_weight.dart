@@ -32,6 +32,6 @@ enum AppleLiquidSymbolWeight {
   /// String value understood by the native iOS implementation.
   final String platformValue;
 
-  /// Approximate Flutter `Icon.weight` value for non-iOS fallbacks.
+  /// Approximate Flutter `Icon.weight` value for Flutter icon fallbacks.
   final double fallbackIconWeight;
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_platform_view.dart';
 
 /// Builds a value label for [AppleLiquidSlider].
@@ -132,6 +133,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     widget._validateConfiguration();
     final double value = widget.value.clamp(widget.min, widget.max);
     final int? divisions = _divisionsForStep();
@@ -145,7 +147,7 @@ class _AppleLiquidSliderState extends State<AppleLiquidSlider> {
     double value,
     int? divisions,
   ) {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         height: widget.height,
         child: AppleLiquidUiKitView(

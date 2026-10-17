@@ -4,6 +4,10 @@ Contributions to `mjn_liquid_ui` are welcome. The plugin combines Flutter,
 SwiftUI, and UIKit, so changes should be tested at both the Dart and native iOS
 boundaries when applicable.
 
+iOS is the only supported platform. The retained Android Flutter fallbacks are
+experimental and untested on Android devices or emulators. Desktop and web UI
+are excluded from the current development scope.
+
 ## Before opening an issue
 
 1. Search existing issues for the same behavior or request.

@@ -1,3 +1,22 @@
+## 0.3.2
+
+- Kept the trailing native tab separate on iOS 27 with the prominent role,
+  retaining the search role on older iOS versions and Xcode toolchains.
+- Added native regression coverage for the trailing tab role and slider steps,
+  and made native tab and sheet layout checks portable across iOS 26 and 27.
+- **Breaking:** Removed desktop and web widget fallback behavior. All UI widgets,
+  including stretch and sheet background guards, now throw `UnsupportedError`
+  outside iOS and Android. Native sheet and toast APIs retain their existing
+  unavailable-presentation results outside iOS.
+- Kept the existing experimental Android Flutter fallbacks for future work and
+  explicitly documented that Android is untested and unsupported, with no native
+  plugin implementation or bundled example runner.
+- Removed the obsolete macOS example packaging exclusion and desktop/web issue
+  options. Updated platform documentation and issue forms to identify iOS as the
+  only supported platform and Android as experimental and untested.
+- Corrected the iOS demo integration test to verify the native UIKit tab bar
+  and its method channel instead of looking for native labels as Flutter text.
+
 ## 0.3.1
 
 - Added optional `AppleLiquidToastStackOptions.overflowAction` buttons for

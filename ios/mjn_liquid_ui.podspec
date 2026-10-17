@@ -4,10 +4,10 @@
 #
 Pod::Spec.new do |s|
   s.name             = 'mjn_liquid_ui'
-  s.version          = '0.3.1'
+  s.version          = '0.3.2'
   s.summary          = 'Native-inspired Liquid Glass UI widgets for Flutter.'
   s.description      = <<-DESC
-Embeds native iOS SwiftUI Liquid Glass controls in Flutter, including a dedicated TabRole.search tab.
+Embeds native iOS SwiftUI Liquid Glass controls in Flutter, including a separate trailing SwiftUI tab.
                        DESC
   s.homepage         = 'https://pub.dev/packages/mjn_liquid_ui'
   s.license          = { :file => '../LICENSE' }

@@ -415,6 +415,38 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(configuration?.step, 0.25)
   }
 
+  @MainActor
+  func testNativeSliderValueChangesPreserveConfiguredSteps() throws {
+    for step: Double? in [nil, 0.1, 0.25] {
+      var arguments: [String: Any] = ["value": 0.5, "min": 0.0, "max": 1.0]
+      if let step { arguments["step"] = step }
+      let configuration = try XCTUnwrap(
+        AppleLiquidSliderConfiguration(arguments: arguments)
+      )
+      let model = AppleLiquidSliderModel(configuration: configuration)
+      var changes: [Double] = []
+      model.onValueChanged = { changes.append($0) }
+      let host = UIHostingController(rootView: AppleLiquidSliderView(model: model))
+      let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 100))
+      window.rootViewController = host
+      window.makeKeyAndVisible()
+      host.view.layoutIfNeeded()
+      RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+      defer { window.isHidden = true }
+
+      let slider = try XCTUnwrap(firstSubview(of: UISlider.self, in: host.view))
+      for fraction: Float in [0.25, 0.75] {
+        slider.value = slider.minimumValue +
+          fraction * (slider.maximumValue - slider.minimumValue)
+        slider.sendActions(for: .valueChanged)
+        let expected = step.map { (Double(fraction) / $0).rounded() * $0 } ??
+          Double(fraction)
+        XCTAssertEqual(model.value, expected, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(changes.last), expected, accuracy: 0.0001)
+      }
+    }
+  }
+
   func testSymbolConfigurationBoundsNativeRasterization() {
     XCTAssertNil(
       AppleLiquidSymbolConfiguration(arguments: ["size": 513.0])
@@ -566,6 +598,61 @@ final class RunnerTests: XCTestCase {
   func testPluginCanBeCreated() {
     let plugin = AppleLiquidTabbarPlugin()
     XCTAssertNotNil(plugin)
+  }
+
+  @MainActor
+  func testTrailingTabUsesNativeProminentRoleWithSearchFallback() throws {
+    guard #available(iOS 18.0, *) else {
+      throw XCTSkip("SwiftUI tabs require iOS 18 or newer.")
+    }
+
+    let configuration = AppleLiquidTabbarConfiguration(arguments: [
+      "items": [
+        ["title": "Overview", "systemImage": "house.fill"],
+        ["title": "Journal", "systemImage": "book.closed.fill"],
+        ["title": "Fitness", "systemImage": "figure.run"],
+      ],
+      "searchItem": ["title": "Add", "systemImage": "plus"],
+    ])
+    let model = AppleLiquidTabbarModel(configuration: configuration)
+    let host = AppleLiquidTabbarHostingController(
+      rootView: AppleLiquidSwiftUITabView(model: model),
+      model: model
+    )
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = host
+    window.makeKeyAndVisible()
+    host.view.layoutIfNeeded()
+    RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+    defer { window.isHidden = true }
+
+    func tabController(in controller: UIViewController) -> UITabBarController? {
+      if let tabController = controller as? UITabBarController {
+        return tabController
+      }
+      return controller.children.lazy.compactMap { tabController(in: $0) }.first
+    }
+
+    let controller = try XCTUnwrap(tabController(in: host))
+    let items = try XCTUnwrap(controller.tabBar.items)
+    XCTAssertEqual(items.count, 4)
+
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      XCTAssertEqual(controller.tabs.count, 4)
+      let trailingTab = try XCTUnwrap(controller.tabs.last)
+      XCTAssertEqual(controller.prominentTabIdentifier, trailingTab.identifier)
+      XCTAssertFalse(trailingTab is UISearchTab)
+      return
+    }
+    #endif
+
+    // iOS 26 SwiftUI uses viewControllers instead of populating UIKit tabs.
+    let trailingItem = try XCTUnwrap(items.last)
+    XCTAssertEqual(
+      trailingItem.title,
+      UISearchTab(viewControllerProvider: nil).title
+    )
   }
 
   func testTabBarCompactionKeepsSelectedRegularTabAndSearchAction() {
@@ -971,6 +1058,7 @@ final class RunnerTests: XCTestCase {
               "selectedOption": "List",
               "segmentedStyle": [
                 "selectedBackgroundColor": 0x2634C759,
+                "unselectedBackgroundColor": 0xFF34C759,
                 "selectedTextColor": 0xFF34C759,
                 "selectedBorderColor": 0x9934C759,
                 "selectedShadowColor": 0x0AFFFFFF,
@@ -1125,7 +1213,9 @@ final class RunnerTests: XCTestCase {
       in: image,
       minimumComponent: 5,
       minimumWidth: 300,
-      minimumConsecutiveRows: 20
+      minimumConsecutiveRows: 20,
+      // Compare the blue content fills, excluding native Form section chrome.
+      minimumBlueRedDifference: 24
     )
     XCTAssertEqual(renderedRowBounds.count, 2)
     let identityBounds = try XCTUnwrap(renderedRowBounds.first)
@@ -1725,7 +1815,8 @@ final class RunnerTests: XCTestCase {
     in image: UIImage,
     minimumComponent: UInt8,
     minimumWidth: Int,
-    minimumConsecutiveRows: Int
+    minimumConsecutiveRows: Int,
+    minimumBlueRedDifference: Int = 0
   ) -> [ClosedRange<CGFloat>] {
     guard let sourceImage = image.cgImage else {
       return []
@@ -1762,9 +1853,16 @@ final class RunnerTests: XCTestCase {
       let rowStart = pixelY * bytesPerRow
       let visibleXs = (0..<width).filter { x in
         let pixelStart = rowStart + (x * bytesPerPixel)
-        return pixels[pixelStart] >= minimumComponent ||
+        let isVisible = pixels[pixelStart] >= minimumComponent ||
           pixels[pixelStart + 1] >= minimumComponent ||
           pixels[pixelStart + 2] >= minimumComponent
+
+        if minimumBlueRedDifference > 0 {
+          return isVisible &&
+            Int(pixels[pixelStart + 2]) - Int(pixels[pixelStart]) >=
+              minimumBlueRedDifference
+        }
+        return isVisible
       }
 
       if let firstX = visibleXs.first,

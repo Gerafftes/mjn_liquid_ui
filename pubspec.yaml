@@ -1,6 +1,6 @@
 name: mjn_liquid_ui
-description: Native-inspired Liquid Glass UI components for Flutter, focused on iOS SwiftUI and UIKit.
-version: 0.3.1
+description: Native iOS Liquid Glass UI components for Flutter, built with SwiftUI and UIKit. Experimental Android fallbacks are untested.
+version: 0.3.2
 repository: https://github.com/Gerafftes/mjn_liquid_ui
 issue_tracker: https://github.com/Gerafftes/mjn_liquid_ui/issues
 
@@ -28,7 +28,7 @@ screenshots:
     path: screenshots/liquid_sheet.png
   - description: Native Liquid Glass bottom toast with an action button.
     path: screenshots/liquid_toast.png
-  - description: Search role tab rendered with native SwiftUI.
+  - description: Separate trailing tab rendered with native SwiftUI.
     path: screenshots/liquid_search.png
 
 dependencies:

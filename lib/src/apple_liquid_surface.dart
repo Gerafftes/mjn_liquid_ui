@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_stretch.dart';
 
@@ -86,6 +87,7 @@ class AppleLiquidSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     final Widget content = _AppleLiquidSurfaceContent(
       borderRadius: borderRadius,
       padding: padding,
@@ -138,8 +140,7 @@ class _AppleLiquidSurfaceContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Widget surface =
-        !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS
+    final Widget surface = defaultTargetPlatform == TargetPlatform.iOS
         ? AppleLiquidUiKitView(
             viewType: 'mjn_liquid_ui_surface',
             layoutDirection: Directionality.of(context),

@@ -27,7 +27,7 @@ void main() {
     expect(corners.bottomTrailingCorner, minimum12);
   });
 
-  testWidgets('renders Flutter content over the non-iOS fallback', (
+  testWidgets('renders Flutter content over the Android fallback', (
     WidgetTester tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;

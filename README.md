@@ -2,7 +2,7 @@
 
 <p align="center">
   Native-inspired Liquid Glass UI components for Flutter.<br>
-  Native iOS SwiftUI and UIKit controls with Flutter fallbacks.
+  Native iOS SwiftUI and UIKit controls. iOS is the only supported platform.
 </p>
 
 <p align="center">
@@ -27,14 +27,22 @@ views and method channels. It provides a native-feeling tab bar, search segment,
 switch, slider, glass surface, concentric rectangle, sheets, toasts, and SF
 Symbols while keeping the Flutter app structure.
 
-This README describes [version 0.3.1](https://pub.dev/packages/mjn_liquid_ui/versions/0.3.1).
-This release adds toast overflow actions and a listenable for native toast-stack
-visibility, and fixes interaction with overflow summaries after count updates.
+Version 0.3.2 keeps the trailing native tab separate on iOS 27 and restricts
+UI widgets to iOS and the retained experimental Android fallbacks.
+
+**Breaking:** desktop and web widgets now throw `UnsupportedError`. Android
+fallback code remains available for future development but is untested and
+unsupported. Native sheet and toast APIs retain their unavailable-presentation
+results outside iOS.
+
+Toast overflow actions and the listenable for native toast-stack visibility
+were introduced in [version 0.3.1](https://pub.dev/packages/mjn_liquid_ui/versions/0.3.1).
 
 ## Features
 
 - Liquid glass tab bar.
-- Separate search tab / search segment using native SwiftUI `TabRole.search`.
+- Separate trailing tab using native SwiftUI `TabRole.prominent` on iOS 27
+  and `TabRole.search` on earlier supported iOS versions.
 - Liquid switch.
 - Liquid slider with optional stepped values.
 - Liquid glass surfaces.
@@ -48,14 +56,15 @@ visibility, and fixes interaction with overflow summaries after count updates.
 - Optional, configurable Flutter background interaction guard for native sheets.
 - SF Symbols outside the tab bar through native `UIImage(systemName:)` rendering.
 - Native iOS-focused implementation using Swift, SwiftUI, and UIKit.
-- Simple Flutter widget fallbacks for development on unsupported platforms;
-  native sheet and toast presentation remains iOS-only.
+- Experimental Android Flutter widget fallbacks retained for future development,
+  without Android device or emulator validation. Native sheet and toast
+  presentation remains iOS-only.
 
 ## Widgets
 
 | Widget | Description | Controller |
 | --- | --- | --- |
-| `AppleLiquidTabBar` | Native iOS Liquid Glass tab bar with a dedicated search-role item, tint support, and badges | - |
+| `AppleLiquidTabBar` | Native iOS Liquid Glass tab bar with a separate trailing item, tint support, and badges | - |
 | `AppleLiquidSwitch` | Native Liquid Glass toggle switch with animated state changes | - |
 | `AppleLiquidSlider` | Native Liquid Glass slider with min/max range, optional step support, and optional trailing value labels | - |
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
@@ -111,23 +120,28 @@ includes the toast controls introduced in 0.3.1 and documented below.
 | Platform | Support |
 | --- | --- |
 | iOS | Supported |
-| Android | Not officially supported yet |
-| Web | Not officially supported yet |
-| macOS | Not officially supported yet |
-| Windows | Not officially supported yet |
-| Linux | Not officially supported yet |
+| Android | Untested and unsupported; experimental Dart fallback code retained |
 
-The Dart widgets include simple, experimental Flutter fallbacks on unsupported
-platforms. Native sheets return `AppleLiquidSheetResultStatus.notPresented`
-and native toasts return `false` there; neither API presents a Flutter fallback
-automatically.
+iOS is the only supported platform. Android has no native plugin implementation
+or bundled example runner. Its existing Flutter fallbacks are kept as preparation
+for future Android work; they do not establish Android compatibility and have
+not been validated on an Android device or emulator.
+
+Desktop and web UI are excluded from this checkout. Building the package's UI
+widgets on macOS, Windows, Linux, web, or any platform other than iOS and Android
+throws `UnsupportedError`, including the Flutter stretch and sheet guard widgets.
+There are no desktop or web runners or native implementations in the repository.
+
+Outside iOS, native sheets return
+`AppleLiquidSheetResultStatus.notPresented` and native toasts return `false`;
+neither API presents a Flutter fallback automatically.
 
 The podspec declares an iOS 13.0 deployment target. Individual native features
 have higher runtime requirements:
 
 | Feature | Native runtime behavior |
 | --- | --- |
-| Tab bar | SwiftUI `TabView` and search role on iOS 18+; UIKit tab bar on iOS 13–17 |
+| Tab bar | SwiftUI `TabView` on iOS 18+: prominent role on iOS 27, search role on iOS 18–26; UIKit tab bar on iOS 13–17 |
 | Tab bar minimization | iOS 26+; older iOS versions keep the expanded bar |
 | Sheets and toasts | iOS 16+; earlier iOS versions report that presentation was unavailable |
 | Exact sheet button spacing and custom section spacing | iOS 17+; iOS 16 keeps native form spacing |
@@ -149,7 +163,7 @@ For the published release:
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.3.1
+  mjn_liquid_ui: ^0.3.2
 ```
 
 For local package development, use a path dependency instead, adjusting the
@@ -253,8 +267,10 @@ Scaffold(
 ### Liquid tab bar
 
 `AppleLiquidTabBar` renders a native SwiftUI `TabView` on iOS 18 and newer,
-where the trailing `searchItem` is a separate native search-role tab. On
-iOS 13–17, it uses a UIKit fallback with regular tab buttons.
+where the trailing `searchItem` has a separate native surface. With Xcode 27 /
+Swift 6.4, iOS 27 uses `TabRole.prominent`; earlier iOS versions and older
+compilers retain `TabRole.search`. On iOS 13–17, it uses a UIKit fallback with
+regular tab buttons.
 Use `selectedTintColor` to customize the selected icon and label tint while
 keeping the native Liquid Glass tab bar rendering intact.
 Set `minimizeBehavior` to `AppleLiquidTabBarMinimizeBehavior.onScrollDown` to
@@ -325,8 +341,9 @@ const AppleLiquidSymbol(
 ```
 
 `AppleLiquidSymbol` renders the provided SF Symbol name natively on iOS and
-paints the result as a normal Flutter image. On unsupported platforms it uses
-`fallbackIcon` when provided. The optional `weight` parameter supports
+paints the result as a normal Flutter image. It uses `fallbackIcon` when native
+rendering is unavailable, and in the experimental Android fallback. Desktop
+and web are excluded. The optional `weight` parameter supports
 `ultraLight`, `thin`, `light`, `regular`, `medium`, `semibold`, `bold`,
 `heavy`, and `black`.
 
@@ -369,10 +386,10 @@ use `inset` so SwiftUI can preserve the shared corner centers. Set
 `containerCornerRadius` when the surrounding container is a custom rounded
 rectangle; leave it null to use the system-provided container shape. Fixed
 corners and `concentric(minimumRadius:)` also provide deterministic fallbacks
-on older iOS versions and unsupported Flutter platforms. All public visual
-parameters—color, inset, container radius, corner styles, grouping, size, and
-child padding—are provided by the Dart widget; the native layer only keeps
-platform compatibility details and safe fallback defaults.
+on older iOS versions and in the experimental Android Flutter implementation.
+All public visual parameters—color, inset, container radius, corner styles,
+grouping, size, and child padding—are provided by the Dart widget; the native
+layer only keeps platform compatibility details and safe fallback defaults.
 
 ### Native toast
 
@@ -1150,8 +1167,9 @@ return type for older callers; they return `result.didPresent`. The correspondin
 ## iOS notes
 
 - The iOS implementation uses Swift, SwiftUI, UIKit, and Flutter platform views.
-- The tab bar's search segment is implemented with native SwiftUI
-  `Tab(..., role: .search)` on iOS 18 and newer.
+- The trailing tab uses native SwiftUI `Tab(..., role: .prominent)` on iOS 27
+  when built with Swift 6.4 or newer. The compiler-guarded fallback uses `.search`
+  on earlier iOS versions and older toolchains.
 - SF Symbols names are passed through `systemImage` for tab items and through
   `AppleLiquidSymbol.name` for standalone symbols.
 - SF Symbol weights are optional and use native `UIImage.SymbolConfiguration`
@@ -1192,11 +1210,12 @@ Dart and native code before SwiftUI receives them.
 
 ## Limitations
 
-- iOS is the only officially supported platform for this release.
-- Android, web, and desktop are not officially supported yet.
-- Unsupported-platform fallbacks are intentionally simple and experimental.
-- The plugin does not provide an Android native implementation yet.
-- The search tab is a native search-role segment; app-specific search UI should
+- iOS is the only supported platform.
+- Android is untested and unsupported. Its intentionally simple Flutter
+  fallbacks remain available as preparation for future work.
+- The plugin has no Android native implementation or Android example runner.
+- Desktop and web UI widget fallbacks have been removed in this checkout.
+- The trailing tab uses its native role; app-specific search UI should
   be implemented by your Flutter page content.
 
 ## Example
@@ -1212,7 +1231,7 @@ flutter run -d <ios-simulator-id>
 
 Start an iOS simulator first, then replace `<ios-simulator-id>` with its ID from
 `flutter devices`. The current demo tabs are **Tabs**, **Switch**, **Slider**,
-and **Surface**; Surface occupies the native search-role segment with a plus
+and **Surface**; Surface occupies the separate trailing native segment with a plus
 icon. The demo includes standalone SF Symbols, switches, continuous and stepped
 sliders, glass surfaces, concentric rectangles, configurable toast stacks with
 actions and visibility controls, and a native form sheet with nested pages.

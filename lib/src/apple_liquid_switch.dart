@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_platform_view.dart';
 
 /// A Liquid Glass styled switch that uses a native iOS control when available.
@@ -71,7 +72,8 @@ class _AppleLiquidSwitchState extends State<AppleLiquidSwitch> {
 
   @override
   Widget build(BuildContext context) {
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    checkAppleLiquidPlatform();
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         width: widget.width,
         height: widget.height,

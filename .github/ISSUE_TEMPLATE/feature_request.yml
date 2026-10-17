@@ -60,5 +60,5 @@ body:
       options:
         - label: I searched existing issues and pull requests for this request.
           required: true
-        - label: The request is relevant to the package's native iOS or Flutter fallback scope.
+        - label: The request is relevant to native iOS or the retained experimental Android fallbacks.
           required: true

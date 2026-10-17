@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'apple_liquid_platform.dart';
 import 'apple_liquid_platform_view.dart';
 import 'apple_liquid_tab_bar_channel.dart';
 import 'apple_liquid_tab_item.dart';
@@ -169,9 +170,10 @@ class _AppleLiquidTabBarState extends State<AppleLiquidTabBar> {
 
   @override
   Widget build(BuildContext context) {
+    checkAppleLiquidPlatform();
     final double height = widget.height ?? _defaultHeight;
 
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
       return SizedBox(
         height: height,
         child: AppleLiquidUiKitView(
