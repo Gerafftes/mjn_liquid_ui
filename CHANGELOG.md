@@ -1,3 +1,12 @@
+## 0.3.3
+
+- Moved numbered notification badges to the upper-right edge of compact native
+  tab buttons, keeping the tab symbol visible and the badge clear of the glass
+  effect.
+- Gave compact badges more padding and an intrinsic width so values such as
+  `12` and `99+` remain readable without shrinking or clipping.
+- Preserved numberless notification dots and tap-to-expand behavior.
+
 ## 0.3.2
 
 - Kept the trailing native tab separate on iOS 27 with the prominent role,

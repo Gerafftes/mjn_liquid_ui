@@ -91,16 +91,14 @@ struct AppleLiquidSwiftUITabView: View {
 
   @available(iOS 26.0, *)
   private var compactTabBar: some View {
-    GlassEffectContainer(spacing: 24) {
-      HStack {
-        if let index = model.displayedRegularIndices.first {
-          compactButton(for: model.items[index], index: index)
-        }
-
-        compactExpansionButton
-
-        compactButton(for: model.searchItem, index: model.searchIndex)
+    HStack {
+      if let index = model.displayedRegularIndices.first {
+        compactButton(for: model.items[index], index: index)
       }
+
+      compactExpansionButton
+
+      compactButton(for: model.searchItem, index: model.searchIndex)
     }
     .padding(.horizontal, Layout.compactHorizontalInset)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -142,11 +140,11 @@ struct AppleLiquidSwiftUITabView: View {
         : Color.primary
     )
     .accessibilityLabel(Text(item.title))
+    .glassEffect(Glass.regular.interactive(true), in: Circle())
     .overlay(alignment: .topTrailing) {
       compactBadge(for: item)
-        .padding(8)
+        .allowsHitTesting(false)
     }
-    .glassEffect(Glass.regular.interactive(true), in: Circle())
   }
 
   @ViewBuilder
@@ -156,13 +154,16 @@ struct AppleLiquidSwiftUITabView: View {
         Text(value)
           .font(.caption2.bold())
           .foregroundStyle(Color.white)
+          .fixedSize()
           .padding(.horizontal, 5)
-          .frame(minWidth: 18, minHeight: 18)
+          .frame(minWidth: 20, minHeight: 20)
           .background(color, in: Capsule())
+          .offset(x: 4, y: -4)
       } else {
         Circle()
           .fill(color)
           .frame(width: 5.5, height: 5.5)
+          .padding(8)
       }
     }
   }

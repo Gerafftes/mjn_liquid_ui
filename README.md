@@ -27,10 +27,10 @@ views and method channels. It provides a native-feeling tab bar, search segment,
 switch, slider, glass surface, concentric rectangle, sheets, toasts, and SF
 Symbols while keeping the Flutter app structure.
 
-Version 0.3.2 keeps the trailing native tab separate on iOS 27 and restricts
-UI widgets to iOS and the retained experimental Android fallbacks.
+Version 0.3.3 improves notification badge spacing on compact native tab buttons,
+including wider values such as `12` and `99+`.
 
-**Breaking:** desktop and web widgets now throw `UnsupportedError`. Android
+Since version 0.3.2, desktop and web widgets throw `UnsupportedError`. Android
 fallback code remains available for future development but is untested and
 unsupported. Native sheet and toast APIs retain their unavailable-presentation
 results outside iOS.
@@ -163,7 +163,7 @@ For the published release:
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.3.2
+  mjn_liquid_ui: ^0.3.3
 ```
 
 For local package development, use a path dependency instead, adjusting the
