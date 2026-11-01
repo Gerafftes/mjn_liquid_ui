@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -6,6 +8,8 @@ import 'apple_liquid_platform.dart';
 import 'apple_liquid_sheet_result.dart';
 
 export 'apple_liquid_sheet_result.dart';
+
+part 'apple_liquid_popover.dart';
 
 /// Callback invoked when a native sheet toolbar action is pressed.
 typedef AppleLiquidSheetToolbarActionCallback =

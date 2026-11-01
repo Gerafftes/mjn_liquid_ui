@@ -34,8 +34,8 @@ private extension UIView {
       return
     }
 
-    backgroundColor = .clear
-    isOpaque = false
+    if backgroundColor != .clear { backgroundColor = .clear }
+    if isOpaque { isOpaque = false }
 
     subviews.forEach { subview in
       subview.appleLiquidClearWrapperBackgrounds()
@@ -55,7 +55,7 @@ private extension UIView {
 
 }
 
-private extension UITabBar {
+extension UITabBar {
   func appleLiquidApplyNotificationDots(from items: [AppleLiquidTabbarItem]) {
     let badgeColors = items.compactMap(\.notificationDotColor)
     if badgeColors.count == 1,
@@ -70,32 +70,47 @@ private extension UITabBar {
       let badgeValue = item?.notificationBadgeValue
       let badgeTextColor: UIColor = badgeValue == nil ? .clear : .white
 
-      tabBarItem.badgeValue = color == nil ? nil : badgeValue ?? ""
-      tabBarItem.badgeColor = color
-      tabBarItem.setBadgeTextAttributes(
-        [.foregroundColor: badgeTextColor],
-        for: .normal
-      )
+      let desiredValue = color == nil ? nil : badgeValue ?? ""
+      if tabBarItem.badgeValue != desiredValue { tabBarItem.badgeValue = desiredValue }
+      if tabBarItem.badgeColor != color { tabBarItem.badgeColor = color }
+      if tabBarItem.badgeTextAttributes(for: .normal)?[.foregroundColor] as? UIColor != badgeTextColor {
+        tabBarItem.setBadgeTextAttributes(
+          [.foregroundColor: badgeTextColor],
+          for: .normal
+        )
+      }
     }
   }
 
-  func appleLiquidApplyBadgeAppearance(color: UIColor) {
-    let appearance = standardAppearance.copy()
+  private func appleLiquidApplyBadgeAppearance(color: UIColor) {
+    func updatedAppearance(_ appearance: UITabBarAppearance) -> UITabBarAppearance? {
+      let layouts = [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance,
+        appearance.compactInlineLayoutAppearance]
+      guard layouts.contains(where: {
+        $0.normal.badgeBackgroundColor != color || $0.selected.badgeBackgroundColor != color
+      }) else { return nil }
 
-    [
-      appearance.stackedLayoutAppearance,
-      appearance.inlineLayoutAppearance,
-      appearance.compactInlineLayoutAppearance,
-    ].forEach { itemAppearance in
-      itemAppearance.normal.badgeBackgroundColor = color
-      itemAppearance.selected.badgeBackgroundColor = color
+      let updated = appearance.copy()
+      [updated.stackedLayoutAppearance, updated.inlineLayoutAppearance,
+        updated.compactInlineLayoutAppearance].forEach {
+        $0.normal.badgeBackgroundColor = color
+        $0.selected.badgeBackgroundColor = color
+      }
+      return updated
     }
 
-    standardAppearance = appearance
+    if let updated = updatedAppearance(standardAppearance) {
+      standardAppearance = updated
+    }
     if #available(iOS 15.0, *) {
-      scrollEdgeAppearance = appearance
+      if let appearance = scrollEdgeAppearance {
+        if let updated = updatedAppearance(appearance) { scrollEdgeAppearance = updated }
+      } else {
+        scrollEdgeAppearance = standardAppearance.copy()
+      }
     }
   }
+
 }
 
 final class AppleLiquidTabbarPlatformView: NSObject, FlutterPlatformView {

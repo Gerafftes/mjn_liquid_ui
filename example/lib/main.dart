@@ -5,6 +5,8 @@ import 'package:mjn_liquid_ui/mjn_liquid_ui.dart';
 import 'package:flutter/material.dart';
 
 import 'widgets/switch_samples.dart';
+import 'widgets/performance_features_page.dart';
+import 'widgets/popover_samples.dart';
 
 void main() {
   runApp(const MyApp());
@@ -47,6 +49,12 @@ class _DemoShellState extends State<DemoShell> {
   final AppleLiquidSheetController templateSheetController =
       AppleLiquidSheetController();
   final PageStorageBucket _pageStorageBucket = PageStorageBucket();
+  final List<Widget?> _tabPages = List<Widget?>.filled(4, null);
+  final List<ScrollController> _tabScrollControllers =
+      List<ScrollController>.generate(
+        4,
+        (int index) => ScrollController(debugLabel: 'demo-tab-$index'),
+      );
 
   @override
   void initState() {
@@ -64,23 +72,49 @@ class _DemoShellState extends State<DemoShell> {
     unawaited(AppleLiquidToast.setVisible(true));
     unawaited(AppleLiquidToast.dismiss());
     templateSheetController.dispose();
+    for (final ScrollController controller in _tabScrollControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AppleLiquidSheetBackgroundInteractionGuard(
-      controller: templateSheetController,
-      child: _DemoScaffold(
-        currentIndex: currentIndex,
-        onChanged: _handleTabChanged,
-        page: PageStorage(
-          bucket: _pageStorageBucket,
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: KeyedSubtree(
-              key: ValueKey<int>(currentIndex),
-              child: _pageFor(currentIndex),
+    // Build each tab on first use and keep its native controls and local state.
+    // Rebuild only the active page when its controlled values change.
+    _tabPages[currentIndex] = _pageFor(currentIndex);
+    // Scaffold handles status-bar taps, so expose the active controller above it.
+    return PrimaryScrollController(
+      controller: _tabScrollControllers[currentIndex],
+      // The route's default focus is above this scope. Keep initial keyboard
+      // scroll intents inside it without adding a focus-traversal stop.
+      child: Focus(
+        autofocus: true,
+        skipTraversal: true,
+        includeSemantics: false,
+        child: AppleLiquidSheetBackgroundInteractionGuard(
+          controller: templateSheetController,
+          child: _DemoScaffold(
+            currentIndex: currentIndex,
+            onChanged: _handleTabChanged,
+            page: PageStorage(
+              bucket: _pageStorageBucket,
+              child: IndexedStack(
+                index: currentIndex,
+                children: <Widget>[
+                  for (int index = 0; index < _tabPages.length; index++)
+                    PrimaryScrollController(
+                      controller: _tabScrollControllers[index],
+                      child: TickerMode(
+                        enabled: index == currentIndex,
+                        child: ExcludeFocus(
+                          excluding: index != currentIndex,
+                          child: _tabPages[index] ?? const SizedBox.shrink(),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -543,7 +577,29 @@ class _DemoScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      appBar: AppBar(title: const Text('MJN Liquid UI')),
+      appBar: AppBar(
+        title: const Text('MJN Liquid UI'),
+        actions: <Widget>[
+          IconButton(
+            tooltip: 'Popover examples',
+            icon: const Icon(Icons.open_in_new),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const PopoverSamplesPage(),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Performance examples',
+            icon: const Icon(Icons.speed),
+            onPressed: () => Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const PerformanceFeaturesPage(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: Stack(
         children: <Widget>[
           Positioned.fill(child: page),
@@ -600,12 +656,12 @@ class _DemoPageScaffold extends StatelessWidget {
   const _DemoPageScaffold({
     required this.title,
     required this.subtitle,
-    required this.child,
+    required this.children,
   });
 
   final String title;
   final String subtitle;
-  final Widget child;
+  final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
@@ -617,9 +673,30 @@ class _DemoPageScaffold extends StatelessWidget {
         const SizedBox(height: 8),
         Text(subtitle, style: Theme.of(context).textTheme.bodyLarge),
         const SizedBox(height: 28),
-        child,
+        for (final Widget child in children)
+          _KeepAliveDemoSection(child: child),
       ],
     );
+  }
+}
+
+class _KeepAliveDemoSection extends StatefulWidget {
+  const _KeepAliveDemoSection({required this.child});
+  final Widget child;
+
+  @override
+  State<_KeepAliveDemoSection> createState() => _KeepAliveDemoSectionState();
+}
+
+class _KeepAliveDemoSectionState extends State<_KeepAliveDemoSection>
+    with AutomaticKeepAliveClientMixin<_KeepAliveDemoSection> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
@@ -650,84 +727,78 @@ class _TabbarDemoPage extends StatelessWidget {
       title: 'Tabbar',
       subtitle:
           'The bottom navigation uses native SwiftUI tabs. SF Symbols can also be placed anywhere in Flutter content.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          const AppleLiquidSurface(
-            height: 152,
-            child: Row(
-              children: <Widget>[
-                AppleLiquidSymbol(
-                  'sparkles',
-                  size: 36,
-                  color: Color(0xFF0EA5E9),
-                  weight: AppleLiquidSymbolWeight.semibold,
-                  fallbackIcon: Icons.auto_awesome_rounded,
-                  semanticLabel: 'Sparkles',
+      children: <Widget>[
+        const AppleLiquidSurface(
+          height: 152,
+          child: Row(
+            children: <Widget>[
+              AppleLiquidSymbol(
+                'sparkles',
+                size: 36,
+                color: Color(0xFF0EA5E9),
+                weight: AppleLiquidSymbolWeight.semibold,
+                fallbackIcon: Icons.auto_awesome_rounded,
+                semanticLabel: 'Sparkles',
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: _SurfaceText(
+                  title: 'Native tabs and symbols',
+                  body:
+                      'Use SF Symbol names in the tab bar or as standalone content.',
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: _SurfaceText(
-                    title: 'Native tabs and symbols',
-                    body:
-                        'Use SF Symbol names in the tab bar or as standalone content.',
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ToastDemoCard(onOpenSlider: onOpenSlider),
+        const SizedBox(height: 16),
+        AppleLiquidSurface(
+          height: 350,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  const AppleLiquidSymbol(
+                    'rectangle.bottomthird.inset.filled',
+                    size: 34,
+                    color: Color(0xFF007AFF),
+                    fallbackIcon: Icons.keyboard_arrow_up_rounded,
+                    semanticLabel: 'Sheet',
                   ),
-                ),
-              ],
-            ),
+                  const SizedBox(width: 16),
+                  const Expanded(child: _SheetControlHeaderText()),
+                  const SizedBox(width: 12),
+                  Builder(
+                    builder: (BuildContext context) {
+                      return FilledButton(
+                        onPressed: () => onShowTemplateSheet(context),
+                        child: const Text('Open'),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _SheetToggleRow(
+                label: 'Background zoom',
+                value: sheetBackgroundZoom,
+                onChanged: onSheetBackgroundZoomChanged,
+              ),
+              _SheetToggleRow(
+                label: 'Section backgrounds',
+                value: sheetSectionBackgrounds,
+                onChanged: onSheetSectionBackgroundsChanged,
+              ),
+              _SheetColorRow(value: sheetColor, onChanged: onSheetColorChanged),
+            ],
           ),
-          const SizedBox(height: 16),
-          _ToastDemoCard(onOpenSlider: onOpenSlider),
-          const SizedBox(height: 16),
-          AppleLiquidSurface(
-            height: 350,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    const AppleLiquidSymbol(
-                      'rectangle.bottomthird.inset.filled',
-                      size: 34,
-                      color: Color(0xFF007AFF),
-                      fallbackIcon: Icons.keyboard_arrow_up_rounded,
-                      semanticLabel: 'Sheet',
-                    ),
-                    const SizedBox(width: 16),
-                    const Expanded(child: _SheetControlHeaderText()),
-                    const SizedBox(width: 12),
-                    Builder(
-                      builder: (BuildContext context) {
-                        return FilledButton(
-                          onPressed: () => onShowTemplateSheet(context),
-                          child: const Text('Open'),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                _SheetToggleRow(
-                  label: 'Background zoom',
-                  value: sheetBackgroundZoom,
-                  onChanged: onSheetBackgroundZoomChanged,
-                ),
-                _SheetToggleRow(
-                  label: 'Section backgrounds',
-                  value: sheetSectionBackgrounds,
-                  onChanged: onSheetSectionBackgroundsChanged,
-                ),
-                _SheetColorRow(
-                  value: sheetColor,
-                  onChanged: onSheetColorChanged,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          const AppleLiquidSurface(height: 500, child: _SymbolGrid()),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+        const AppleLiquidSurface(height: 500, child: _SymbolGrid()),
+      ],
     );
   }
 }
@@ -1459,16 +1530,12 @@ class _SwitchDemoPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return _DemoPageScaffold(
       title: 'Switch',
-      subtitle:
-          'Five native UIKit UISwitch controls embedded through UiKitView.',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          SwitchSamples(values: values, onChanged: onChanged),
-          const SizedBox(height: 16),
-          const _ConcentricRectangleDemoCard(),
-        ],
-      ),
+      subtitle: 'Five UIKit switches sharing one native view.',
+      children: <Widget>[
+        SwitchSamples(values: values, onChanged: onChanged),
+        const SizedBox(height: 16),
+        const _ConcentricRectangleDemoCard(),
+      ],
     );
   }
 }
@@ -1512,210 +1579,208 @@ class _ConcentricRectangleDemoCardState
 
     return AppleLiquidSurface(
       height: 650,
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                const AppleLiquidSymbol(
-                  'rectangle.roundedtop.fill',
-                  size: 34,
-                  color: Color(0xFF34C759),
-                  fallbackIcon: Icons.rounded_corner,
-                  semanticLabel: 'Concentric rectangle',
+      child: ListView(
+        key: const PageStorageKey<String>('concentric-controls'),
+        primary: false,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const AppleLiquidSymbol(
+                'rectangle.roundedtop.fill',
+                size: 34,
+                color: Color(0xFF34C759),
+                fallbackIcon: Icons.rounded_corner,
+                semanticLabel: 'Concentric rectangle',
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: _SurfaceText(
+                  title: 'Concentric Rectangle',
+                  body:
+                      'Change every shape parameter below and compare the native result.',
                 ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: _SurfaceText(
-                    title: 'Concentric Rectangle',
-                    body:
-                        'Change every shape parameter below and compare the native result.',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            AppleConcentricRectangle(
-              height: _shapeHeight,
-              color: _color,
-              inset: _inset,
-              containerCornerRadius: _usesCustomContainer
-                  ? _containerCornerRadius
-                  : null,
-              corners: corners,
-              padding: EdgeInsets.all(_contentPadding),
-              child: Center(
-                child: Text(
-                  'Inset ${_inset.round()} · $_cornerStyleLabel',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: textBrightness == Brightness.dark
-                        ? Colors.white
-                        : Colors.black87,
-                    fontWeight: FontWeight.w700,
-                  ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          AppleConcentricRectangle(
+            height: _shapeHeight,
+            color: _color,
+            inset: _inset,
+            containerCornerRadius: _usesCustomContainer
+                ? _containerCornerRadius
+                : null,
+            corners: corners,
+            padding: EdgeInsets.all(_contentPadding),
+            child: Center(
+              child: Text(
+                'Inset ${_inset.round()} · $_cornerStyleLabel',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: textBrightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black87,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-            _sectionTitle(context, 'Appearance'),
-            Text('Fill color', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                for (final _ConcentricColorOption option in _colorOptions)
-                  ChoiceChip(
-                    label: Text(option.label),
-                    avatar: CircleAvatar(
-                      backgroundColor: option.color,
-                      radius: 8,
-                    ),
-                    selected: _color == option.color,
-                    onSelected: (_) => setState(() => _color = option.color),
+          ),
+          _sectionTitle(context, 'Appearance'),
+          Text('Fill color', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              for (final _ConcentricColorOption option in _colorOptions)
+                ChoiceChip(
+                  label: Text(option.label),
+                  avatar: CircleAvatar(
+                    backgroundColor: option.color,
+                    radius: 8,
                   ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('Corner style', style: Theme.of(context).textTheme.titleSmall),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: <Widget>[
-                _styleChoice(
-                  AppleConcentricCornerStyleKind.concentric,
-                  'Concentric',
+                  selected: _color == option.color,
+                  onSelected: (_) => setState(() => _color = option.color),
                 ),
-                _styleChoice(AppleConcentricCornerStyleKind.fixed, 'Fixed'),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Corner grouping',
-              style: Theme.of(context).textTheme.titleSmall,
-            ),
-            const SizedBox(height: 6),
-            InputDecorator(
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                isDense: true,
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text('Corner style', style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: <Widget>[
+              _styleChoice(
+                AppleConcentricCornerStyleKind.concentric,
+                'Concentric',
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<AppleConcentricRectangleCornerGrouping>(
-                  value: _grouping,
-                  isExpanded: true,
-                  items: AppleConcentricRectangleCornerGrouping.values
-                      .map(
-                        (AppleConcentricRectangleCornerGrouping grouping) =>
-                            DropdownMenuItem<
-                              AppleConcentricRectangleCornerGrouping
-                            >(
-                              value: grouping,
-                              child: Text(_groupingLabel(grouping)),
-                            ),
-                      )
-                      .toList(),
-                  onChanged:
-                      (AppleConcentricRectangleCornerGrouping? grouping) {
-                        if (grouping != null) {
-                          setState(() => _grouping = grouping);
-                        }
-                      },
-                ),
-              ),
+              _styleChoice(AppleConcentricCornerStyleKind.fixed, 'Fixed'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Corner grouping',
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          const SizedBox(height: 6),
+          InputDecorator(
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
             ),
-            _sectionTitle(context, 'Geometry'),
-            _sliderControl(
-              context,
-              label: 'Shape height',
-              value: _shapeHeight,
-              min: 88,
-              max: 180,
-              step: 4,
-              onChanged: (double value) {
-                setState(() => _shapeHeight = value);
-              },
-            ),
-            _sliderControl(
-              context,
-              label: 'Inset',
-              value: _inset,
-              min: 0,
-              max: 32,
-              step: 2,
-              onChanged: (double value) {
-                setState(() => _inset = value);
-              },
-            ),
-            _sliderControl(
-              context,
-              label: _cornerValueLabel('Primary corner'),
-              value: _primaryCornerValue,
-              min: 0,
-              max: 48,
-              step: 2,
-              onChanged: (double value) {
-                setState(() => _primaryCornerValue = value);
-              },
-            ),
-            _sliderControl(
-              context,
-              label: _cornerValueLabel('Secondary corner'),
-              value: _secondaryCornerValue,
-              min: 0,
-              max: 48,
-              step: 2,
-              onChanged: (double value) {
-                setState(() => _secondaryCornerValue = value);
-              },
-            ),
-            _sliderControl(
-              context,
-              label: 'Content padding',
-              value: _contentPadding,
-              min: 0,
-              max: 28,
-              step: 2,
-              onChanged: (double value) {
-                setState(() => _contentPadding = value);
-              },
-            ),
-            _sectionTitle(context, 'Container'),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: Text(
-                    'Custom container radius',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                AppleLiquidSwitch(
-                  value: _usesCustomContainer,
-                  tintColor: const Color(0xFF34C759),
-                  width: 64,
-                  height: 44,
-                  onChanged: (bool value) {
-                    setState(() => _usesCustomContainer = value);
-                  },
-                ),
-              ],
-            ),
-            if (_usesCustomContainer)
-              _sliderControl(
-                context,
-                label: 'Container corner radius',
-                value: _containerCornerRadius,
-                min: 0,
-                max: 56,
-                step: 2,
-                onChanged: (double value) {
-                  setState(() => _containerCornerRadius = value);
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<AppleConcentricRectangleCornerGrouping>(
+                value: _grouping,
+                isExpanded: true,
+                items: AppleConcentricRectangleCornerGrouping.values
+                    .map(
+                      (AppleConcentricRectangleCornerGrouping grouping) =>
+                          DropdownMenuItem<
+                            AppleConcentricRectangleCornerGrouping
+                          >(
+                            value: grouping,
+                            child: Text(_groupingLabel(grouping)),
+                          ),
+                    )
+                    .toList(),
+                onChanged: (AppleConcentricRectangleCornerGrouping? grouping) {
+                  if (grouping != null) {
+                    setState(() => _grouping = grouping);
+                  }
                 },
               ),
-          ],
-        ),
+            ),
+          ),
+          _sectionTitle(context, 'Geometry'),
+          _sliderControl(
+            context,
+            label: 'Shape height',
+            value: _shapeHeight,
+            min: 88,
+            max: 180,
+            step: 4,
+            onChanged: (double value) {
+              setState(() => _shapeHeight = value);
+            },
+          ),
+          _sliderControl(
+            context,
+            label: 'Inset',
+            value: _inset,
+            min: 0,
+            max: 32,
+            step: 2,
+            onChanged: (double value) {
+              setState(() => _inset = value);
+            },
+          ),
+          _sliderControl(
+            context,
+            label: _cornerValueLabel('Primary corner'),
+            value: _primaryCornerValue,
+            min: 0,
+            max: 48,
+            step: 2,
+            onChanged: (double value) {
+              setState(() => _primaryCornerValue = value);
+            },
+          ),
+          _sliderControl(
+            context,
+            label: _cornerValueLabel('Secondary corner'),
+            value: _secondaryCornerValue,
+            min: 0,
+            max: 48,
+            step: 2,
+            onChanged: (double value) {
+              setState(() => _secondaryCornerValue = value);
+            },
+          ),
+          _sliderControl(
+            context,
+            label: 'Content padding',
+            value: _contentPadding,
+            min: 0,
+            max: 28,
+            step: 2,
+            onChanged: (double value) {
+              setState(() => _contentPadding = value);
+            },
+          ),
+          _sectionTitle(context, 'Container'),
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Custom container radius',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              AppleLiquidSwitch(
+                value: _usesCustomContainer,
+                tintColor: const Color(0xFF34C759),
+                width: 64,
+                height: 44,
+                onChanged: (bool value) {
+                  setState(() => _usesCustomContainer = value);
+                },
+              ),
+            ],
+          ),
+          if (_usesCustomContainer)
+            _sliderControl(
+              context,
+              label: 'Container corner radius',
+              value: _containerCornerRadius,
+              min: 0,
+              max: 56,
+              step: 2,
+              onChanged: (double value) {
+                setState(() => _containerCornerRadius = value);
+              },
+            ),
+        ].map((Widget child) => _KeepAliveDemoSection(child: child)).toList(),
       ),
     );
   }
@@ -1894,35 +1959,37 @@ class _SliderDemoPage extends StatelessWidget {
     return _DemoPageScaffold(
       title: 'Slider',
       subtitle: 'Native SwiftUI sliders: continuous, stepped, and coarse.',
-      child: AppleLiquidSurface(
-        height: 390,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            _SliderExample(
-              title: 'Normal',
-              value: normalValue,
-              onChanged: onNormalChanged,
-            ),
-            const SizedBox(height: 18),
-            _SliderExample(
-              title: 'Steps',
-              value: steppedValue,
-              step: 0.1,
-              tintColor: const Color(0xFF14B8A6),
-              onChanged: onSteppedChanged,
-            ),
-            const SizedBox(height: 18),
-            _SliderExample(
-              title: 'Fewer steps',
-              value: coarseValue,
-              step: 0.25,
-              tintColor: const Color(0xFFF59E0B),
-              onChanged: onCoarseChanged,
-            ),
-          ],
+      children: <Widget>[
+        AppleLiquidSurface(
+          height: 390,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              _SliderExample(
+                title: 'Normal',
+                value: normalValue,
+                onChanged: onNormalChanged,
+              ),
+              const SizedBox(height: 18),
+              _SliderExample(
+                title: 'Steps',
+                value: steppedValue,
+                step: 0.1,
+                tintColor: const Color(0xFF14B8A6),
+                onChanged: onSteppedChanged,
+              ),
+              const SizedBox(height: 18),
+              _SliderExample(
+                title: 'Fewer steps',
+                value: coarseValue,
+                step: 0.25,
+                tintColor: const Color(0xFFF59E0B),
+                onChanged: onCoarseChanged,
+              ),
+            ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
@@ -2206,12 +2273,18 @@ class _SurfaceActionContent extends StatelessWidget {
       children: <Widget>[
         Text(
           'Transparent Liquid Glass',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 8),
-        Text(
-          'Button taps stay on the button. Drag outside it to stretch the surface.',
-          style: Theme.of(context).textTheme.bodyMedium,
+        Flexible(
+          child: Text(
+            'Button taps stay on the button. Drag outside it to stretch the surface.',
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
         ),
         const SizedBox(height: 14),
         FilledButton.tonal(

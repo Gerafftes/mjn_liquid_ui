@@ -13,6 +13,10 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
       withId: AppleLiquidTabbarConstants.switchViewType
     )
     registrar.register(
+      AppleLiquidSwitchGroupPlatformViewFactory(messenger: registrar.messenger()),
+      withId: AppleLiquidTabbarConstants.switchGroupViewType
+    )
+    registrar.register(
       AppleLiquidSliderPlatformViewFactory(messenger: registrar.messenger()),
       withId: AppleLiquidTabbarConstants.sliderViewType
     )
@@ -33,6 +37,7 @@ public class AppleLiquidTabbarPlugin: NSObject, FlutterPlugin {
     AppleLiquidSheetPresenter.register(
       messenger: registrar.messenger()
     )
+    AppleLiquidPopoverPresenter.register(with: registrar)
     AppleLiquidToastPresenter.register(
       messenger: registrar.messenger()
     )

@@ -39,6 +39,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'performance examples expose grouped switches and precache fallback',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        await tester.pumpWidget(const MyApp());
+        await tester.tap(find.byTooltip('Performance examples'));
+        await tester.pumpAndSettle();
+        expect(find.byType(AppleLiquidSwitchGroup), findsOneWidget);
+        expect(find.text('Notifications: Off'), findsOneWidget);
+        await tester.tap(find.byType(Switch).first);
+        await tester.pumpAndSettle();
+        expect(find.text('Notifications: On'), findsOneWidget);
+        await tester.tap(find.text('Prepare and show star'));
+        await tester.pumpAndSettle();
+        expect(find.text('Using the platform fallback'), findsOneWidget);
+        expect(find.byIcon(Icons.star), findsOneWidget);
+      } finally {
+        await tester.pumpWidget(const SizedBox());
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('shows the demo shell', (WidgetTester tester) async {
     await tester.pumpWidget(const MyApp());
 
@@ -92,16 +116,41 @@ void main() {
     await tester.tap(find.text('Switch'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Concentric Rectangle'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Concentric Rectangle'),
+      160,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey<String>('demo-page-Switch')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.byType(AppleConcentricRectangle), findsOneWidget);
-    expect(find.text('Corner style'), findsOneWidget);
-    expect(find.text('Corner grouping'), findsOneWidget);
-    expect(find.text('Content padding'), findsOneWidget);
-    expect(find.text('Custom container radius'), findsOneWidget);
-    expect(find.text('Appearance'), findsOneWidget);
-    expect(find.text('Geometry'), findsOneWidget);
-    expect(find.text('Container'), findsOneWidget);
-    expect(find.byType(AppleLiquidSlider), findsNWidgets(6));
+    await tester.ensureVisible(
+      find.byKey(const PageStorageKey<String>('concentric-controls')),
+    );
+    await tester.pumpAndSettle();
+    final controls = find
+        .descendant(
+          of: find.byKey(const PageStorageKey<String>('concentric-controls')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    for (final label in [
+      'Corner style',
+      'Corner grouping',
+      'Shape height',
+      'Content padding',
+      'Custom container radius',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        140,
+        scrollable: controls,
+      );
+      expect(find.text(label), findsOneWidget);
+    }
   });
 
   testWidgets('preserves switch sample values across tab changes', (
@@ -113,34 +162,26 @@ void main() {
       await tester.tap(find.text('Switch'));
       await tester.pumpAndSettle();
 
-      final Finder samples = find.descendant(
-        of: find
-            .ancestor(
-              of: find.text('Native switch 1: On'),
-              matching: find.byType(AppleLiquidSurface),
-            )
-            .first,
-        matching: find.byType(AppleLiquidSwitch),
-      );
-      expect(samples, findsNWidgets(5));
+      final Finder samples = find.byType(AppleLiquidSwitchGroup);
+      expect(samples, findsOneWidget);
       expect(
         tester
-            .widgetList<AppleLiquidSwitch>(samples)
+            .widget<AppleLiquidSwitchGroup>(samples)
+            .items
             .map((sample) => sample.value),
         <bool>[true, false, true, false, true],
       );
-
-      final Finder secondSwitch = find.descendant(
-        of: samples.at(1),
-        matching: find.byType(Switch),
-      );
+      final Finder secondSwitch = find
+          .descendant(of: samples, matching: find.byType(Switch))
+          .at(1);
       await tester.ensureVisible(secondSwitch);
       await tester.tap(secondSwitch);
       await tester.pumpAndSettle();
 
       expect(
         tester
-            .widgetList<AppleLiquidSwitch>(samples)
+            .widget<AppleLiquidSwitchGroup>(samples)
+            .items
             .map((sample) => sample.value),
         <bool>[true, true, true, false, true],
       );
@@ -152,7 +193,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester
-            .widgetList<AppleLiquidSwitch>(samples)
+            .widget<AppleLiquidSwitchGroup>(samples)
+            .items
             .map((sample) => sample.value),
         <bool>[true, true, true, false, true],
       );
@@ -372,7 +414,16 @@ void main() {
     await tester.pumpWidget(const MyApp());
 
     final Finder openButton = find.text('Open');
-    await tester.ensureVisible(openButton);
+    await tester.scrollUntilVisible(
+      openButton,
+      160,
+      scrollable: find
+          .descendant(
+            of: find.byKey(const PageStorageKey<String>('demo-page-Tabbar')),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.pumpAndSettle();
     await tester.tap(openButton);
     await tester.pump();
@@ -422,7 +473,16 @@ void main() {
       expect(offsetBeforeSheet, greaterThan(0));
 
       final Finder openButton = find.text('Open');
-      await tester.ensureVisible(openButton);
+      await tester.scrollUntilVisible(
+        openButton,
+        160,
+        scrollable: find
+            .descendant(
+              of: find.byKey(const PageStorageKey<String>('demo-page-Tabbar')),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       final double visibleOffsetBeforeSheet = scrollable.position.pixels;
       expect(visibleOffsetBeforeSheet, greaterThan(0));

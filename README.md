@@ -24,11 +24,13 @@
 
 `mjn_liquid_ui` embeds iOS SwiftUI/UIKit controls in Flutter through platform
 views and method channels. It provides a native-feeling tab bar, search segment,
-switch, slider, glass surface, concentric rectangle, sheets, toasts, and SF
+switch, slider, glass surface, concentric rectangle, sheets, popovers, toasts, and SF
 Symbols while keeping the Flutter app structure.
 
-Version 0.3.3 improves notification badge spacing on compact native tab buttons,
-including wider values such as `12` and `99+`.
+Version 0.3.4 adds anchored native popovers, shared switch groups, optional
+deferred glass mounting, and symbol precaching. The example preserves visited
+native controls across navigation and scrolling; unchanged tab badge properties
+are no longer rewritten during every layout.
 
 Since version 0.3.2, desktop and web widgets throw `UnsupportedError`. Android
 fallback code remains available for future development but is untested and
@@ -51,6 +53,8 @@ were introduced in [version 0.3.1](https://pub.dev/packages/mjn_liquid_ui/versio
 - Native iOS sheet presentation with a Liquid Glass `NavigationStack` + `Form`
   sheet, customizable Dart-provided form content, content-sized detents,
   optional background color, and background zoom.
+- Native iOS popovers anchored to Flutter widgets, with caller-supplied native
+  form content and configurable sizing, appearance, arrows, and behavior.
 - Native iOS bottom toasts with Liquid Glass chrome, SF Symbols, and optional
   action callbacks.
 - Optional, configurable Flutter background interaction guard for native sheets.
@@ -66,12 +70,14 @@ were introduced in [version 0.3.1](https://pub.dev/packages/mjn_liquid_ui/versio
 | --- | --- | --- |
 | `AppleLiquidTabBar` | Native iOS Liquid Glass tab bar with a separate trailing item, tint support, and badges | - |
 | `AppleLiquidSwitch` | Native Liquid Glass toggle switch with animated state changes | - |
+| `AppleLiquidSwitchGroup` | Flutter labels beside one shared native switch column | - |
 | `AppleLiquidSlider` | Native Liquid Glass slider with min/max range, optional step support, and optional trailing value labels | - |
 | `AppleLiquidSymbol` | SF Symbols rendered through native `UIImage(systemName:)` with optional Flutter icon fallback | - |
 | `AppleLiquidSurface` | Native glass background with Flutter content layered above it | - |
 | `AppleConcentricRectangle` | Native iOS 26 container-relative rectangle with fixed, concentric, and minimum-radius corner styles | - |
 | `AppleLiquidStretch` | Flutter squash and stretch interaction wrapper for glass content | - |
 | `AppleLiquidSheet` | Static API for presenting and dismissing native iOS Liquid Glass sheets | `AppleLiquidSheetController` |
+| `AppleLiquidPopoverAnchor` | Anchors a native iOS popover with configurable content and presentation | `AppleLiquidPopoverController` |
 | `AppleLiquidSheetBackgroundInteractionGuard` | Optional Flutter background interaction guard while a native sheet is active | `AppleLiquidSheetController` |
 | `AppleLiquidToast` | Static API for native iOS Liquid Glass bottom toasts | - |
 
@@ -143,7 +149,7 @@ have higher runtime requirements:
 | --- | --- |
 | Tab bar | SwiftUI `TabView` on iOS 18+: prominent role on iOS 27, search role on iOS 18–26; UIKit tab bar on iOS 13–17 |
 | Tab bar minimization | iOS 26+; older iOS versions keep the expanded bar |
-| Sheets and toasts | iOS 16+; earlier iOS versions report that presentation was unavailable |
+| Sheets, popovers, and toasts | iOS 16+; earlier iOS versions report that presentation was unavailable |
 | Exact sheet button spacing and custom section spacing | iOS 17+; iOS 16 keeps native form spacing |
 | Liquid Glass and native `ConcentricRectangle` | iOS 26+; older iOS versions use simpler native rendering |
 
@@ -159,11 +165,11 @@ The package declares Dart `^3.9.2` (3.9.2 or newer, below 4.0.0) and Flutter
 Dart version meets the Dart constraint. Native iOS builds also need the Xcode
 SDK described above.
 
-For the published release:
+To use this release:
 
 ```yaml
 dependencies:
-  mjn_liquid_ui: ^0.3.3
+  mjn_liquid_ui: ^0.3.4
 ```
 
 For local package development, use a path dependency instead, adjusting the
@@ -305,6 +311,30 @@ AppleLiquidSwitch(
 )
 ```
 
+Use `AppleLiquidSwitchGroup` for a small vertical block of settings. Flutter
+labels sit beside one native switch column, sharing a platform view and channel:
+
+```dart
+AppleLiquidSwitchGroup(
+  items: <AppleLiquidSwitchGroupItem>[
+    AppleLiquidSwitchGroupItem(
+      id: 'notifications',
+      label: const Text('Notifications'),
+      semanticLabel: 'Notifications',
+      value: notifications,
+      onChanged: (value) => setState(() => notifications = value),
+    ),
+  ],
+)
+```
+
+Keep item IDs nonempty, unique, and stable when reordering. `rowHeight` defaults
+to 60 and must be finite and at least 44; increase it for larger Flutter labels.
+The switch column is 76 logical pixels wide, with a 12-pixel label gap. RTL
+mirrors the columns. Empty groups create no native view. Android retains adaptive
+switches. This groups native embeddings; it still creates one `UISwitch` per
+item and is intended for small blocks rather than replacing lazy lists.
+
 ### Liquid slider
 
 ```dart
@@ -347,6 +377,27 @@ and web are excluded. The optional `weight` parameter supports
 `ultraLight`, `thin`, `light`, `regular`, `medium`, `semibold`, `bold`,
 `heavy`, and `black`.
 
+To prepare an expected symbol before navigation, render and decode it with:
+
+```dart
+final bool ready = await AppleLiquidSymbol.precache(
+  context,
+  'sparkles',
+  size: 32,
+  color: const Color(0xFF0EA5E9),
+  weight: AppleLiquidSymbolWeight.semibold,
+);
+```
+
+Use the same size, color, weight, and device pixel ratio as the later widget.
+Omitted color uses `IconTheme`. `true` means rasterization and decoding completed;
+`false` covers missing symbols, render/decode failures, unsupported pixel ratios,
+an unmounted context, and Android. Invalid names/sizes throw `ArgumentError`;
+desktop and web keep the existing unsupported-platform behavior. Call outside
+`build`. Cache entries can be evicted; success does not pin an image or guarantee
+a GPU texture upload. The existing 128-entry / 4 MiB PNG cache is unchanged;
+decoded images use Flutter's `ImageCache`.
+
 ### Liquid glass surface
 
 ```dart
@@ -364,6 +415,20 @@ AppleLiquidSurface(
 Use `deformable: true` for interactive squash and stretch feedback. Use
 `AppleLiquidStretchGestureMode.gestureDetector` when the surface contains
 buttons or other tappable Flutter children.
+
+Set `deferMountUntilRouteTransitionCompletes: true` to show a lightweight Flutter
+background while the enclosing route enters. The native glass mounts after the
+route is current, its entrance animation completes, and a frame boundary passes.
+Without a route/animation it mounts after the first frame; disabled `TickerMode`
+holds creation until enabled. Flutter content keeps its state, and the placeholder
+stays until native creation finishes. The default is `false`, preserving immediate
+mounting. Existing mounted surfaces remain mounted during later navigation.
+
+These APIs reduce embeddings or move preparation out of a transition. Device
+speedups have not yet been measured. The
+[research, validation status, and physical-iPhone comparison procedure](doc/performance.md)
+document the evidence and remaining gates. Open **Performance examples** from the
+example app's speedometer button to try all three APIs.
 
 ### Concentric rectangle
 
@@ -499,6 +564,105 @@ await AppleLiquidToast.show(
   ),
 );
 ```
+
+### Native popover
+
+Added in version 0.3.4.
+
+`AppleLiquidPopoverAnchor` attaches a native UIKit popover to any Flutter
+trigger. Its controller presents caller-supplied SwiftUI form content using the
+same sections and row models as sheets. No example content is injected: `content`
+and its sections are required, and an empty section list stays empty.
+
+```dart
+AppleLiquidPopoverAnchor(
+  builder: (context, popover) => CupertinoButton(
+    onPressed: () async {
+      final result = await popover.show(
+        options: const AppleLiquidPopoverOptions(
+          width: 340,
+          maxHeight: 520,
+          compactBehavior: AppleLiquidPopoverCompactBehavior.popover,
+          showsToolbarActions: true,
+        ),
+        content: AppleLiquidPopoverContent(
+          title: 'Display',
+          trailingAction: const AppleLiquidSheetToolbarAction(title: 'Apply'),
+          sections: [
+            AppleLiquidSheetSection(
+              title: 'Preferences',
+              rows: [
+                const AppleLiquidSheetRow.textField(
+                  identifier: 'name',
+                  title: 'Name',
+                  value: 'My view',
+                ),
+                const AppleLiquidSheetRow.toggle(
+                  title: 'Show details',
+                  value: true,
+                ),
+                AppleLiquidSheetRow.button(
+                  title: 'Run action',
+                  onPressed: () { /* app-owned action */ },
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+      final name = result.textField('name')?.value;
+      // Handle result.status and the final name in your app.
+    },
+    child: const Text('Display options'),
+  ),
+)
+```
+
+The `AppleLiquidPopoverOptions` settings can be chosen on every `show` call:
+
+| Setting | Behavior |
+| --- | --- |
+| `width`, `height` | Preferred outer dimensions in logical points. Without a width, the preferred width is 320 pt; without a height, native row layout estimates determine the height. |
+| `minWidth`, `maxWidth`, `minHeight`, `maxHeight` | Preferred size bounds. Available screen space takes precedence, and long forms remain scrollable. |
+| `contentPadding` | Insets around the native content. Section and row appearance still use the existing content-model settings. |
+| `layoutMargins` | Margins limiting where iOS may position the popover. Defaults to 10 pt on each side. |
+| `arrowDirections` | Permitted arrow directions. iOS selects a direction that fits; an empty list disables the arrow. |
+| `backgroundColor`, `tintColor` | Optional native background and control tint. Omit them to use the current iOS appearance. |
+| `compactBehavior` | `automatic` allows UIKit to adapt in compact size classes; `popover` requests a popover there too. |
+| `dismissOnTapOutside` | Enables outside-tap dismissal and interactive dismissal of an adapted presentation. Programmatic dismissal remains available. |
+| `canOverlapSourceRect` | Whether iOS may overlap the anchor when space is constrained. |
+| `showsToolbarActions` | Displays the content's native toolbar actions. Defaults to false; set true and supply your own labels when a confirmation or close action is needed. |
+| `titleDisplayMode` | Native navigation title style: `inline` (default), `large`, or `automatic`. |
+| `animated` | Enables or disables native presentation and programmatic dismissal animation. |
+
+Titles, labels, sections, row order, values, icons, styles, button callbacks,
+multi-selection callbacks, text-field callbacks, and nested navigation come
+from the supplied `AppleLiquidPopoverContent` / `AppleLiquidSheetContent`.
+The supported row types and their behavior match sheets; toggles, ordinary
+pickers, segmented controls, and sliders keep state within the native form.
+This API renders native content and does not accept a Flutter widget builder
+for the popover body. System chrome, collision handling, and accessibility
+adaptation remain controlled by iOS.
+
+`show` completes with `AppleLiquidSheetResult`: `saved` for the confirmation
+action, `cancelled` for other dismissal paths, `alreadyShowing` when a popover
+is active, and `notPresented` when presentation is unavailable. Final text-field
+values are included after dismissal; `cancelled` does not discard them. Use
+`await popover.dismiss()` to close only that anchor's session. Buttons use the
+existing `dismissesSheet` option to close the containing popover as well.
+
+The anchor updates after Flutter frames without scheduling continuous frames.
+Removing it, leaving its route, disabling its `TickerMode`, or scrolling it fully
+out of the viewport dismisses its presentation. UIKit positions the popover
+relative to the Flutter view belonging to the requesting engine. An existing
+native modal blocks presentation; plugin sheets and popovers cannot be stacked.
+Content and options are captured for one presentation; call `show` again after
+dismissal to use updated content or settings.
+
+Native popovers require iOS 16+. Other platforms return `notPresented` without
+a fallback. Invalid sizes and insets throw `ArgumentError` in release builds
+too. The example app's **Popover examples** button opens an editable sample with
+size, background, compact-layout, and dismissal settings.
 
 ### Native sheet
 

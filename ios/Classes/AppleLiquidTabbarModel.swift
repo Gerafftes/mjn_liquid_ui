@@ -80,6 +80,7 @@ final class AppleLiquidTabbarModel: ObservableObject {
 
   func setSelectedIndex(_ index: Int, notifyFlutter: Bool) {
     let nextIndex = clampedIndex(index)
+    guard selectedIndex != nextIndex else { return }
 
     if notifyFlutter {
       selectedIndex = nextIndex

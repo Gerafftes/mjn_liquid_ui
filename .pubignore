@@ -7,6 +7,8 @@
 .flutter-plugins-dependencies
 build/
 coverage/
+__pycache__/
+*.pyc
 pubspec.lock
 ios/Pods/
 ios/.symlinks/
@@ -29,6 +31,6 @@ google-services.json
 
 # Local refactoring skill and verification evidence are development artifacts.
 /skills/
-/docs/refactoring/
+/docs/
 /example/integration_test/support/
 /example/integration_test/toast_visibility_integration_test.dart

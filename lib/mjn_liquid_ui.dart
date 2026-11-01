@@ -11,4 +11,5 @@ export 'src/apple_liquid_surface.dart';
 export 'src/apple_liquid_symbol.dart';
 export 'src/apple_liquid_symbol_weight.dart';
 export 'src/apple_liquid_switch.dart';
+export 'src/apple_liquid_switch_group.dart';
 export 'src/apple_liquid_toast.dart';

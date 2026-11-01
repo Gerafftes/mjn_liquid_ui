@@ -1,3 +1,5 @@
+import Flutter
+import Combine
 import SwiftUI
 import UIKit
 import XCTest
@@ -5,6 +7,276 @@ import XCTest
 @testable import mjn_liquid_ui
 
 final class RunnerTests: XCTestCase {
+
+  private func popoverArguments(sessionId: Int = 7) -> [String: Any] {
+    [
+      "sessionId": sessionId,
+      "anchor": ["x": 24.0, "y": 100.0, "width": 80.0, "height": 44.0],
+      "viewSize": ["width": 390.0, "height": 844.0],
+      "content": ["title": "Custom content", "sections": []],
+      "options": [
+        "width": 280.0, "height": 240.0,
+        "arrowDirections": ["up", "down"],
+        "compactBehavior": "popover", "animated": false,
+        "dismissOnTapOutside": false,
+        "backgroundColor": 0xFF123456, "tintColor": 0xFF007AFF,
+        "layoutMargins": ["top": 12.0, "left": 14.0, "bottom": 16.0, "right": 18.0],
+        "contentPadding": ["top": 2.0, "left": 4.0, "bottom": 6.0, "right": 8.0]
+      ]
+    ]
+  }
+
+  func testPopoverConfigurationAndAvailableSpaceOverridePreferredDimensions() throws {
+    let configuration = try XCTUnwrap(AppleLiquidPopoverConfiguration(arguments: popoverArguments()))
+    XCTAssertEqual(configuration.width, 280)
+    XCTAssertEqual(configuration.height, 240)
+    XCTAssertEqual(configuration.arrowDirections, [.up, .down])
+    XCTAssertTrue(configuration.forcesPopover)
+    XCTAssertEqual(configuration.titleDisplayMode, .inline)
+    XCTAssertFalse(configuration.dismissOnTapOutside)
+    XCTAssertEqual(configuration.contentPadding.right, 8)
+    XCTAssertEqual(configuration.backgroundColor, UIColor(appleLiquidARGB: 0xFF123456))
+    XCTAssertEqual(configuration.preferredSize(available: CGSize(width: 200, height: 180), contentHeight: 600),
+      CGSize(width: 168, height: 152))
+
+    var args = popoverArguments()
+    var options = args["options"] as! [String: Any]
+    options.removeValue(forKey: "height")
+    options["minHeight"] = 50.0
+    options["maxHeight"] = 300.0
+    args["options"] = options
+    let automaticHeight = try XCTUnwrap(AppleLiquidPopoverConfiguration(arguments: args))
+    XCTAssertEqual(automaticHeight.preferredSize(available: CGSize(width: 800, height: 800), contentHeight: 120).height, 128)
+  }
+
+  func testPopoverRejectsInvalidDimensionsGeometryAndUnknownDirections() {
+    for invalid in [0.0, -1, Double.infinity, Double.nan] {
+      var args = popoverArguments()
+      var options = args["options"] as! [String: Any]
+      options["width"] = invalid
+      args["options"] = options
+      XCTAssertNil(AppleLiquidPopoverConfiguration(arguments: args))
+    }
+    let invalidOptions: [[String: Any]] = [
+      ["minWidth": 500.0, "maxWidth": 200.0],
+      ["arrowDirections": ["diagonal"]],
+      ["titleDisplayMode": "unsupported"],
+      ["contentPadding": ["top": -1.0, "left": 0.0, "bottom": 0.0, "right": 0.0]]
+    ]
+    for options in invalidOptions {
+      var args = popoverArguments()
+      args["options"] = (args["options"] as! [String: Any]).merging(options) { _, new in new }
+      XCTAssertNil(AppleLiquidPopoverConfiguration(arguments: args))
+    }
+    var args = popoverArguments()
+    args["anchor"] = ["x": 900.0, "y": 0.0, "width": 80.0, "height": 44.0]
+    XCTAssertNil(AppleLiquidPopoverConfiguration(arguments: args))
+    args = popoverArguments()
+    args["content"] = nil
+    XCTAssertNil(AppleLiquidPopoverConfiguration(arguments: args), "No built-in content may be substituted")
+  }
+
+  func testPopoverGeometryUsesLogicalViewSpaceAndClipsSourceRect() throws {
+    let geometry = try XCTUnwrap(AppleLiquidPopoverGeometry(arguments: popoverArguments()))
+    XCTAssertEqual(geometry.sourceRect(in: CGRect(x: 10, y: 20, width: 780, height: 1688)),
+      CGRect(x: 58, y: 220, width: 160, height: 88))
+    var args = popoverArguments()
+    args["anchor"] = ["x": -20.0, "y": 30.0, "width": 80.0, "height": 44.0]
+    let clipped = try XCTUnwrap(AppleLiquidPopoverGeometry(arguments: args))
+    XCTAssertEqual(clipped.sourceRect(in: CGRect(x: 0, y: 0, width: 390, height: 844)),
+      CGRect(x: 0, y: 30, width: 60, height: 44))
+  }
+
+  @available(iOS 16.0, *)
+  func testPopoverEmptyContentRemainsEmpty() {
+    XCTAssertEqual(AppleLiquidPopoverContentRenderer.sectionCount(content: ["title": "", "sections": []]), 0)
+    XCTAssertEqual(AppleLiquidPopoverContentRenderer.sectionCount(content: [
+      "sections": [["rows": [["type": "text", "title": "Caller supplied"]]]]
+    ]), 1)
+  }
+
+  @available(iOS 16.0, *)
+  func testPopoverNativePresentationDismissalAndSessionIsolation() throws {
+    let source = UIViewController()
+    let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 390, height: 844))
+    window.rootViewController = source
+    window.makeKeyAndVisible()
+    defer { source.dismiss(animated: false); window.isHidden = true }
+    let presenter = AppleLiquidPopoverPresenter(messenger: SwitchGroupTestMessenger(), sourceProvider: { source })
+    var results: [[String: Any]] = []
+    presenter.handle(FlutterMethodCall(methodName: "showPopover", arguments: popoverArguments())) { value in
+      results.append(value as? [String: Any] ?? [:])
+    }
+    RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+    let host = try XCTUnwrap(source.presentedViewController)
+    XCTAssertEqual(host.modalPresentationStyle, .popover)
+    XCTAssertTrue(host.isModalInPresentation)
+    XCTAssertEqual(host.preferredContentSize, CGSize(width: 280, height: 240))
+    let popover = try XCTUnwrap(host.popoverPresentationController)
+    XCTAssertTrue(popover.sourceView === source.view)
+    XCTAssertEqual(popover.permittedArrowDirections, [.up, .down])
+    XCTAssertEqual(popover.delegate?.adaptivePresentationStyle?(for: popover, traitCollection: UITraitCollection(horizontalSizeClass: .compact)), UIModalPresentationStyle.none)
+    XCTAssertEqual(popover.delegate?.presentationControllerShouldDismiss?(popover), false)
+
+    presenter.handle(FlutterMethodCall(methodName: "showPopover", arguments: popoverArguments(sessionId: 8))) { value in
+      XCTAssertEqual((value as? [String: Any])?["status"] as? String, "alreadyShowing")
+    }
+    presenter.handle(FlutterMethodCall(methodName: "dismissPopover", arguments: ["sessionId": 8])) { value in
+      XCTAssertEqual(value as? Bool, false)
+    }
+    XCTAssertTrue(source.presentedViewController === host)
+    var update = popoverArguments()
+    update["anchor"] = ["x": 50.0, "y": 160.0, "width": 70.0, "height": 40.0]
+    presenter.handle(FlutterMethodCall(methodName: "updateAnchor", arguments: update)) { value in
+      XCTAssertEqual(value as? Bool, true)
+    }
+    XCTAssertEqual(popover.sourceRect.origin.x, 50, accuracy: 0.000001)
+    XCTAssertEqual(popover.sourceRect.origin.y, 160, accuracy: 0.000001)
+    XCTAssertEqual(popover.sourceRect.width, 70, accuracy: 0.000001)
+    XCTAssertEqual(popover.sourceRect.height, 40, accuracy: 0.000001)
+    presenter.handle(FlutterMethodCall(methodName: "dismissPopover", arguments: ["sessionId": 7])) { value in
+      XCTAssertEqual(value as? Bool, true)
+    }
+    RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+    XCTAssertEqual(results.count, 1)
+    XCTAssertEqual(results.first?["status"] as? String, "cancelled")
+    XCTAssertNil(source.presentedViewController)
+    presenter.handle(FlutterMethodCall(methodName: "showPopover", arguments: popoverArguments(sessionId: 9))) { value in
+      results.append(value as? [String: Any] ?? [:])
+    }
+    RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+    XCTAssertNotNil(source.presentedViewController, "A closed session must permit reopening")
+    presenter.handle(FlutterMethodCall(methodName: "dismissPopover", arguments: ["sessionId": 9])) { _ in }
+    RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+    XCTAssertEqual(results.count, 2)
+  }
+
+  private func switchGroupArguments(_ ids: [String], value: Bool = false, tint: Int? = nil) -> [String: Any] {
+    ["rowHeight": 60.0, "items": ids.map { id -> [String: Any] in
+      ["id": id, "value": value, "semanticLabel": "Switch \(id)", "tintColor": tint.map { $0 as Any } ?? NSNull()]
+    }]
+  }
+
+  func testSwitchGroupValidationRejectsInvalidReleaseArguments() {
+    XCTAssertNotNil(AppleLiquidSwitchGroupConfiguration(arguments: switchGroupArguments(["a", "b"])))
+    for height in [43.0, Double.infinity, Double.nan] {
+      var args = switchGroupArguments(["a"])
+      args["rowHeight"] = height
+      XCTAssertNil(AppleLiquidSwitchGroupConfiguration(arguments: args))
+    }
+    XCTAssertNil(AppleLiquidSwitchGroupConfiguration(arguments: switchGroupArguments(["a", "a"])))
+    XCTAssertNil(AppleLiquidSwitchGroupConfiguration(arguments: switchGroupArguments([""])))
+    var args = switchGroupArguments(["a"])
+    args["items"] = [["id": "a", "value": 1, "semanticLabel": "a"]]
+    XCTAssertNil(AppleLiquidSwitchGroupConfiguration(arguments: args))
+  }
+
+  func testSwitchGroupRetainsControlsAcrossReorderAndDefersActiveValueAndTint() throws {
+    let messenger = SwitchGroupTestMessenger()
+    let platform = AppleLiquidSwitchGroupPlatformView(frame: CGRect(x: 0, y: 0, width: 76, height: 120),
+      viewIdentifier: 7, arguments: switchGroupArguments(["a", "b"]), messenger: messenger)
+    let initial = platform.view().subviews.compactMap { $0 as? UISwitch }
+    let first = try XCTUnwrap(initial.first)
+    let second = try XCTUnwrap(initial.last)
+    let originalTint = first.onTintColor
+    first.sendActions(for: .touchDown)
+    messenger.update(switchGroupArguments(["b", "a"], value: true, tint: 0xFFFF0000))
+    XCTAssertFalse(first.isOn)
+    XCTAssertEqual(first.onTintColor, originalTint)
+    XCTAssertTrue(second.isOn)
+    second.sendActions(for: .valueChanged)
+    XCTAssertEqual(messenger.events.last?.method, "valueChanged")
+    XCTAssertEqual((messenger.events.last?.arguments as? [String: Any])?["id"] as? String, "b")
+    platform.view().layoutIfNeeded()
+    XCTAssertGreaterThan(first.center.y, second.center.y)
+    XCTAssertEqual(first.accessibilityLabel, "Switch a")
+    XCTAssertTrue(platform.view().subviews.contains { $0 === first })
+    first.sendActions(for: .touchUpInside)
+    let reconciled = expectation(description: "Active control reconciles latest configuration")
+    DispatchQueue.main.async { reconciled.fulfill() }
+    wait(for: [reconciled], timeout: 1)
+    XCTAssertTrue(first.isOn)
+    XCTAssertEqual(first.onTintColor, UIColor(appleLiquidARGB: 0xFFFF0000))
+    messenger.update(switchGroupArguments(["b"]))
+    XCTAssertNil(first.superview)
+    XCTAssertTrue(platform.view().subviews.first === second)
+    let count = messenger.events.count
+    first.sendActions(for: .valueChanged)
+    XCTAssertEqual(messenger.events.count, count)
+  }
+
+  func testSwitchGroupDoesNotResetUserValueBeforeFlutterAcknowledges() throws {
+    let messenger = SwitchGroupTestMessenger()
+    let platform = AppleLiquidSwitchGroupPlatformView(
+      frame: CGRect(x: 0, y: 0, width: 76, height: 60),
+      viewIdentifier: 8, arguments: switchGroupArguments(["a"]), messenger: messenger)
+    let control = try XCTUnwrap(platform.view().subviews.compactMap { $0 as? UISwitch }.first)
+    control.sendActions(for: .touchDown)
+    control.setOn(true, animated: false)
+    control.sendActions(for: .valueChanged)
+    control.sendActions(for: .touchUpInside)
+    let ended = expectation(description: "Interaction-end reconciliation has run")
+    DispatchQueue.main.async { ended.fulfill() }
+    wait(for: [ended], timeout: 1)
+    XCTAssertTrue(control.isOn, "An unchanged cached configuration must not undo the user toggle")
+    let valueEvent = try XCTUnwrap(messenger.events.first { $0.method == "valueChanged" })
+    XCTAssertEqual((valueEvent.arguments as? [String: Any])?["value"] as? Bool, true)
+
+    messenger.update(switchGroupArguments(["a"], value: false))
+    XCTAssertFalse(control.isOn, "An explicit Flutter acknowledgement remains authoritative")
+  }
+
+  func testSwitchGroupTintOnlyUpdatePreservesUserValueUntilFlutterAcknowledges() throws {
+    for initialValue in [false, true] {
+      let initialTint: Int? = initialValue ? 0xFF0000FF : nil
+      let updatedTint: Int? = initialValue ? nil : 0xFFFF0000
+      let messenger = SwitchGroupTestMessenger()
+      let platform = AppleLiquidSwitchGroupPlatformView(
+        frame: CGRect(x: 0, y: 0, width: 76, height: 60),
+        viewIdentifier: 9,
+        arguments: switchGroupArguments(["a"], value: initialValue, tint: initialTint),
+        messenger: messenger)
+      let control = try XCTUnwrap(platform.view().subviews.compactMap { $0 as? UISwitch }.first)
+      let originalTint = control.onTintColor
+
+      control.sendActions(for: .touchDown)
+      messenger.update(switchGroupArguments(["a"], value: initialValue, tint: updatedTint))
+      XCTAssertEqual(control.onTintColor, originalTint, "Tint stays deferred during the gesture")
+      control.setOn(!initialValue, animated: false)
+      control.sendActions(for: .valueChanged)
+      control.sendActions(for: .touchUpInside)
+      let ended = expectation(description: "Tint-only reconciliation has run")
+      DispatchQueue.main.async { ended.fulfill() }
+      wait(for: [ended], timeout: 1)
+
+      XCTAssertEqual(control.isOn, !initialValue, "Tint must not replay the old Boolean")
+      XCTAssertEqual(control.onTintColor, UIColor(appleLiquidARGB: updatedTint))
+      let valueEvent = try XCTUnwrap(messenger.events.first { $0.method == "valueChanged" })
+      XCTAssertEqual((valueEvent.arguments as? [String: Any])?["value"] as? Bool, !initialValue)
+
+      messenger.update(switchGroupArguments(["a"], value: initialValue, tint: updatedTint))
+      XCTAssertEqual(control.isOn, initialValue, "An explicit Flutter rejection still takes effect")
+    }
+  }
+
+  func testSwitchGroupValueOnlyUpdateStillReconcilesAfterInteraction() throws {
+    let messenger = SwitchGroupTestMessenger()
+    let platform = AppleLiquidSwitchGroupPlatformView(
+      frame: CGRect(x: 0, y: 0, width: 76, height: 60),
+      viewIdentifier: 10,
+      arguments: switchGroupArguments(["a"], tint: 0xFF0000FF), messenger: messenger)
+    let control = try XCTUnwrap(platform.view().subviews.compactMap { $0 as? UISwitch }.first)
+    let originalTint = control.onTintColor
+    control.sendActions(for: .touchDown)
+    messenger.update(switchGroupArguments(["a"], value: true, tint: 0xFF0000FF))
+    XCTAssertFalse(control.isOn, "Value stays deferred during the gesture")
+    control.sendActions(for: .touchUpInside)
+    let ended = expectation(description: "Value-only reconciliation has run")
+    DispatchQueue.main.async { ended.fulfill() }
+    wait(for: [ended], timeout: 1)
+    XCTAssertTrue(control.isOn, "A genuine deferred value change must still be applied")
+    XCTAssertEqual(control.onTintColor, originalTint)
+  }
 
   @available(iOS 16.0, *)
   private func visibilityToast(
@@ -598,6 +870,93 @@ final class RunnerTests: XCTestCase {
   func testPluginCanBeCreated() {
     let plugin = AppleLiquidTabbarPlugin()
     XCTAssertNotNil(plugin)
+  }
+
+  @MainActor
+  func testTabBadgeSynchronizationSkipsUnchangedWritesAndRepairsNativeState() throws {
+    func items(_ color: Int, _ value: String) -> [AppleLiquidTabbarItem] {
+      AppleLiquidTabbarConfiguration(arguments: [
+        "items": [["title": "Slider", "systemImage": "slider.horizontal.3",
+          "notificationDotColor": color, "notificationBadgeValue": value]],
+      ]).items
+    }
+    let bar = BadgeWriteCountingTabBar()
+    let item = BadgeWriteCountingTabBarItem(title: "Slider", image: nil, tag: 0)
+    bar.items = [item]
+    let standard = UITabBarAppearance()
+    standard.backgroundColor = .green
+    bar.standardAppearance = standard
+    if #available(iOS 15.0, *) {
+      let edge = UITabBarAppearance()
+      edge.backgroundColor = .yellow
+      bar.scrollEdgeAppearance = edge
+    }
+    let blue = 0xFF007AFF
+    let red = 0xFFFF0000
+    bar.appleLiquidApplyNotificationDots(from: items(blue, "3"))
+    let appearanceWrites = bar.appearanceWrites
+    let itemWrites = item.badgeWrites
+    for _ in 0..<10 { bar.appleLiquidApplyNotificationDots(from: items(blue, "3")) }
+    XCTAssertEqual(bar.appearanceWrites, appearanceWrites)
+    XCTAssertEqual(item.badgeWrites, itemWrites)
+
+    bar.appleLiquidApplyNotificationDots(from: items(red, "7"))
+    XCTAssertEqual(item.badgeValue, "7")
+    XCTAssertEqual(item.badgeColor, UIColor(appleLiquidARGB: red))
+    XCTAssertEqual(bar.standardAppearance.backgroundColor, .green)
+    var appearances = [bar.standardAppearance]
+    if #available(iOS 15.0, *) {
+      let edge = try XCTUnwrap(bar.scrollEdgeAppearance)
+      XCTAssertEqual(edge.backgroundColor, .yellow)
+      appearances.append(edge)
+    }
+    for appearance in appearances {
+      for layout in [appearance.stackedLayoutAppearance, appearance.inlineLayoutAppearance,
+        appearance.compactInlineLayoutAppearance] {
+        XCTAssertEqual(layout.normal.badgeBackgroundColor, UIColor(appleLiquidARGB: red))
+        XCTAssertEqual(layout.selected.badgeBackgroundColor, UIColor(appleLiquidARGB: red))
+      }
+    }
+
+    let replacement = BadgeWriteCountingTabBarItem(title: "Slider", image: nil, tag: 0)
+    bar.items = [replacement]
+    bar.appleLiquidApplyNotificationDots(from: items(red, "7"))
+    XCTAssertEqual(replacement.badgeValue, "7")
+    XCTAssertEqual(replacement.badgeColor, UIColor(appleLiquidARGB: red))
+    replacement.badgeValue = nil
+    replacement.badgeColor = nil
+    replacement.setBadgeTextAttributes([.foregroundColor: UIColor.clear], for: .normal)
+    let reset = bar.standardAppearance.copy()
+    reset.inlineLayoutAppearance.selected.badgeBackgroundColor = .black
+    bar.standardAppearance = reset
+    bar.appleLiquidApplyNotificationDots(from: items(red, "7"))
+    XCTAssertEqual(replacement.badgeValue, "7")
+    XCTAssertEqual(replacement.badgeColor, UIColor(appleLiquidARGB: red))
+    XCTAssertEqual(replacement.badgeTextAttributes(for: .normal)?[.foregroundColor] as? UIColor, .white)
+    XCTAssertEqual(bar.standardAppearance.inlineLayoutAppearance.selected.badgeBackgroundColor,
+      UIColor(appleLiquidARGB: red))
+  }
+
+  func testTabSelectionDoesNotPublishUnchangedClampedIndex() {
+    let model = AppleLiquidTabbarModel(configuration: AppleLiquidTabbarConfiguration(arguments: [
+      "items": [["title": "Home", "systemImage": "house"]],
+    ]))
+    var publications = 0
+    var selections: [Int] = []
+    let observation = model.$selectedIndex.dropFirst().sink { _ in publications += 1 }
+    defer { observation.cancel() }
+    model.onSelectionChanged = { selections.append($0) }
+    model.setSelectedIndex(-1, notifyFlutter: true)
+    model.setSelectedIndex(0, notifyFlutter: false)
+    XCTAssertEqual(publications, 0)
+    model.setSelectedIndex(99, notifyFlutter: true)
+    XCTAssertEqual(publications, 1)
+    XCTAssertEqual(selections, [1])
+    model.setSelectedIndex(1, notifyFlutter: false)
+    XCTAssertEqual(publications, 1)
+    model.setSelectedIndex(0, notifyFlutter: false)
+    XCTAssertEqual(publications, 2)
+    XCTAssertEqual(selections, [1])
   }
 
   @MainActor
@@ -1889,5 +2248,53 @@ final class RunnerTests: XCTestCase {
       let lastX = group.map(\.lastX).max() ?? 0
       return CGFloat(firstX)...CGFloat(lastX)
     }
+  }
+}
+
+private final class SwitchGroupTestMessenger: NSObject, FlutterBinaryMessenger {
+  var handler: FlutterBinaryMessageHandler?
+  var events: [FlutterMethodCall] = []
+  private let codec = FlutterStandardMethodCodec.sharedInstance()
+
+  func send(onChannel channel: String, message: Data?) {
+    if let message = message { events.append(codec.decodeMethodCall(message)) }
+  }
+
+  func send(onChannel channel: String, message: Data?, binaryReply callback: FlutterBinaryReply?) {
+    send(onChannel: channel, message: message)
+    callback?(nil)
+  }
+
+  func setMessageHandlerOnChannel(_ channel: String, binaryMessageHandler handler: FlutterBinaryMessageHandler?) -> FlutterBinaryMessengerConnection {
+    self.handler = handler
+    return 1
+  }
+
+  func cleanUpConnection(_ connection: FlutterBinaryMessengerConnection) { handler = nil }
+
+  func update(_ arguments: [String: Any]) {
+    handler?(codec.encode(FlutterMethodCall(methodName: "updateConfiguration", arguments: arguments)), { _ in })
+  }
+}
+
+private final class BadgeWriteCountingTabBar: UITabBar {
+  var appearanceWrites = 0
+  override var standardAppearance: UITabBarAppearance {
+    didSet { appearanceWrites += 1 }
+  }
+  @available(iOS 15.0, *)
+  override var scrollEdgeAppearance: UITabBarAppearance? {
+    didSet { appearanceWrites += 1 }
+  }
+}
+
+private final class BadgeWriteCountingTabBarItem: UITabBarItem {
+  var badgeWrites = 0
+  override var badgeValue: String? { didSet { badgeWrites += 1 } }
+  override var badgeColor: UIColor? { didSet { badgeWrites += 1 } }
+  override func setBadgeTextAttributes(_ textAttributes: [NSAttributedString.Key: Any]?,
+    for state: UIControl.State) {
+    badgeWrites += 1
+    super.setBadgeTextAttributes(textAttributes, for: state)
   }
 }

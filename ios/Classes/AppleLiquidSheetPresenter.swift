@@ -53,7 +53,8 @@ enum AppleLiquidSheetPresenter {
     }
 
     guard let presenter = topViewController(from: activeRootViewController()),
-      presenter.viewIfLoaded?.window != nil
+      presenter.viewIfLoaded?.window != nil,
+      !AppleLiquidPopoverPresenter.isPopoverController(presenter)
     else {
       result(["status": "notPresented"])
       return
@@ -157,7 +158,7 @@ private struct AppleLiquidSheetConfiguration {
   let sheetColor: Int?
   let content: AppleLiquidSheetContentConfiguration
 
-  init(arguments: Any?) {
+  init(arguments: Any?, allowsEmptyContent: Bool = false) {
     let arguments = arguments as? [String: Any]
     self.backgroundZoomScale = Self.clampedCGFloat(
       arguments?["backgroundZoomScale"],
@@ -169,7 +170,9 @@ private struct AppleLiquidSheetConfiguration {
       arguments?["sheetColor"]
     )
     self.content = AppleLiquidSheetContentConfiguration(
-      value: arguments?["content"]
+      value: arguments?["content"],
+      fallbackTitle: allowsEmptyContent ? "" : "Settings",
+      allowsEmptyContent: allowsEmptyContent
     )
   }
 
@@ -241,11 +244,16 @@ private struct AppleLiquidSheetContentConfiguration {
   let leadingAction: AppleLiquidSheetToolbarActionConfiguration?
   let trailingAction: AppleLiquidSheetToolbarActionConfiguration
   let detents: AppleLiquidSheetDetentConfiguration
+  let usesSheetDetents: Bool
   let showsSectionBackgrounds: Bool
   let sectionSpacing: CGFloat?
   let sections: [AppleLiquidSheetSectionConfiguration]
 
-  init(value: Any?, fallbackTitle: String = "Settings") {
+  init(
+    value: Any?,
+    fallbackTitle: String = "Settings",
+    allowsEmptyContent: Bool = false
+  ) {
     guard let dictionary = value as? [String: Any] else {
       self = Self.defaultContent
       return
@@ -282,7 +290,8 @@ private struct AppleLiquidSheetContentConfiguration {
       .compactMap { index, value in
         AppleLiquidSheetSectionConfiguration(
           value: value,
-          index: index
+          index: index,
+          allowsEmptyContent: allowsEmptyContent
         )
       }
 
@@ -292,9 +301,11 @@ private struct AppleLiquidSheetContentConfiguration {
       leadingAction: leadingAction,
       trailingAction: trailingAction,
       detents: detents,
+      usesSheetDetents: !allowsEmptyContent,
       showsSectionBackgrounds: showsSectionBackgrounds,
       sectionSpacing: sectionSpacing,
-      sections: sections.isEmpty ? Self.defaultContent.sections : sections
+      sections: sections.isEmpty && !allowsEmptyContent
+        ? Self.defaultContent.sections : sections
     )
   }
 
@@ -304,6 +315,7 @@ private struct AppleLiquidSheetContentConfiguration {
     leadingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     trailingAction: AppleLiquidSheetToolbarActionConfiguration? = nil,
     detents: AppleLiquidSheetDetentConfiguration = .automatic,
+    usesSheetDetents: Bool = true,
     showsSectionBackgrounds: Bool = true,
     sectionSpacing: CGFloat? = nil,
     sections: [AppleLiquidSheetSectionConfiguration]
@@ -315,6 +327,7 @@ private struct AppleLiquidSheetContentConfiguration {
       trailingAction ??
       .defaultConfirmation(accessibilityLabel: doneAccessibilityLabel)
     self.detents = detents
+    self.usesSheetDetents = usesSheetDetents
     self.showsSectionBackgrounds = showsSectionBackgrounds
     self.sectionSpacing = sectionSpacing
     self.sections = sections
@@ -455,7 +468,12 @@ private struct AppleLiquidSheetContentConfiguration {
   func preferredDetentHeights(
     adjustingEstimatedHeightBy adjustment: CGFloat
   ) -> AppleLiquidSheetDetentHeights {
-    Self.detentHeights(
+    if !usesSheetDetents {
+      return AppleLiquidSheetDetentHeights(
+        primary: max(1, estimatedDetentHeight + adjustment), expanded: nil
+      )
+    }
+    return Self.detentHeights(
       for: estimatedDetentHeight + adjustment,
       configuration: detents
     )
@@ -927,7 +945,7 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
   let style: AppleLiquidSheetSectionStyleConfiguration
   let rows: [AppleLiquidSheetRowConfiguration]
 
-  init?(value: Any?, index: Int) {
+  init?(value: Any?, index: Int, allowsEmptyContent: Bool = false) {
     guard let dictionary = value as? [String: Any] else {
       return nil
     }
@@ -937,7 +955,8 @@ private struct AppleLiquidSheetSectionConfiguration: Identifiable {
       .compactMap { rowIndex, value in
         AppleLiquidSheetRowConfiguration(
           value: value,
-          id: "section-\(index)-row-\(rowIndex)"
+          id: "section-\(index)-row-\(rowIndex)",
+          allowsEmptyContent: allowsEmptyContent
         )
       }
 
@@ -2157,7 +2176,7 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
   let buttonDismissesSheet: Bool
   let buttonEnabled: Bool
 
-  init?(value: Any?, id: String) {
+  init?(value: Any?, id: String, allowsEmptyContent: Bool = false) {
     guard let dictionary = value as? [String: Any] else {
       return nil
     }
@@ -2260,7 +2279,8 @@ private struct AppleLiquidSheetRowConfiguration: Identifiable {
 
       content = AppleLiquidSheetContentConfiguration(
         value: dictionary["content"],
-        fallbackTitle: title
+        fallbackTitle: title,
+        allowsEmptyContent: allowsEmptyContent
       )
     } else {
       content = nil
@@ -3698,6 +3718,9 @@ private final class AppleLiquidSheetNavigationModel: ObservableObject {
 @available(iOS 16.0, *)
 private struct AppleLiquidSettingsSheetView: View {
   let configuration: AppleLiquidSheetConfiguration
+  let isPopover: Bool
+  let showsToolbarActions: Bool
+  let titleDisplayMode: NavigationBarItem.TitleDisplayMode
   let onFrameChange: (CGRect, CGRect) -> Void
   let onControlInteractionChanged: (Bool) -> Void
   let onButtonAction: (AppleLiquidSheetRowConfiguration) -> Void
@@ -3713,6 +3736,9 @@ private struct AppleLiquidSettingsSheetView: View {
 
   init(
     configuration: AppleLiquidSheetConfiguration,
+    isPopover: Bool = false,
+    showsToolbarActions: Bool = true,
+    titleDisplayMode: NavigationBarItem.TitleDisplayMode = .automatic,
     onFrameChange: @escaping (CGRect, CGRect) -> Void,
     onControlInteractionChanged: @escaping (Bool) -> Void,
     onButtonAction: @escaping (AppleLiquidSheetRowConfiguration) -> Void,
@@ -3728,6 +3754,9 @@ private struct AppleLiquidSettingsSheetView: View {
     onToolbarAction: @escaping (AppleLiquidSheetResultStatus, String?) -> Void
   ) {
     self.configuration = configuration
+    self.isPopover = isPopover
+    self.showsToolbarActions = showsToolbarActions
+    self.titleDisplayMode = titleDisplayMode
     self.onFrameChange = onFrameChange
     self.onControlInteractionChanged = onControlInteractionChanged
     self.onButtonAction = onButtonAction
@@ -3748,18 +3777,37 @@ private struct AppleLiquidSettingsSheetView: View {
     )
   }
 
-  var body: some View {
+  @ViewBuilder var body: some View {
+    if isPopover {
+      navigationContent
+    } else {
+      navigationContent
+        .presentationDetents(presentationDetents, selection: $selectedDetent)
+        .presentationDragIndicator(.visible)
+        .background(
+          AppleLiquidSheetFrameObserver { sheetFrame, windowBounds in
+            onFrameChange(sheetFrame, windowBounds)
+          }
+        )
+        .onChange(of: selectedDetent) { updatedDetent in
+          updateVisibleSelection(for: updatedDetent)
+        }
+    }
+  }
+
+  private var navigationContent: some View {
     NavigationStack(path: navigationPath) {
       AppleLiquidSheetFormScreen(
         content: configuration.content,
-        showsToolbarActions: true,
+        showsToolbarActions: showsToolbarActions,
         onPreferredDetentHeightsChange: updateVisibleDetentHeights,
         onNavigate: navigate,
         onControlInteractionChanged: onControlInteractionChanged,
         onButtonAction: onButtonAction,
         onMultiSelectionAction: onMultiSelectionAction,
         onTextFieldChanged: onTextFieldChanged,
-        onToolbarAction: onToolbarAction
+        onToolbarAction: onToolbarAction,
+        titleDisplayMode: titleDisplayMode
       )
       .navigationDestination(for: AppleLiquidSheetNavigationRoute.self) {
         route in
@@ -3772,7 +3820,8 @@ private struct AppleLiquidSettingsSheetView: View {
           onButtonAction: onButtonAction,
           onMultiSelectionAction: onMultiSelectionAction,
           onTextFieldChanged: onTextFieldChanged,
-          onToolbarAction: nil
+          onToolbarAction: nil,
+          titleDisplayMode: titleDisplayMode
         )
         .navigationBarBackButtonHidden(true)
         .toolbar {
@@ -3790,16 +3839,6 @@ private struct AppleLiquidSettingsSheetView: View {
       isEnabled: configuration.sheetColor != nil
     )
     .appleLiquidColorScheme(configuration.resolvedSheetColorScheme)
-    .presentationDetents(presentationDetents, selection: $selectedDetent)
-    .presentationDragIndicator(.visible)
-    .background(
-      AppleLiquidSheetFrameObserver { sheetFrame, windowBounds in
-        onFrameChange(sheetFrame, windowBounds)
-      }
-    )
-    .onChange(of: selectedDetent) { updatedDetent in
-      updateVisibleSelection(for: updatedDetent)
-    }
   }
 
   private var contentDetent: PresentationDetent {
@@ -3914,6 +3953,61 @@ private struct AppleLiquidSettingsSheetView: View {
   }
 }
 
+/// Keeps the existing native form renderer independent of popover presentation.
+@available(iOS 16.0, *)
+enum AppleLiquidPopoverContentRenderer {
+  static func makeView(
+    content: [String: Any],
+    showsToolbarActions: Bool,
+    titleDisplayMode: NavigationBarItem.TitleDisplayMode,
+    onHeightChange: @escaping (CGFloat) -> Void,
+    onButtonAction: @escaping (String?, Bool) -> Void,
+    onMultiSelectionAction: @escaping (String, [String]) -> Void,
+    onTextFieldChanged: @escaping (String, String) -> Void,
+    onToolbarAction: @escaping (String, String?) -> Void
+  ) -> (view: AnyView, height: CGFloat) {
+    let configuration = AppleLiquidSheetConfiguration(
+      arguments: ["content": content],
+      allowsEmptyContent: true
+    )
+    let view = AppleLiquidSettingsSheetView(
+      configuration: configuration,
+      isPopover: true,
+      showsToolbarActions: showsToolbarActions,
+      titleDisplayMode: titleDisplayMode,
+      onFrameChange: { _, _ in },
+      onControlInteractionChanged: { _ in },
+      onButtonAction: { row in
+        onButtonAction(row.buttonActionId, row.buttonDismissesSheet)
+      },
+      onMultiSelectionAction: { row, selectedOptions in
+        if let actionId = row.multiSelectionActionId {
+          onMultiSelectionAction(actionId, selectedOptions)
+        }
+      },
+      onTextFieldChanged: onTextFieldChanged,
+      currentDetentSelection: { .primary },
+      onPresentationChange: { presentation in
+        onHeightChange(presentation.selectedHeight)
+      },
+      onToolbarAction: { status, actionId in
+        onToolbarAction(status.rawValue, actionId)
+      }
+    )
+    return (AnyView(view), configuration.content.preferredDetentHeights.primary)
+  }
+
+  #if DEBUG
+  static func sectionCount(content: [String: Any]) -> Int {
+    AppleLiquidSheetContentConfiguration(
+      value: content,
+      fallbackTitle: "",
+      allowsEmptyContent: true
+    ).sections.count
+  }
+  #endif
+}
+
 @available(iOS 16.0, *)
 private struct AppleLiquidSheetToolbarButton: View {
   let action: AppleLiquidSheetToolbarActionConfiguration
@@ -3974,6 +4068,7 @@ private struct AppleLiquidSheetFormScreen: View {
   let onMultiSelectionAction: (AppleLiquidSheetRowConfiguration, [String]) -> Void
   let onTextFieldChanged: (String, String) -> Void
   let onToolbarAction: ((AppleLiquidSheetResultStatus, String?) -> Void)?
+  var titleDisplayMode: NavigationBarItem.TitleDisplayMode = .automatic
   @State private var timelineHeightAdjustments: [String: CGFloat] = [:]
 
   var body: some View {
@@ -4065,6 +4160,7 @@ private struct AppleLiquidSheetFormScreen: View {
       formGroups.last?.endsWithButton == true
     )
     .navigationTitle(content.title)
+    .navigationBarTitleDisplayMode(titleDisplayMode)
     .toolbar {
       if showsToolbarActions {
         if let leadingAction = content.leadingAction {

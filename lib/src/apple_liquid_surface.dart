@@ -23,6 +23,7 @@ class AppleLiquidSurface extends StatelessWidget {
     this.tintColor,
     this.clear = false,
     this.interactive = false,
+    this.deferMountUntilRouteTransitionCompletes = false,
     this.deformable = false,
     this.stretch = _defaultSurfaceStretch,
     this.pressedStretch = _defaultSurfaceStretch,
@@ -55,6 +56,13 @@ class AppleLiquidSurface extends StatelessWidget {
 
   /// Whether the native iOS surface should react to touch interaction.
   final bool interactive;
+
+  /// Shows a lightweight Flutter background until the enclosing route has
+  /// finished entering, then creates the native surface. Defaults to false.
+  ///
+  /// Flutter content keeps its state throughout. This shifts native setup work
+  /// out of the entrance transition; it does not reduce the final native count.
+  final bool deferMountUntilRouteTransitionCompletes;
 
   /// Whether the surface should deform while pressed or dragged.
   final bool deformable;
@@ -94,6 +102,8 @@ class AppleLiquidSurface extends StatelessWidget {
       tintColor: tintColor,
       clear: clear,
       interactive: interactive,
+      deferMountUntilRouteTransitionCompletes:
+          deferMountUntilRouteTransitionCompletes,
       child: child,
     );
 
@@ -129,6 +139,7 @@ class _AppleLiquidSurfaceContent extends StatelessWidget {
     required this.tintColor,
     required this.clear,
     required this.interactive,
+    required this.deferMountUntilRouteTransitionCompletes,
   });
 
   final Widget? child;
@@ -137,21 +148,18 @@ class _AppleLiquidSurfaceContent extends StatelessWidget {
   final Color? tintColor;
   final bool clear;
   final bool interactive;
+  final bool deferMountUntilRouteTransitionCompletes;
 
   @override
   Widget build(BuildContext context) {
     final Widget surface = defaultTargetPlatform == TargetPlatform.iOS
-        ? AppleLiquidUiKitView(
-            viewType: 'mjn_liquid_ui_surface',
-            layoutDirection: Directionality.of(context),
-            creationParamsCodec: const StandardMessageCodec(),
-            creationParams: <String, Object?>{
-              'borderRadius': borderRadius,
-              'tintColor': tintColor?.toARGB32(),
-              'clear': clear,
-              'interactive': interactive,
-            },
-            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+        ? _AppleLiquidSurfaceBackground(
+            borderRadius: borderRadius,
+            tintColor: tintColor,
+            clear: clear,
+            interactive: interactive,
+            deferMountUntilRouteTransitionCompletes:
+                deferMountUntilRouteTransitionCompletes,
           )
         : _AppleLiquidSurfaceFallback(
             borderRadius: borderRadius,
@@ -164,6 +172,162 @@ class _AppleLiquidSurfaceContent extends StatelessWidget {
       children: <Widget>[
         surface,
         if (child != null) Padding(padding: padding, child: child),
+      ],
+    );
+  }
+}
+
+class _AppleLiquidSurfaceBackground extends StatefulWidget {
+  const _AppleLiquidSurfaceBackground({
+    required this.borderRadius,
+    required this.tintColor,
+    required this.clear,
+    required this.interactive,
+    required this.deferMountUntilRouteTransitionCompletes,
+  });
+
+  final double borderRadius;
+  final Color? tintColor;
+  final bool clear;
+  final bool interactive;
+  final bool deferMountUntilRouteTransitionCompletes;
+
+  @override
+  State<_AppleLiquidSurfaceBackground> createState() =>
+      _AppleLiquidSurfaceBackgroundState();
+}
+
+class _AppleLiquidSurfaceBackgroundState
+    extends State<_AppleLiquidSurfaceBackground> {
+  ModalRoute<dynamic>? _route;
+  Animation<double>? _animation;
+  bool _tickerEnabled = true;
+  bool _mountRequested = false;
+  bool _nativeMounted = false;
+  bool _viewCreated = false;
+  bool _mountScheduled = false;
+  int _generation = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    final Animation<double>? animation = route?.animation;
+    if (_route != route || _animation != animation) {
+      _animation?.removeStatusListener(_handleAnimationStatus);
+      _route = route;
+      _animation = animation;
+      _animation?.addStatusListener(_handleAnimationStatus);
+      _generation += 1;
+      _mountScheduled = false;
+      if (!_nativeMounted) {
+        _mountRequested = false;
+      }
+    }
+    _tickerEnabled = TickerMode.of(context);
+    _requestMountIfReady();
+  }
+
+  @override
+  void didUpdateWidget(covariant _AppleLiquidSurfaceBackground oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _requestMountIfReady();
+  }
+
+  void _handleAnimationStatus(AnimationStatus status) {
+    _requestMountIfReady();
+  }
+
+  bool get _canMount =>
+      _tickerEnabled &&
+      (_route == null || _route!.isCurrent) &&
+      (_animation == null || _animation!.status == AnimationStatus.completed);
+
+  void _requestMountIfReady() {
+    if (_mountRequested) {
+      return;
+    }
+    if (!widget.deferMountUntilRouteTransitionCompletes) {
+      _mountRequested = true;
+      return;
+    }
+    if (!_canMount || _mountScheduled) {
+      return;
+    }
+    _mountScheduled = true;
+    final int generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation) {
+        return;
+      }
+      _mountScheduled = false;
+      if (!_mountRequested && _canMount) {
+        setState(() => _mountRequested = true);
+      }
+    });
+    // Status notifications can arrive outside an active frame. A post-frame
+    // callback alone does not request a frame.
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  @override
+  void dispose() {
+    _generation += 1;
+    _animation?.removeStatusListener(_handleAnimationStatus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    // A pop can begin between the granting post-frame callback and this build.
+    // Only latch once the native widget is actually inserted into the tree.
+    if (!_nativeMounted &&
+        _mountRequested &&
+        widget.deferMountUntilRouteTransitionCompletes &&
+        !_canMount) {
+      _mountRequested = false;
+    }
+    if (_mountRequested &&
+        (!widget.deferMountUntilRouteTransitionCompletes || _canMount)) {
+      _nativeMounted = true;
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: <Widget>[
+        if (widget.deferMountUntilRouteTransitionCompletes && !_viewCreated)
+          IgnorePointer(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: (widget.tintColor ?? colors.surface).withValues(
+                  alpha: widget.clear ? 0.03 : 0.18,
+                ),
+                borderRadius: BorderRadius.circular(widget.borderRadius),
+                border: Border.all(
+                  color: colors.outlineVariant.withValues(alpha: 0.45),
+                ),
+              ),
+            ),
+          ),
+        if (_nativeMounted)
+          AppleLiquidUiKitView(
+            key: const ValueKey<String>('native-surface'),
+            viewType: 'mjn_liquid_ui_surface',
+            layoutDirection: Directionality.of(context),
+            creationParamsCodec: const StandardMessageCodec(),
+            creationParams: <String, Object?>{
+              'borderRadius': widget.borderRadius,
+              'tintColor': widget.tintColor?.toARGB32(),
+              'clear': widget.clear,
+              'interactive': widget.interactive,
+            },
+            hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+            onPlatformViewCreated: (_) {
+              if (mounted) {
+                setState(() => _viewCreated = true);
+              }
+            },
+          ),
       ],
     );
   }

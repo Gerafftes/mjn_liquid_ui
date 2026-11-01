@@ -15,16 +15,20 @@ class SwitchSamples extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppleLiquidSurface(
       height: 360,
-      child: Column(
-        children: <Widget>[
-          for (int index = 0; index < values.length; index += 1)
-            _SwitchSampleRow(
-              label: 'Native switch ${index + 1}',
+      child: AppleLiquidSwitchGroup(
+        rowHeight: 64,
+        items: <AppleLiquidSwitchGroupItem>[
+          for (int index = 0; index < values.length; index++)
+            AppleLiquidSwitchGroupItem(
+              id: 'sample-$index',
+              label: Text(
+                'Native switch ${index + 1}: ${values[index] ? 'On' : 'Off'}',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              semanticLabel: 'Native switch ${index + 1}',
               value: values[index],
               tintColor: _switchTintColors[index],
-              onChanged: (bool value) {
-                onChanged(index, value);
-              },
+              onChanged: (bool value) => onChanged(index, value),
             ),
         ],
       ),
@@ -39,38 +43,3 @@ const List<Color> _switchTintColors = <Color>[
   Color(0xFFF97316),
   Color(0xFF22C55E),
 ];
-
-class _SwitchSampleRow extends StatelessWidget {
-  const _SwitchSampleRow({
-    required this.label,
-    required this.value,
-    required this.tintColor,
-    required this.onChanged,
-  });
-
-  final String label;
-  final bool value;
-  final Color tintColor;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Row(
-        children: <Widget>[
-          Expanded(
-            child: Text(
-              '$label: ${value ? 'On' : 'Off'}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ),
-          AppleLiquidSwitch(
-            value: value,
-            tintColor: tintColor,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
-}

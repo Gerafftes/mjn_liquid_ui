@@ -42,6 +42,61 @@ class AppleLiquidSymbol extends StatelessWidget {
       LinkedHashSet<_AppleLiquidSymbolCacheKey>();
   static int _cachedByteCount = 0;
 
+  /// Renders and decodes an SF Symbol before its first display.
+  ///
+  /// Uses the same theme color, device pixel ratio, and caches as the widget.
+  /// Returns false if rendering or decoding fails, the context is unmounted,
+  /// or the platform uses a fallback. A successful result does not pin the
+  /// image in memory or guarantee that its GPU texture has been uploaded.
+  /// Call this before an expected use, outside a build method.
+  static Future<bool> precache(
+    BuildContext context,
+    String name, {
+    double size = 24,
+    Color? color,
+    AppleLiquidSymbolWeight? weight,
+  }) async {
+    checkAppleLiquidPlatform();
+    if (name.isEmpty) {
+      throw ArgumentError.value(name, 'name', 'must not be empty');
+    }
+    _validateSymbolSize(size);
+    if (!context.mounted || defaultTargetPlatform != TargetPlatform.iOS) {
+      return false;
+    }
+
+    final Color? effectiveColor = color ?? IconTheme.of(context).color;
+    final double devicePixelRatio =
+        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
+    if (!_supportsSymbolScale(size, devicePixelRatio)) {
+      return false;
+    }
+    final Uint8List? bytes = await _loadNativeSymbol(
+      _AppleLiquidSymbolCacheKey(
+        name: name,
+        size: size,
+        color: effectiveColor?.toARGB32(),
+        weight: weight?.platformValue,
+        devicePixelRatio: devicePixelRatio,
+      ),
+    );
+    if (bytes == null || !context.mounted) {
+      return false;
+    }
+
+    bool decoded = true;
+    // Image.memory uses MemoryImage with scale 1, independently of the native
+    // rasterization scale. Keep that key and the original byte-buffer identity.
+    await precacheImage(
+      MemoryImage(bytes),
+      context,
+      onError: (Object error, StackTrace? stackTrace) {
+        decoded = false;
+      },
+    );
+    return decoded && context.mounted;
+  }
+
   /// SF Symbol name passed to `UIImage(systemName:)` on iOS.
   final String name;
 
@@ -67,7 +122,7 @@ class AppleLiquidSymbol extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     checkAppleLiquidPlatform();
-    _validateSize();
+    _validateSymbolSize(size);
     final Color? effectiveColor = color ?? IconTheme.of(context).color;
     final Widget symbol = defaultTargetPlatform == TargetPlatform.iOS
         ? _nativeSymbol(context, effectiveColor)
@@ -86,7 +141,7 @@ class AppleLiquidSymbol extends StatelessWidget {
   Widget _nativeSymbol(BuildContext context, Color? effectiveColor) {
     final double devicePixelRatio =
         MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
-    if (!_supportsNativeScale(devicePixelRatio)) {
+    if (!_supportsSymbolScale(size, devicePixelRatio)) {
       return _fallbackSymbol(effectiveColor);
     }
 
@@ -243,14 +298,14 @@ class AppleLiquidSymbol extends StatelessWidget {
     }
   }
 
-  bool _supportsNativeScale(double devicePixelRatio) {
+  static bool _supportsSymbolScale(double size, double devicePixelRatio) {
     return devicePixelRatio.isFinite &&
         devicePixelRatio > 0 &&
         devicePixelRatio <= _maxNativeSymbolScale &&
         size * devicePixelRatio <= _maxNativeSymbolPixelDimension;
   }
 
-  void _validateSize() {
+  static void _validateSymbolSize(double size) {
     if (!size.isFinite || size <= 0 || size > _maxNativeSymbolSize) {
       throw ArgumentError.value(
         size,

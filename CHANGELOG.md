@@ -1,3 +1,22 @@
+## 0.3.4
+
+- Added native iOS popovers with caller-supplied native form content, Flutter
+  anchors, configurable dimensions, bounds, padding, colors, arrows, compact
+  adaptation, dismissal behavior, toolbar visibility, and animation.
+- Kept empty popover content empty instead of substituting sheet demo content;
+  reused sheet row models, callbacks, navigation, and text-field results.
+- Preserved visited demo tabs and native controls across tab changes and scroll
+  revisits, built offscreen demo cards/settings lazily, and used the shared
+  switch host in the main example.
+- Avoided unchanged native tab badge/appearance writes during layout and
+  redundant selected-index publications.
+- Added `AppleLiquidSwitchGroup` with Flutter labels and one native switch-column
+  platform view/channel per group, stable item IDs, and per-control interaction sync.
+- Added optional `deferMountUntilRouteTransitionCompletes` for glass surfaces,
+  with a lightweight placeholder and preserved Flutter content state.
+- Added `AppleLiquidSymbol.precache` to prepare native PNGs and Flutter image
+  decoding through the existing caches. Physical-device speedups remain unmeasured.
+
 ## 0.3.3
 
 - Moved numbered notification badges to the upper-right edge of compact native
